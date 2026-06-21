@@ -53,7 +53,7 @@ jobs:
           --windows-disable-console
           --onefile
           --assume-yes-for-downloads
-          --msvc=latest
+          --mingw64
           --lto=no
 
       - uses: actions/upload-artifact@v4
