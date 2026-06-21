@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+     <meta charset="utf-8" />
+     <title>Reçu</title>
+     <style>
+          body {
+               margin: 0;
+               font-family: Times, serif;
+               font-size: 15px;
+          }
+
+          @page { 
+               size: 11in 8.5in;
+               margin: 5mm;
+          }
+
+          .receipts-container {
+               display: flex;
+               justify-content: space-between;
+          }
+
+          .receipt {
+               width: 32%;
+               border-right: 1px dashed #ccc;
+               padding-right: 9px;
+               box-sizing: border-box;
+          }
+
+          .receipt:last-child {
+               border-right: none;
+          }
+
+          table {
+               width: 100%;
+               border-collapse: collapse;
+               margin-top: 5px;
+          }
+
+          th,
+          td {
+               border: 1px solid #000;
+               padding: 4px 6px;
+               text-align: left;
+          }
+
+          th {
+               background: #eee;
+          }
+
+          .footer {
+               text-align: center;
+               margin-top: 50px;
+               font-size: 12px;
+          }
+          .receipt {
+          position: relative;
+          }
+
+
+          .header-table {
+               width: 100%;
+               border: none;
+               margin-bottom: 10px;
+          }
+
+          .header-table td {
+               border: none;
+               padding: 0;
+               vertical-align: middle;
+          }
+
+          .school_logo {
+               width: 40px;
+               height: 40px;
+               object-fit: contain;
+          }
+
+          .school-info {
+               text-align: center;
+          }
+       .school-info h1 {
+               margin: 0;
+               color: #1a2a6c;
+               font-size: 16px;
+               text-transform: uppercase;
+          }
+
+          .school-info p {
+               margin: 2px 0;
+               font-size: 12px;
+          }
+          hr {
+               border: 0;
+               border-top: 1px solid #ccc;
+               margin: 10px 0;
+          }
+
+          .footer-signature-container {
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          width: 100%; 
+          padding-top: 10px;
+          }
+ 
+     </style>
+</head>
+
+<body>
+     <!-- {{payment}}
+     <br>
+     {{payment.depot}} -->
+     <div class="receipts-container">
+          {% for i in range(3) %}
+          <div class="receipt">
+                    <table class="header-table">
+                         <tr>
+                              <td style="width: 15%;">
+                                   {% if info and info.logo_image_base64 %}
+                                   <img src="{{ info.logo_image_base64 }}" class="school_logo">
+                                   {% endif %}
+                              </td>
+                              <td class="school-info">
+                                   <h1>{{ info.nom or 'NOM DE L\'INSTITUTION' }}</h1>
+                                   <p><strong>{{ info.adresse or 'Adresse de l\'école' }}</strong></p>
+                                   <p>Email: {{ info.email or 'contact@ecole.com' }} | Tél: {{ info.ligne1 }} {{ ' / ' + info.ligne2 if
+                                        info.ligne2 }}</p>
+                                   <p><em>"Vers l'excellence académique"</em></p>
+                              </td>
+                             
+                         </tr>
+                    </table>
+                    
+                    <hr />
+
+               <p style="text-align:center; font-weight:bold; margin:5px 0;">
+                    {{ ['ORIGINAL','COPIE ÉTABLISSEMENT','COPIE PARENT'][i] }}
+               </p>
+
+               <div class="header">
+                    <p style="margin: 3px;">Date <span class="ms-2 font-bold">{{ date }}</span></p>
+                    <p style="margin: 3px;">Identifiant: <span class="font-bold">{{ etudiant.identifiant }}</span></p>
+                    <p style="margin: 3px;">Nom : <span class="ms-2 font-bold">{{ etudiant.nom }} {{ etudiant.prenom
+                              }}</span></p>
+                    <p style="margin: 3px;">Classe : <span class="ms-2 font-bold">{{ etudiant.classe}}</span></p>
+                    <p style="margin: 3px;">Année A. : <span class="ms-2 font-bold">{{ etudiant.annee_academique }}</span></p>
+                    {% if etudiant.aide_financiere != 'Aucune' %}
+                    <p style="margin: 3px;">Status de bourse : <span class="ms-2 font-bold">{{ etudiant.aide_financiere }}</span></p>
+                    {%endif%}
+                    <p style="margin: 3px;">Employer : <span class="ms-2 font-bold">{{ payment.employer }}</span></p>
+               </div>
+ 
+
+               <div>
+                    <table border="0">
+                         <tr>
+                              <td style="border: none;font-weight: bolder;">
+                              Montant versé
+                              </td>
+                              <td style="border: none;float:right">
+               
+                              <span>{{ payment.depot }}</span> {{ payment.devise }}
+                              </td>
+                         </tr>
+                    </table>
+               </div>
+
+               {% set nss = namespace(found=False) %}
+
+               {% set status_paiement = payment.status_paiement or [] %}
+               {% set ns_avc = namespace(avance_exp='') %}
+               
+               {% for item in status_paiement %}               
+               {% if item.startswith('Avns:') %}
+               {% set ns_avc.avance_exp = item.replace('Avns: ', '') %}
+               {% endif %}
+               {% endfor %}
+               
+               <div>
+                    {% for k in payment.keys() %} 
+                    {% if k.startswith("Versement_") %}
+                    {% set nss.found = True %}
+                    {% endif %}
+                    {% endfor %}
+               
+                    {% set index_mois = mois | length %}
+
+                    {% if payment.status == 'retourné' %}
+                         {% set status_paiement = payment.status_paiement  %}
+                         {% set avances = status_paiement.get("last_status",[]) %}
+                         {% set last_status_table = [] %}
+                         
+                         {% for element in avances %}
+                         {% set _ = last_status_table.append(element) %}
+                         {% endfor %}                    
+                         
+                              <p>Ce dépôt de {{ payment.depot }} {{ payment.devise  }} a été effectué le {{ payment.date_created.replace(' ', ' à ') }} correspond au ({{last_status_table|join(', ')}}) a
+                              été retourné le
+                              {{ payment.date_retour.replace('--', 'à') }}
+                              </p>
+
+               
+                    {% elif payment and not nss.found and ns_avc.avance_exp %}
+                         <p class="py-2">
+                         Vous avez une avance de {{ payment.depot_et_avance }} {{ payment.devise }} sur le {{ ns_avc.avance_exp if ns_avc.avance_exp else '—' }}
+                         </p>
+                    {% else %}
+                    
+                    {% endif %}
+               </div>
+     
+     
+     <div>
+
+
+
+          {# Logique pour le dernier élément et paiements retournés #}
+          {% set last_key = (payment.keys() | list) | last %}
+     
+          {% if payment and last_key not in mois %}
+          {% if payment.status == 'retourné' %}
+          {% set status_paiement = payment.status_paiement or {} %}
+          {% set avances = status_paiement.get('last_status', []) %}
+     
+          {% set avances_text = avances | map('replace', 'Acqt: ', '') | map('replace', 'Avns: ', '') | join(', ') if avances
+          else '—' %}
+          
+          <!-- <p>Ce dépôt de {{ payment.depot }} {{ payment.devise }} pour ({{ avances_text }}) a été retourné le
+               {{ payment.date_retour | replace('--', ' à ') }}</p> -->
+          {% else %}
+      
+          {% set numero_versement = (mois | length) + 1 %}
+          <!-- <p class="py-2">Vous avez une avance de {{ payment.depot_et_avance }}
+               {{ payment.devise }} sur le {{ numero_versement }}
+               {{ "eme" if numero_versement > 1 else "er" }} Versement --- {{avances_text}}  {{avances}}</p> -->
+          {% endif %}
+          {% endif %}
+     
+          {% if payment.status != 'retourné' %}
+          {% set ns = namespace(last_vers='') %}
+{% set keys_list = mois.keys() if mois is mapping else mois %}
+
+{% for key in keys_list %}
+{% if key in payment %}
+<p class="body" style="margin:0px;padding:0px;font-weight: bolder;">{{ key | format_versement(loop.index) }}</p>
+
+ 
+
+     <div>
+          <table border="0">
+               <tr style="border-bottom: 1px solid #ccc;">
+                    <td style="border: none;">
+                         Montant à payer
+                    </td>
+                    <td style="border: none;float:right">
+                         <span class="font-bold me-1">{{ payment[key] }}</span> {{ payment.devise }}
+                    </td>
+               </tr>
+          </table>
+     </div>
+
+ 
+
+     <div>
+          <table border="0">
+               <tr >
+                    <td style="border: none;">
+                          
+                    </td>
+                    <td style="border: none;float:right">
+                         <span class="font-bold" style="color:#40ca22;">Acquitté</span>
+                    </td>
+               </tr>
+          </table>
+     </div>
+
+{% set ns.last_vers = key | format_versement(loop.index + 1) if '_' in key else key %}
+{% endif %}
+{% endfor %}
+
+          {% endif %}
+     </div> 
+     {# Bloc Avance sur prochain versement #}
+     {% if payment.status != 'retourné' and (mois | length) > 0
+     and (payment.total_verse | float) < (payment.total_annuel | float) and last_key in mois and ns_avc.avance_exp %} <p
+          class="text-slate-500 text-[15px] mt-1">
+          Une avance de {{ payment.depot_et_avance }} {{ payment.devise }} sur le {{ ns_avc.avance_exp if ns_avc.avance_exp else '—+' }}
+          </p>
+          {% endif %}
+     
+          <div>
+               <table border="0">
+                    <tr>
+                         <td style="border: none;">
+                              Paiement total 
+                         </td>
+                         <td style="border: none;float:right">
+                               
+                                   <span class="font-bold">
+                                        {% if payment.status == 'retourné' %}
+                                        {{ (payment.total_verse | float) - (payment.depot | float) }}
+                                        {% else %}
+                                        {{ payment.total_verse }}
+                                        {% endif %}
+                                   </span>
+                                   {{ payment.devise }} 
+                         </td>
+                    </tr>
+              
+     <tr>
+          <td style="border: none;">
+                Montant A. 
+          </td>
+          <td style="border: none;float:right">
+ {{ payment.total_annuel }} {{ payment.devise }}
+          </td>
+     </tr>
+               
+       
+      
+                    
+                         <tr style="border-top: 1px solid #ccc;">
+                              <td style="border: none;"> Balance totale </td>
+                              <td style="border: none;float:right">
+                                   {% if (payment.total_verse | float) <= (payment.total_annuel | float) %} <span class="font-bold">
+                                        {% if payment.status == 'retourné' %}
+                                        {{ (payment.total_annuel | float) - ((payment.total_verse | float) - (payment.depot |
+                                        float)) }}
+                                        {% else %}
+                                        {{ (payment.total_annuel | float) - (payment.total_verse | float) }}
+                                        {% endif %}
+                                        </span>
+                                        {% else %}
+                                        <span>0</span>
+                                        {% endif %}
+                                        {{ payment.devise }}
+                               </td>
+                         </tr>
+                    </table>
+                   
+              
+               <!-- </div> -->
+          </div>
+     
+          <div class="footer">
+               <p style="text-align: center;margin-top: 20px;">Merci pour votre confiance!</p>
+          </div>
+
+          </div>
+          {% endfor %}
+     </div>
+</body>
+
+</html>

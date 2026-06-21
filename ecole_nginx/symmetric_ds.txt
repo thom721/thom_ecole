@@ -1,0 +1,462 @@
+INSERT INTO sym_node (
+    node_id,
+    node_group_id,
+    external_id,
+    sync_enabled,
+    sync_url,
+    schema_version,
+    database_type,
+    database_version
+) VALUES (
+    'win-node',
+    'main',
+    'win-node',
+    1,
+    'http://10.10.0.2:31415/sync/win-node',
+    null,
+    'mysql',
+    '8.0'
+);
+
+INSERT INTO sym_node (
+    node_id,
+    node_group_id,
+    external_id,
+    sync_enabled,
+    sync_url,
+    schema_version,
+    database_type,
+    database_version
+) VALUES (
+    'deb-node',
+    'main',
+    'deb-node',
+    1,
+    'http://10.10.0.1:31415/sync/deb-node',
+    null,
+    'mysql',
+    '8.0'
+);
+
+INSERT INTO sym_node_identity (node_id) VALUES ('deb-node');
+INSERT INTO sym_node (node_id, node_group_id, external_id, sync_enabled)
+VALUES
+  ('win-node', 'main', 'win-node', 1),
+  ('deb-node', 'main', 'deb-node', 1);
+
+INSERT INTO sym_node_security (node_id, node_password, registration_enabled, created_at_node_id)
+VALUES
+  ('win-node', '26O2SfQCk8BNolngkPpJaoZz8dBN4T', 1,'win-node');
+  ('deb-node', 'H2B8wYmauffVmP1TnKl6o071wysXXe', 1, 'deb-node');
+
+ INSERT INTO sym_node_group_link (
+  source_node_group_id,
+  target_node_group_id,
+  data_event_action,
+  sync_config_enabled,
+  sync_sql_enabled,
+  is_reversible,
+  create_time
+) VALUES (
+  'main',
+  'main',
+  'W', 
+  1,
+  1,
+  1, 
+  NOW()
+);
+
+INSERT INTO sym_node_group (node_group_id, description) VALUES ('main', 'Groupe principal');
+INSERT INTO sym_node_group_link (source_node_group_id, target_node_group_id, data_event_action, sync_config_enabled, sync_sql_enabled, is_reversible, create_time)
+VALUES ('main', 'main', 'W', 1, 1, 1, NOW());
+
+INSERT INTO sym_router (
+  router_id,
+  source_node_group_id,
+  target_node_group_id,
+  router_type,
+  create_time,
+  last_update_time
+) VALUES (
+  'main to main',
+  'main',
+  'main',
+  'default',
+  NOW(),
+  NOW()
+);
+
+ALTER TABLE paiements
+ADD PRIMARY KEY (id);
+
+INSERT INTO sym_trigger (trigger_id, source_table_name, channel_id, sync_on_insert, sync_on_update, sync_on_delete, create_time, last_update_time, use_stream_lobs,stream_row, source_schema_name)
+VALUES
+('trg_annee_academiques', 'annee_academiques', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_annees', 'annees', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_cache', 'cache', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_cache_locks', 'cache_locks', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_classe_facultes', 'classe_facultes', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_classes', 'classes', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_classes_etudiants', 'classes_etudiants', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_client_infos', 'client_infos', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_cours', 'cours', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_cours_etudiants', 'cours_etudiants', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_depenses', 'depenses', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_etudiant_facultes', 'etudiant_facultes', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_etudiants', 'etudiants', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_facultes', 'facultes', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_failed_jobs', 'failed_jobs', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_frais_dinscriptions', 'frais_dinscriptions', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_frais_divers', 'frais_divers', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_heart_autos', 'heart_autos', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_job_batches', 'job_batches', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_jobs', 'jobs', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_log_actives', 'log_actives', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_logs', 'logs', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_migrations', 'migrations', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_model_has_permissions', 'model_has_permissions', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_model_has_roles', 'model_has_roles', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_niveau_detudes', 'niveau_detudes', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_niveaux', 'niveaux', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_notes', 'notes', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_order_items', 'order_items', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_paiements', 'paiements', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_parametre_paiements', 'parametre_paiements', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_params_exams', 'params_exams', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_password_reset_tokens', 'password_reset_tokens', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_permissions', 'permissions', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'), 
+('trg_personnels', 'personnels', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_pieces_soumises', 'pieces_soumises', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'), 
+('trg_presences', 'presences', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_professeurs', 'professeurs', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_profiles', 'profiles', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_programmes', 'programmes', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_responsables', 'responsables', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_role_has_permissions', 'role_has_permissions', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_roles', 'roles', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_sessions', 'sessions', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_users', 'users', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_ventes', 'ventes', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,1, 1,'lemignon');
+
+========================================================================================
+INSERT INTO sym_trigger (trigger_id, source_table_name, channel_id, sync_on_insert, sync_on_update, sync_on_delete, create_time, last_update_time, use_stream_lobs,stream_row, source_schema_name)
+VALUES
+('trg_categories', 'categories', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_events', 'events', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_news', 'news', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_paiement_statuts', 'paiement_statuts', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon');
+
+
+
+INSERT INTO sym_trigger_router (trigger_id, router_id, create_time, last_update_time)
+VALUES
+('trg_categories', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_news', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_events', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_paiement_statuts', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+
+cd /opt/symmtric-ds/bin
+./symadmin sync-triggers
+
+cd /opt/symmetric-ds/bin
+./symadmin sync-triggers
+./symadmin sync-triggers --node-group main
+
+SELECT trigger_id, trigger_hist_id
+FROM sym_trigger_hist 
+WHERE trigger_id = 'trg_other_transactions';
+
+cd /opt/symmtric-ds/bin
+./symadmin reload-node win-node
+
+SELECT node_id FROM sym_node;
+
+.\symadmin reload-table -n win-node other_transactions
+./symadmin reload-table -n deb-node other_transactions
+
+SELECT node_id, channel_id, status, byte_count, data_row_count, create_time 
+FROM sym_outgoing_batch 
+ORDER BY create_time DESC LIMIT 10;
+
+SELECT node_id, channel_id, status, data_row_count, byte_count, create_time
+FROM sym_outgoing_batch  
+ORDER BY create_time DESC LIMIT 10;
+=====================================================================================
+
+
+
+INSERT INTO sym_trigger_router (trigger_id, router_id, create_time, last_update_time)
+VALUES
+('trg_annee_academiques', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_annees', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_cache', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_cache_locks', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_classe_facultes', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_classes', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_classes_etudiants', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_client_infos', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_cours', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_cours_etudiants', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_depenses', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_etudiant_facultes', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_etudiants', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_facultes', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_failed_jobs', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_frais_dinscriptions', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_frais_divers', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_heart_autos', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_job_batches', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_jobs', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_log_actives', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_logs', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_migrations', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_model_has_permissions', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_model_has_roles', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_niveau_detudes', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_niveaux', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_notes', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_order_items', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_paiements', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_parametre_paiements', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_params_exams', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_password_reset_tokens', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_permissions', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP), 
+('trg_personnels', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_pieces_soumises', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP), 
+('trg_presences', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_professeurs', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_profiles', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_programmes', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_responsables', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_role_has_permissions', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_roles', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_sessions', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_users', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_ventes', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+
+Sur Debian (premier maître) 
+     INSERT INTO sym_node_identity (node_id) VALUES ('deb-node');
+Toujours sur Debian, ouvrir l’enregistrement pour Windows : 
+     symadmin --engine deb-node open-registration win-node main
+     symadmin open-registration main win-node
+
+
+window:
+symadmin open-registration main deb-node
+
+
+symadmin open-registration deb-node default
+
+
+INSERT INTO sym_node_group (node_group_id, description) VALUES ('main', 'Groupe principal');
+
+
+
+######################################   SUR WINDOWS ET DEBIAN  ##########################################
+-- Groupes
+INSERT INTO sym_node_group (node_group_id, description) VALUES
+('main', 'Noeuds principaux (Windows & Debian)');
+('relais', 'Noeud relais VPS');
+
+-- Liens
+INSERT INTO sym_node_group_link (source_node_group_id, target_node_group_id, data_event_action) VALUES
+('main', 'relais', 'W'),
+('relais', 'main', 'P');
+
+-- Définition de ce nœud local
+-- (Adapter node_id et external_id selon si Windows ou Debian)
+INSERT INTO sym_node (node_id, node_group_id, external_id, sync_enabled, sync_url, schema_version, database_type, database_version) VALUES
+('deb-node', 'main', 'deb-node', 1, NULL, NULL, 'mysql', NULL);
+
+
+INSERT INTO sym_node (node_id, node_group_id, external_id, sync_enabled, sync_url, schema_version, database_type, database_version) VALUES
+('win-node', 'main', 'win-node', 1, NULL, NULL, 'mysql', NULL);
+
+-- Sécurité (mot de passe identique au relais)
+INSERT INTO sym_node_security (node_id, node_password, registration_enabled, registration_time, initial_load_enabled, initial_load_time) VALUES
+('win-node', '@@@@@@@@', 1, NOW(), 1, NOW());
+
+INSERT INTO sym_node_security (node_id, node_password, registration_enabled, registration_time, initial_load_enabled, initial_load_time) VALUES
+('deb-node', '@@@@@@@@', 1, NOW(), 1, NOW());
+
+-- Canal
+INSERT INTO sym_channel (channel_id, processing_order, max_batch_size, enabled) VALUES
+('default', 1, 100000, 1);
+
+-- Trigger
+INSERT INTO sym_trigger (trigger_id, source_table_name, channel_id, sync_on_update, sync_on_insert, sync_on_delete, use_stream_lobs, use_capture_lobs, create_time, last_update_time) VALUES
+('all_tables', '*', 'default', 1, 1, 1, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+-- Router
+INSERT INTO sym_router (router_id, source_node_group_id, target_node_group_id, router_type, create_time, last_update_time) VALUES
+(' ', 'main', 'relais', 'default', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('relais-2-main', 'relais', 'main', 'default', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##########################################  DANS LES NOEUD    Main #####################################################
+
+UPDATE sym_node_security
+SET registration_enabled = 1
+WHERE node_id = 'deb-node'; ('win-node' ou 'deb-node')
+
+UPDATE sym_node_security
+SET node_password = '@@@@@@@@'
+WHERE node_id = 'win-node';
+
+
+INSERT INTO sym_node
+(node_id, node_group_id, external_id, sync_enabled,sync_url)
+VALUES
+('relais-node', 'relais', 'relais-node', 1,'http://82.29.153.24:31415/sync/relais-node');
+
+INSERT INTO sym_node_security
+(node_id, node_password,  registration_enabled)
+VALUES
+('relais-node', '@@@@@@@@' , 1);
+
+
+
+
+UPDATE sym_node
+SET sync_url = 'http://82.29.153.24:31415/sync/relais-node'
+WHERE node_id = 'win-node';
+
+UPDATE sym_node
+SET sync_url = 'http://82.29.153.24:31415/sync/relais-node'
+WHERE node_id = 'deb-node';
+
+
+; 1 - les toutes les table.
+; 2 -
+;      pour windows:
+;           engine.name=win-node
+;           group.id=main
+;           external.id=win-node
+;           baseName =dasess
+
+;      pour debian:
+;           engine.name=deb-node
+;           group.id=main
+;           external.id=deb-node
+;           baseName =lemignon
+
+;      pour le relais:
+;           engine.name=relais-node
+;           group.id=relais
+;           external.id=relais-node
+;           baseName =lemignon_relais
+; 3- ip port du relais
+;      http://82.29.153.24:31415
+
+
+; UPDATE sym_node
+; SET sync_url = 'http://192.168.1.4:31415/sync/win-node'
+; WHERE node_id = 'win-node';
+
+; UPDATE sym_node
+; SET sync_url = 'http://82.29.153.24:31415/sync/deb-node'
+; WHERE node_id = 'deb-node';
+
+
+; INSERT INTO sym_node (node_id, node_group_id, external_id, sync_enabled, sync_url, schema_version, database_type, database_version) VALUES
+; ('win-node', 'main', 'win-node', 1, NULL, NULL, 'mysql', NULL),
+; ('deb-node', 'main', 'deb-node', 1, NULL, NULL, 'mysql', NULL),
+; ('relais-node', 'relais', 'relais-node', 1, 'http://10.10.0.1:31415/sync/relais-node', NULL, 'mysql', NULL);
+
+; INSERT INTO sym_node_security (node_id, node_password, registration_enabled, registration_time, initial_load_enabled, initial_load_time) VALUES
+; ('win-node', '@@@@@@@@', 1, NULL, 1, NULL),
+; ('deb-node', '@@@@@@@@', 1, NULL, 1, NULL),
+; ('relais-node', 'MOY1Pa55IEgPUftXHJQAmAqRmYvQ6S', 1, NOW(), 1, NOW());
+
+; INSERT INTO sym_trigger (trigger_id, source_table_name, channel_id, sync_on_update, sync_on_insert, sync_on_delete, use_stream_lobs, use_capture_lobs, create_time, last_update_time) VALUES
+; ('all_tables', '*', 'default', 1, 1, 1, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO sym_router (router_id, source_node_group_id, target_node_group_id, router_type, create_time, last_update_time) VALUES
+('relais_to_main', 'relais', 'main', 'default', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+; ('main_to_relais', 'main', 'relais', 'default', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+
+INSERT INTO sym_trigger_router (trigger_id, router_id, create_time, last_update_time) VALUES
+('all_tables', 'main_to_relais', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('all_tables', 'relais_to_main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+
+
+
+
+
+
+
+
+###################################################################################################################################################################################################################
+                                  SQL à exécuter sur la base du relais (lemignon_relais)
+
+
+-- Groupes de noeuds
+INSERT INTO sym_node_group (node_group_id, description) VALUES
+('main', 'Noeuds principaux (Windows & Debian)');,
+('relais', 'Noeud relais VPS');
+
+-- Liens entre groupes
+INSERT INTO sym_node_group_link (source_node_group_id, target_node_group_id, data_event_action) VALUES
+('main', 'relais', 'W'),
+('relais', 'main', 'P');
+
+-- Définition des noeuds
+INSERT INTO sym_node (node_id, node_group_id, external_id, sync_enabled, sync_url, schema_version, database_type, database_version) VALUES
+('win-node', 'main', 'win-node', 1, NULL, NULL, 'mysql', NULL),
+('deb-node', 'main', 'deb-node', 1, NULL, NULL, 'mysql', NULL);,
+('relais-node', 'relais', 'relais-node', 1, 'http://10.10.0.1:31415/sync/relais-node', NULL, 'mysql', NULL);
+
+-- Sécurité des noeuds (mot de passe de synchro = 'relaispass' à changer)
+INSERT INTO sym_node_security (node_id, node_password, registration_enabled, registration_time, initial_load_enabled, initial_load_time) VALUES
+('win-node', 'MOY1Pa55IEgPUftXHJQAmAqRmYvQ6S', 1, NULL, 1, NULL),
+('deb-node', 'MOY1Pa55IEgPUftXHJQAmAqRmYvQ6S', 1, NULL, 1, NULL);,
+('relais-node', 'relaispass', 0, NOW(), 0, NOW());
+
+-- Canal de synchronisation par défaut
+INSERT INTO sym_channel (channel_id, processing_order, max_batch_size, enabled) VALUES
+('default', 1, 100000, 1);
+
+-- Déclencheur pour toutes les tables (wildcard)
+INSERT INTO sym_trigger (trigger_id, source_table_name, channel_id, sync_on_update, sync_on_insert, sync_on_delete, use_stream_lobs, use_capture_lobs) VALUES
+('all_tables', '*', 'default', 1, 1, 1, 0, 0);
+
+-- Router simple
+INSERT INTO sym_router (router_id, source_node_group_id, target_node_group_id, router_type) VALUES
+('main_to_relais', 'main', 'relais', 'default'),
+('relais_to_main', 'relais', 'main', 'default');
+
+-- Associer trigger et router
+INSERT INTO sym_trigger_router (trigger_id, router_id) VALUES
+('all_tables', 'main_to_relais'),
+('all_tables', 'relais_to_main');
+# mysql -u root -p --host=127.0.0.1 --ssl-ca="C:/Program Files/ecole-serve/mysql-8.0.41-winx64/certs/ca.pem" --ssl-cert="C:/Program Files/ecole-serve/mysql-8.0.41-winx64/certs/client-cert.pem" --ssl-key="C:/Program Files/ecole-serve/mysql-8.0.41-winx64/certs/client-key.pem" --ssl-mode=VERIFY_IDENTITY lemignon < "C:/bases_2_aug_2025.sql"
+
+
+

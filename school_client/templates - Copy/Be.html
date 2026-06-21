@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+     <meta charset="utf-8">
+
+     <style>
+          body {
+               font-family: "Times New Roman", Times;
+          }
+
+          @page {
+               margin-top: 30px
+          } 
+
+          .school_logo {
+          position: absolute;
+          top: 15px;
+          left: 15px;
+          width: 85px;
+          height: 85px;
+          }
+
+          @page {
+               @top-left {
+               content: element(header);
+               }
+          }
+
+          #header {
+          position: running(header);
+          text-align: left;
+          }
+
+          #header img {
+          width: 85px;
+          height: 85px;
+          margin: 100px;
+          margin: 10px;
+          }
+
+          table {
+               width: 100%;
+               border-collapse: collapse;
+          }
+
+          .table_fin {
+               border-collapse: collapse;
+          }
+
+          .table_fin th,
+          .table_fin td {
+               border: 1px solid #868686;
+          }
+
+          table,
+          th,
+          td {
+               padding: 3px 6px;
+               margin: 0px
+          }
+     </style>
+</head>
+
+<body> 
+     <div style="line-height: 20px">
+          {% if logo_image_path %}
+          <img src="{{ logo_image_path }}" alt="logo" class="school_logo" />
+          {% endif %}
+
+          <h1 style="text-align: center; margin: 0px">{{ info.nom if info else 'School name' }}</h1>
+          <p style="text-align: center; margin: 0px">Fondée le 26 Avril 1985</p>
+          <p style="text-align: center; margin: 0px">{{ info.adresse if info else 'School Address' }}</p>
+          <p style="text-align: center; margin: 0px">{{ info.email if info else 'School Email' }}</p>
+          <p style="text-align: center; margin: 0px">
+               {{ info.ligne1 if info else 'Phone 1' }} / {{ info.ligne2 if info else 'Phone 2' }}
+          </p>
+     </div>  
+     {% if data_student.niveau_name in ['Cycle 3', 'Primaire', 'Technique'] %}
+     <hr style="margin: 10px" />
+     {% else %}
+     <hr style="margin: 3px" />
+     {% endif %}
+
+     {% if mois == 'all' %}
+     <p style="font-size: 22px; text-align: center; margin: 0px; padding: 0px">Bulletin scolaire annuel</p>
+     {% endif %}
+<!-- <span>{{result}}result count {{result|length}}</span> -->
+ 
+     {% set rang =namespace(rang_trouve = None) %}
+     
+     {% for item in result %}
+     {% if item.identifiant == data_student.identifiant %}
+     {% set rang.rang_trouve = item.rang %}
+     {% endif %}
+     {% endfor %}
+
+     {% if mois == 'all' %}
+     <div style="position: relative; width: 100%; margin-bottom: 50px">
+          {% else %}
+          <div style="position: relative; width: 100%; margin-bottom: 70px">
+               {% endif %}
+               <div style="position: absolute; left: 0; top: 0%; margin-bottom: 7px; width: 47%; line-height: 22px">
+                    <table>
+                         <tbody>
+                              <tr style="padding: 0px; margin: 0px">
+                                   <td style="padding: 0px; margin: 0px; font-size: 17px; width: 40px">Code</td>
+                                   <td style="padding: 0px; margin: 0px; font-size: 17px; font-weight: bold;">: {{
+                                        data_student.identifiant }}</td>
+                              </tr>
+                              <tr style="padding: 0px; margin: 0px">
+                                   <td style="padding: 0px; margin: 0px; font-size: 17px; width: 40px">Nom</td>
+                                   <td style="padding: 0px; margin: 0px; font-size: 17px; font-weight: bold;">: {{
+                                        data_student.fname }}</td>
+                              </tr>
+                              <tr style="padding: 0px; margin: 0px">
+                                   <td style="padding: 0px; margin: 0px; font-size: 17px; width: 40px">Prénom(s)</td>
+                                   <td style="padding: 0px; margin: 0px; font-size: 17px; font-weight: bold;">: {{
+                                        data_student.lname }}</td>
+                              </tr>
+                         </tbody>
+                    </table>
+               </div>
+
+               <div style="position: absolute; right: 0; top: 0%; margin-bottom: 7px; line-height: 22px">
+                    <table>
+                         <tbody>
+                              <tr style="padding: 0px; margin: 0px">
+                                   <td style="padding: 0px; margin: 0px; font-size: 17px; width: 40px">Classe</td>
+                                   <td style="padding: 0px; margin: 0px; font-size: 17px; font-weight: bold">: {{
+                                        data_student.nom_classe if data_student.nom_classe else '' }}</td>
+                              </tr>
+                              <tr style="padding: 0px; margin: 0px">
+                                   <td style="padding: 0px; margin: 0px; font-size: 17px; width: 40px">Bulletin</td>
+                                   <td style="padding: 0px; margin: 0px; font-size: 17px; font-weight: bold">:
+                                        {% if data_student.niveau_name != 'Universitaire' %}
+                                        <span style="font-weight: bold; font-size: 17px">{{ mois if mois != 'all' else
+                                             'Annuel' }}</span>
+                                        {% else %}
+                                        <span style="font-weight: bold; font-size: 17px">{{ data_student.nom_classe if
+                                             data_student.nom_classe else '' }}</span>
+                                        {% endif %}
+                                   </td>
+                              </tr>
+                              <tr style="padding: 0px; margin: 0px">
+                                   <td style="padding: 0px; margin: 0px; font-size: 17px; width: 40px">Année</td>
+                                   <td style="padding: 0px; margin: 0px; font-size: 17px; font-weight: bold">: {{
+                                        data_student.annee_academique if data_student.annee_academique else '' }}</td>
+                              </tr>
+                         </tbody>
+                    </table>
+               </div>
+          </div>
+ <!-- data_etudiant_  data_etudiant_-->
+          {% set etudiant = data_student.data_etudiant_ %} 
+          {% if not etudiant %}
+          <p style="text-align: center; font-size: 17px;">
+           Vous n'avez pas de données disponibles pour cet étudiant.
+          </p>
+
+          {% else %}
+          {% if data_student.niveau_name != 'Universitaire' %}
+          {% if mois != 'all' %}
+          {% if data_student.niveau_name in ['Cycle 3', 'Technique'] %}
+          {% if mois in allHeaders %}
+          <div style="margin-top: 100px; padding: 0px">
+               <div style="width: 100%; margin-top: 20px; padding: 0px">
+                    <table>
+                         <thead style="background-color: rgb(219, 226, 228);">
+                              <tr>
+                                   <th style="padding: 5px; text-align: left">Matière</th>
+                                   {% for base, bases in data_student.data_etudiant_.items() %}
+                                   {% for matiere, details in bases.items() %}
+                                   {% if matiere in ['orale', 'base'] %}
+                                   {% for detail, value in details.items() %}
+                                   {% for header, valeur in value.notes.items() %}
+                                   {% if mois != 'all' %}
+                                   
+                                   <th>Notes</th>
+                                   {% break %}
+                                   {% else %}
+                                   <th>{{ header }}</th>
+                                   {% endif %}
+                                   {% endfor %}
+                                   {% break %}
+                                   {% endfor %}
+                                   {% break %}
+                                   {% endif %}
+                                   {% endfor %}
+                                   {% endfor %}
+                                   <th>Coefficients</th>
+                              </tr>
+                         </thead>
+                         <tbody>
+                              {% for base, bases in data_student.data_etudiant_.items() %}
+                              {% for matiere, details in bases.items() %}
+                              {% if matiere in ['orale', 'base'] %}
+                              {% for detail, value in details.items() %}
+                             
+                              {% if detail != " " %}
+                              <tr {% if loop.index0 % 2==1 %}style="background-color: rgb(230, 235, 236);" {% endif %}>
+                                   <td style="padding: 4px">{{ detail }}</td> 
+                                   {#% for header in allHeaders %#}
+                                   <td style="text-align: center;">{{ details[detail].notes[mois] if
+                                        details[detail].notes[mois] is defined else '-' }}</td>
+                                   {#% endfor %#}
+                                   <td style="text-align: center;">{{ value.coefficients }}</td>
+                              </tr>
+                              {% endif %}
+                              {% endfor %}
+                              {% endif %}
+                              {% endfor %}
+                              {% endfor %}
+
+                              <tr style="font-weight: bold; text-align: left; font-size: 17px; padding: 4px">
+                                   <td style="font-weight: bold; text-align: left; font-size: 17px; padding: 4px">Total
+                                   </td>
+                                   {% set ns_coeff = namespace(coeff = 0) %}
+                                   {% set ns_sum = namespace(sum_oral = 0) %}
+                                   {% for base, bases in data_student.data_etudiant_.items() %}
+                                   {% for matiere, details in bases.items() %}
+                                   {% if matiere in ['orale', 'base'] %}
+                                   {% for detail, value in details.items() %}
+                                   {% if detail != " " %}
+                                   {% set ns_coeff.coeff = ns_coeff.coeff + value.coefficients | int %}
+                                   {% set ns_sum.sum_oral = ns_sum.sum_oral + (details[detail].notes[mois] if
+                                   details[detail].notes[mois] is defined else 0) | int %}
+                                   {% endif %}
+                                   {% endfor %}
+                                   {% endif %}
+                                   {% endfor %}
+                                   {% endfor %}
+                                   <td style="font-weight: bold; text-align: center; font-size: 14px">{{ ns_sum.sum_oral }}
+                                   </td>
+                                   <td style="font-weight: bold; text-align: center; font-size: 14px">{{ ns_coeff.coeff }}</td>
+                              </tr>
+                              
+
+
+
+                              <tr style="font-weight: bold; background-color: rgb(230, 235, 236)">
+                                   <td style="text-wrap: no-wrap; padding: 4px; font-size: 17px">Moyenne de l'élève</td>
+                                   <td style="text-align: center; font-size: 17px;">{{ (ns_sum.sum_oral / ns_coeff.coeff *
+                                   10)|round(2) if ns_coeff.coeff > 0 else 0 }}</td>
+                                   <td style="text-align: center; font-size: 17px;">10</td>
+                              </tr>
+
+                                   <tr style="background-color: rgb(219, 226, 228);">
+                                        <td style="text-wrap: no-wrap;">Place</td>
+                                   
+                                        <td style="text-align: center; font-size: 14px;">
+                                             {{ rang.rang_trouve }}
+                                   
+                                             {% if rang.rang_trouve == 1 %}
+                                             er (ère) /
+                                             {% else %}
+                                             ème /
+                                             {% endif %}
+                                   
+                                        </td>
+                                        <td style="text-align: center; font-size: 14px;">{{result|length}}</td>
+                                   </tr>
+
+
+                              <tr style="font-weight: bold; background-color: rgb(230, 235, 236)">
+                                   <td style="text-wrap: no-wrap; padding: 4px; font-size: 17px">Moyenne de la classe
+                                   </td>
+                                   <td style="text-align: center; font-size: 17px;">{{ moyenne_classe }}</td>
+                                   <td style="text-align: center; font-size: 17px;">10</td>
+                              </tr>
+                         </tbody>
+                    </table>
+               </div>
+          </div>
+          {% else %}
+          <p style="text-align: center; font-size: 17px;">---Vous n'avez pas de données disponibles pour <strong>{{ mois
+                    }}</strong></p>
+          {% endif %}
+          {% else %}
+          <div style=" margin-top: 8px; margin-bottom: 8px; padding: 0px">
+               <div style="display: inline-flex; width: 49%; margin: 0px; padding: 0px;justify-content: center;">
+                    <p style="font-weight: bold; font-size: 18px; text-align: center">Matières de base</p>
+               </div>
+               <div style="display: inline-flex; float: right; width: 49%; margin: 0px; padding: 0px">
+                    <p style="font-weight: bold; font-size: 18px; text-align: center">Matières Orales</p>
+               </div>
+          </div> 
+          {% if mois in allHeaders %}
+          <div style="position: relative; margin: 0px; padding: 0px" border="1">
+               <div style="width: 50%; margin: 0px; padding: 0px">
+                    <table class="table_fin">
+                         <thead style="background-color: rgb(230, 235, 236)">
+                              <tr>
+                                   <th>Matière</th>
+                                   <th>Coefficients</th>
+                                   {#% for header in allHeaders %#}
+                                   <th>{{ header if mois == 'all' else 'Notes' }}</th>
+                                   {#% endfor %#}
+                              </tr>
+                         </thead>
+                         <tbody>
+                              {% set tc_ = namespace(t_coeff = 0) %}
+                              {% set tn_ = namespace(t_notes = 0) %}
+                              {% for base, bases in data_student.data_etudiant_.items() %}
+                              {% for matiere, details in bases.items() %}
+                              {% if matiere not in ['orale', 'statistiques'] %}
+                              {% for detail, value in details.items() %}
+                              <tr {% if loop.index0 % 2==1 %}style="background-color: rgb(230, 235, 236);" {% endif %}>
+                                   <td>{{ detail }}</td>
+                                   <td style="text-align: center;">{{ value.coefficients }}</td>
+                                   {#% for header in headers %#}
+                                   <td style="text-align: center;">{{ details[detail].notes[mois] if
+                                        details[detail].notes[mois] is defined else '-' }}</td>
+                                   {#% endfor %#}
+                              </tr>
+                                                            {% set tc_.t_coeff = tc_.t_coeff + (value.coefficients | int) %}
+                                                            {% set tn_.t_notes = tn_.t_notes + (details[detail].notes[mois] | int if details[detail].notes[mois] is defined else 0) %}
+                              {% endfor %}
+                              {% endif %}
+                              {% endfor %}
+                              {% endfor %}
+
+
+
+                              <tr>
+                                   <th style="text-wrap: nowrap; width: 40%">TOT. Base</th>
+                                   <th style="text-align: center;">{{tc_.t_coeff}}</th>
+                                   {#% for header in headers_oral %#}
+                                   <th style="text-align: center;">{{tn_.t_notes}}</th>
+                                   {#% endfor %#}
+                              </tr>
+                         </tbody>
+                    </table>
+               </div>
+
+               <div style="position: absolute; right: 0; top: 0; width: 48%; margin-left: 10px">
+                    <table style="width: 100%" class="table_fin">
+                         <thead style="background-color: rgb(230, 235, 236)">
+                              <tr>
+                                   <th style="width: 30%; text-align: left">Matière</th>
+                                   <th>Coefficients</th>
+                                   {#% for header in headers_oral %#}
+                                   <th>{{ header if mois == 'all' else 'Notes' }}</th>
+                                   {#% endfor %#}
+                              </tr>
+                         </thead>
+                         <tbody>
+                              {% set tc = namespace(t_coeff = 0) %}
+                              {% set tn = namespace(t_notes = 0) %}
+
+                              {% for base, bases in data_student.data_etudiant_.items() %}
+                              {% for matiere, details in bases.items() %}
+                              {% if matiere == 'orale' %}
+                              {% for detail, value in details.items() %}
+                              <tr {% if loop.index0 % 2==1 %}style="background-color: rgb(230, 235, 236);" {% endif %}>
+                                   <td style="text-wrap: nowrap; width: 40%">{{ detail }}</td>
+                                   <td style="text-align: center;">{{ value.coefficients }}</td>
+                                   {% set tc.t_coeff = tc.t_coeff + (value.coefficients | int) %}
+                                   {#% set tn.t_notes = tn.t_notes + details[detail].notes[mois] if
+                                   details[detail].notes[mois] else 0 | int %#}
+                                   {% set tn.t_notes = tn.t_notes + (details[detail].notes[mois] | int if details[detail].notes[mois] is defined else 0) %}
+
+                                   {#% for header in headers_oral %#}
+                                   <td style="text-align: center;">{{ details[detail].notes[mois] if
+                                        details[detail].notes[mois] is defined else '-' }}</td>
+                                   {#% endfor %#}
+                              </tr>
+                              {% endfor %}
+                              {% endif %}
+                              {% endfor %}
+                              {% endfor %}
+                              <tr>
+                                   <th style="text-wrap: nowrap; width: 40%">TOT. Orales</th>
+                                   <th style="text-align: center;">{{tc.t_coeff}}</th>
+                                   {#% for header in headers_oral %#}
+                                   <th style="text-align: center;">{{tn.t_notes}}</th>
+                                   {#% endfor %#}
+                              </tr>
+                         </tbody>
+                    </table>
+               </div>
+          </div>
+          {% else %}
+          <p style="text-align: center; font-size: 17px;">Vous n'avez pas de données disponibles pour <strong>{{ mois
+                    }}</strong></p>
+          {% endif %}
+          {% endif %}
+          {% else %}
+          {% if data_student.niveau_name in ['Cycle 3', 'Technique'] %}
+          <div style="width: 100%; margin-top: 70px; padding: 0px">
+               {% else %}
+               <div style="width: 100%; margin-top: 50px; padding: 0px">
+                    {% endif %}
+
+                    <h4 style="text-align: center; padding: 3px; margin: 0px">Notes Mensuelles</h4>
+
+                    <table style="padding: 0px; margin-top: 2px">
+                         <thead style="background-color: rgb(230, 235, 236)">
+                              <tr> 
+                                   <th style="text-align: left">Matière--</th>
+                                   {% for header in allHeaders %}
+                                   <th >{{ header[:3] }}.</th>
+                                   {% endfor %}
+                                   <th>TOT.</th>
+                                   <th>Coef.</th>
+                              </tr>
+                         </thead>
+                         <tbody>
+                              {% for base, bases in data_student.data_etudiant_.items() %}
+                              {% for matiere, details in bases.items() %}
+                              {% for detail, value in details.items() %}
+                              {% if detail != " " %}
+                              <tr {% if loop.index0 % 2==1
+                                   %}style="background-color: rgb(230, 235, 236); padding: 0px; margin: 0px" {% else
+                                   %}style="padding: 0px; margin: 0px" {% endif %}>
+                                   <td>{{ detail }}</td>
+                                   {% set ns1 = namespace(sum_line = 0) %}
+                                   {% set ns2 = namespace(sum_coeff_line = 0) %}
+                                   {% for header in allHeaders %}
+                                   {% set ns2.sum_coeff_line = ns2.sum_coeff_line + (value.coefficients if value.notes[header]
+                                   is defined else 0) | int %}
+                                   {% set ns1.sum_line = ns1.sum_line + (value.notes[header] if value.notes[header] is defined
+                                   else 0) | int %}
+                                   <td style="text-align: center;">{{ value.notes[header] if value.notes[header] is
+                                        defined else '-' }}</td>
+                                   {% endfor %}
+                                   <td style="text-align: center;">{{ ns1.sum_line }}</td>
+                                   <td style="text-align: center;">{{ ns2.sum_coeff_line }}</td>
+                              </tr>
+                              {% endif %}
+                              {% endfor %}
+                              {% endfor %}
+                              {% endfor %}
+                         </tbody>
+                    </table>
+               </div>
+               {% endif %}
+               {% else %}
+               <table id="collapses" style="width: 100%; margin-top: 25px;" border="1">
+                    <thead>
+                         <tr>
+                              <th style="width: 40%; font-size: 19px; font-weight: bold; text-align: center">Matières
+                              </th>
+                              <th style="font-size: 19px; font-weight: bold; text-align: center">Intra</th>
+                              <th style="font-size: 19px; font-weight: bold; text-align: center">Finales</th>
+                         </tr>
+                    </thead>
+                    <tbody>
+                         {% for eleve_id, niveaux in data_student.data_etudiant_.items() %}
+                         {% for niveau, periodes in niveaux.items() %}
+                         {% if niveau == '1ère' %}
+                         {% for periode, matieres in periodes.items() %}
+                         {% if periode == 'intra' %}
+                         {% for nom_matiere, infos_matiere in matieres.items() %}
+                         <tr>
+                              <td style="width: 40%; font-size: 18px; text-align: center">{{ nom_matiere }}</td>
+                              <td style="font-size: 18px; text-align: center">
+                                   {{ infos_matiere.notes.intra if infos_matiere.notes.intra is defined else 'N/A' }}
+                              </td>
+                              <td style="font-size: 18px; text-align: center">
+                                   {{ niveaux.finale.base[nom_matiere].notes.finale if
+                                   niveaux.finale.base[nom_matiere].notes.finale is defined else 'N/A' }}
+                              </td>
+                         </tr>
+                         {% endfor %}
+                         {% endif %}
+                         {% endfor %}
+                         {% endif %}
+                         {% endfor %}
+                         {% endfor %}
+                    </tbody>
+               </table>
+               {% endif %} 
+               {% if mois != 'all' and data_student.niveau_name not in ['Universitaire', 'Cycle 3', 'Technique'] %}
+               <p style="text-align: center; font-size: 17px; padding: 8px; margin-top: 17px">CONDUITE / APPLICATION</p>
+
+               <div style="display: flex;justify-content: space-between;" >
+                    <div style="display: inline-flex; width: 100%;justify-content: start;">
+                         <table style="width: 99%; margin-top: 2px" class="table_fin">
+                              <tbody>
+                                   <tr style="background-color: rgb(219, 226, 228);">
+                                        <td>Absences</td>
+                                        <td style="width: 60%;"></td>
+                                   </tr>
+                                   <tr>
+                                        <td>Retards</td>
+                                        <td></td>
+                                   </tr>
+                                   <tr style="background-color: rgb(219, 226, 228);">
+                                        <td>Observations</td>
+                                        <td></td>
+                                   </tr>
+                              </tbody>
+                         </table>
+                    </div>
+                    <div style="display: inline-flex; width: 100%; right: 0; margin-left: auto;justify-content: end;">
+                         <table style="width: 98%; margin-top: 2px" class="table_fin">
+                              <tbody>
+                                   <tr style="border: #f8fbfc">
+                                        <td style="text-wrap: no-wrap; font-weight: bold; width: 50%">TOTAL GENERAL</td>  
+                                        {% set ns_coeff = namespace(coeff = 0) %}
+                                        {% set ns_sum = namespace(sum_orals = 0) %}
+                                        {% for base, bases in data_student.data_etudiant_.items() %}
+                                        {% for matiere, details in bases.items() %}
+                                        {% for detail, value in details.items() %}
+                                        {% if value.notes[mois] is defined %}
+                                        {% set ns_coeff.coeff = ns_coeff.coeff + value.coefficients | int %}
+                                        {#% set ns_coeff.coeff = ns_coeff.coeff + value.coefficients | int %#}
+                                        {% set ns_sum.sum_orals = ns_sum.sum_orals + value.notes[mois] | int %}
+                                        {% endif %}
+                                        {% endfor %}
+                                        {% endfor %}
+                                        {% endfor %}
+                                        <td style="font-weight: bold; text-align: center; font-size: 14px; width: 18%">
+                                             {{ ns_coeff.coeff }}</td>
+                                        <td style="font-weight: bold; text-align: center; font-size: 14px; width: 18%">
+                                             {{ ns_sum.sum_orals }}</td>
+                                   </tr>
+
+
+                                   <tr style="border: #d8dbdb">
+                                        <td style="text-wrap: no-wrap;">Moyenne de l'élève</td>
+                                        <td style="text-align: center; font-size: 14px;">10</td>
+                                        <td style="text-align: center; font-size: 14px;">{{(ns_sum.sum_orals / ns_coeff.coeff *
+                                        10)|round(2) if ns_coeff.coeff > 0 else 0 }}</td>
+                                   </tr>
+
+                                   <tr style="background-color: rgb(219, 226, 228);">
+                                        <td style="text-wrap: no-wrap;">Place</td>
+
+                                        <td style="text-align: center; font-size: 14px;">
+                                        {{ rang.rang_trouve }}
+
+                                        {% if rang.rang_trouve == 1 %}
+                                        er (ère) /
+                                        {% else %}
+                                        ème /
+                                        {% endif %}
+
+                                        </td>
+                                         <td style="text-align: center; font-size: 14px;">{{result|length}}</td>
+                                   </tr>
+
+                                   <tr style="border: #f8fbfc">
+                                        <td style="text-wrap: no-wrap;">Moyenne de la classe</td>
+                                        <td style="text-align: center; font-size: 14px;">10</td>
+                                        <td style="text-align: center; font-size: 14px;">{{ moyenne_classe }}</td>
+                                   </tr>
+                              </tbody>
+                         </table>
+                    </div>
+               </div>
+               {% endif %}
+               {% endif %}
+
+               {% if mois == 'all' %}
+               <div style="align-self: start;">
+                    <p style="text-align: left; margin-top: 20px">Décision :________________________</p>
+               </div>
+
+               <div style="position: absolute; left: 0px; bottom: -1%">
+                    <p style="margin: 0px">__________________________</p>
+                    <p style="text-align: center; margin: 0px">La direction</p>
+               </div>
+
+               <div style="position: absolute; bottom: -1%; right: 0">
+                    <p style="margin: 0px">__________________________</p>
+                    <p style="text-align: center; margin: 0px">Professeur</p>
+               </div>
+               {% else %}
+               <div style="position: absolute; bottom: -1%">
+                    <p style="margin: 0px">_______________________</p>
+                    <p style="text-align: center; margin: 0px">La direction</p>
+               </div>
+
+               <div style="position: absolute; bottom: -1%; left: 36%">
+                    <p style="margin: 0px">_______________________</p>
+                    <p style="text-align: center; margin: 0px">Professeur</p>
+               </div>
+
+               <div style="position: absolute; bottom: -1%; right: 0%">
+                    <p style="margin: 0px">_______________________</p>
+                    <p style="text-align: center; margin: 0px">Parent</p>
+               </div>
+               {% endif %}
+</body>
+
+</html>

@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+     <style>
+          body {
+               font-family: Times 'Helvetica', 'Arial', sans-serif;
+               font-size: 14px;
+          }
+          .bourse { color: green; font-weight: bold; }
+.demie-bourse { color: orange; font-weight: bold; }
+.standard { color: black; }
+
+          @page {
+               margin-top: 30px;
+          }
+
+          table {
+               width: 100%;
+               border-collapse: collapse;
+          }
+
+          table,
+          th,
+          td {
+               border: 1px solid gray;
+               padding: 3px;
+          }
+ 
+
+
+          /* En-tête */
+          .header-table {
+               width: 100%;
+               border: none;
+               margin-bottom: 10px;
+          }
+
+          .header-table td {
+               border: none;
+               padding: 0;
+               vertical-align: middle;
+          }
+
+          .school_logo {
+               width: 60px;
+               height: 60px;
+               object-fit: contain;
+          }
+
+          .school-info {
+               text-align: center;
+          }
+
+          .school-info h1 {
+               margin: 0;
+               color: #1a2a6c;
+               font-size: 22px;
+               text-transform: uppercase;
+          }
+
+          .school-info p {
+               margin: 2px 0;
+               font-size: 14px;
+          }
+
+          hr {
+               border: 0;
+               border-top: 1px solid #ccc;
+               margin: 10px 0;
+          }
+     </style>
+</head>
+
+<body>
+     <table class="header-table">
+          <tr>
+               <td style="width: 15%;">
+                    {% if info and info.logo_image_base64 %}
+                    <img src="{{ info.logo_image_base64 }}" class="school_logo">
+                    {% endif %}
+               </td>
+               <td class="school-info">
+                    <h1>{{ info.nom or 'NOM DE L\'INSTITUTION' }}</h1>
+                    <p><strong>{{ info.adresse or 'Adresse de l\'école' }}</strong></p>
+                    <p>Email: {{ info.email or 'contact@ecole.com' }} | Tél: {{ info.ligne1 }} {{ ' / ' + info.ligne2 if
+                         info.ligne2 }}</p>
+                    <p><em>"Vers l'excellence académique"</em></p>
+               </td>
+               <td style="width: 15%; text-align: right;">
+                    <p style="font-size: 10px;">Date: {{ date }}</p>
+               </td>
+          </tr>
+     </table>
+     
+     <hr />
+
+     {% if data_payment %}
+     {# Note: entetesVersements doit être passé depuis Python pour plus de simplicité #}
+
+     {% if classe != 'All' %}
+          <p>
+               Ce rapport synthétise les paiements effectués par les élèves de la <strong>{{ classe }}</strong>.
+               Il détaille le statut du versement : acquitté, partiel ou non payé.
+          </p>
+
+     <table id="collapse" style="width:100%; margin-top:17px">
+          <thead>
+               <tr>
+                    <th style="width:15%;">Identifiant</th>
+                    <th style="width:30%;">Nom</th>
+                    {% if versement != 'tous les versements' %}
+                    <th>{{ versement }}</th>
+                    {% else %}
+                    {% for entete in entetesVersements.keys() %}
+                    <th>{{ entete[:10] }}.</th>
+                    {% endfor %}
+                    {% endif %}
+                    <th>Avance</th>
+                    <th>Balance</th>
+               </tr>
+          </thead>
+          <tbody>
+               {% set totals = namespace(depot=0, avance=0, balance=0) %}
+               {% set _pay_val = namespace(not_paie="") %}
+               
+               {% for payments in data_payment %}
+               {% set totals.depot = totals.depot + (payments.paiements.total | default(0) | float) %}
+               <tr>
+               <td
+                    class="{% if payments.aide_financiere == 'Bourse' %}bourse{% elif payments.aide_financiere == 'Démie bourse' %}demie-bourse{% else %}standard{% endif %}">
+                    {{ payments.identifiant }}
+               </td>
+                    <td>{{ payments.nom }} <span style="margin-left: 5px;">{{ payments.prenom }}</span>
+                    </td>
+
+                    {% if versement != 'tous les versements' %}
+
+               {% set montant_du = 0 %}               
+               {% if payments.entetesVersements and versement in payments.entetesVersements %}
+                    {% set montant_du = payments.entetesVersements[versement] %}
+                    
+               {% elif payments.paiements.check_echeances and versement in payments.paiements.check_echeances %}
+                    {# On cherche dans le sous-objet au cas où #}
+                    {% set montant_du = payments.paiements.check_echeances[versement] %}
+                   
+               {% else %} 
+                    {# Valeur de secours : 0 ou une chaîne vide #}
+                    {% set montant_du = 0 %}
+               {% endif %}
+               
+               {# On stocke dans le namespace pour l'utiliser plus bas dans la colonne Balance #}
+               {% set _pay_val.not_paie = montant_du %}
+
+                    {% set pay_val = payments.paiements.get(versement) %}
+
+                    {% if pay_val is sameas true %}
+                         <td style="text-align: center; color: green;">Acquitté</td>
+                         {% elif pay_val is sameas false %}
+                         <td style="text-align: center; color: red;">Non payé</td>
+                    {% elif pay_val is number %}
+                         <td style="text-align: center; color: orange;">{{ 'Partiel' if pay_val > 0 else 'Non payé' }}</td>
+                    {% else %}
+                         <td style="text-align: center; color: red;">Non payé</td>
+                    {% endif %}
+
+                    {# Colonne Avance #}
+                    {% if pay_val is sameas true %}
+                         <td style="text-align: center; color: green;">Acquitté</td>
+                    {% elif pay_val is sameas false %}
+                         <td style="text-align: center; color: red;">0 Gdes</td>
+                    {% elif pay_val is number %}
+                         <td style="text-align: center; color: orange;">{{ pay_val }} Gdes</td>
+                         {% set totals.avance = totals.avance + (payments.paiements.avance | default(0) | float) %}
+                    {% else %} 
+                         <td style="text-align: center; color: red;">0 Gdes</td>                     
+
+                    {% endif %}
+
+                    {# Colonne Balance #}
+                    {% if pay_val is sameas true %}
+                    <td style="text-align: center;">0 Gdes</td>
+                    {% elif pay_val is sameas false %}
+                         <td style="text-align: center; color: red;">{{_pay_val.not_paie}} Gdes</td>
+                         {% set totals.balance = totals.balance + (_pay_val.not_paie | default(0) | float) %}
+                    {% elif pay_val is number %}
+                         <td style="text-align: center; color: orange;">{{ payments.paiements.balance }} Gdes</td>
+                    {% set totals.balance = totals.balance + (payments.paiements.balance | default(0) | float) %}
+                    {% else %}
+                         <td style="text-align: center; color: red;">{{_pay_val.not_paie}}</td>
+                    {% endif %}
+                    {% else %}
+                    <!-- a implementer si #de tous les versements -->
+                     <!-- {{payments.entetesVersements}} -->
+                    {% set row_versement = namespace(_entete="") %}
+                    {% set row = namespace(depot=0, avance=0, balance=0) %}
+                    {% set col = namespace(depot=0, avance=0, balance=0) %}
+
+                         {% for entete in payments.entetesVersements.keys() %}
+                         {% set row_versement._entete=entete %}
+                         {% set pay_val = payments.paiements.get(entete) %}
+                              {% if pay_val is sameas true %}
+                              <td style="text-align: center; color: green;">Acquitté</td>
+                              {% set totals.depot = totals.depot + (payments.check_echeances.get(entete) | default(0) | float) %}
+                              {% elif pay_val is sameas false %}
+                              <td style="text-align: center; color: red;">0 Gdes</td>
+                              {% set row.balance = row.balance + (payments.entetesVersements[entete] | default(0) | float) %}
+                              {% set totals.balance = totals.balance + (payments.entetesVersements[entete] | default(0) | float) %}
+                              {% elif pay_val is number %}
+                              <td style="text-align: center; color: orange;">{{ payments.paiements.get(entete) }} Gdes</td>
+                              {% set totals.avance = totals.avance + (payments.paiements.get(entete) | default(0) | float) %}
+                              {% set row.avance = (payments.paiements.get(entete) | default(0) | float) %}
+                              {% set col.balance = (payments.paiements.balance | default(0) | float) %}
+                              {% else %}
+                              <td style="text-align: center; color: red;">0 Gdes</td>
+                              {% endif %}
+                              {% endfor %}
+
+                              {# Colonne Avance #}  
+                              <td style="text-align: center; color: orange;">{{ row.avance }}</td> 
+                              {# Colonne Balance #} 
+                              <td style="text-align: center;">{{row.balance + col.balance}} Gdes</td> 
+                    {% endif %}
+               </tr>
+               {% endfor %}
+               <tr style="background-color:#ccc; font-weight:bold">
+                    <td colspan='2'>TOTAL</td>
+                    {% if versement == 'tous les versements' %}
+                    <td colspan="{{entetesVersements.keys() | length}}" style="text-align: center;">{{ totals.depot }} GDES</td>
+                    {% else %}
+                    <td style="text-align: center;">{{ totals.depot }} GDES</td>
+                    {% endif %}
+                    <td>{{ totals.avance }} GDES</td>
+                    <td>{{ totals.balance }} GDES</td>
+               </tr>
+          </tbody>
+     </table>
+     {% else %}
+     {# VERSION REGROUPÉE PAR CLASSE (MODE 'ALL') #}
+     <p>Rapport du <strong>{{ debut }}</strong> au <strong>{{ fin }}</strong>.</p>
+
+     <table style="width:100%; margin-top:14px; border-collapse: collapse;" border="1">
+          <thead style="background-color: #ddd;">
+               <tr>
+                    <th>Classe</th>
+                    <th>Effectifs</th>
+                    {% for entete in entetesVersements %}
+                    <th>{{ entete[:10] }}.</th>
+                    {% endfor %}
+                    <th>Avance (GDES)</th>
+                    <th>Balance</th>
+               </tr>
+          </thead>
+          <tbody>
+               {% set gen = namespace(eleves=0, avance=0, balance=0, paye_par_v={}) %}
+
+               {% for key, payments in groupedPayments|dictsort(case_sensitive=false) %}
+               {% set class_totals = namespace(bourse=0, demie=0, quart=0, avance=0, balance=0, paye={}) %}
+
+               {% for student in payments %}
+               {% if student.aide_financiere == 'Bourse' %}{% set class_totals.bourse = class_totals.bourse + 1 %}
+               {% elif student.aide_financiere == 'Démie Bourse' %}{% set class_totals.demie = class_totals.demie + 1 %}
+               {% elif student.aide_financiere == '1/4 Bourse' %}{% set class_totals.quart = class_totals.quart + 1 %}
+               {% endif %}
+
+               {% for v in entetesVersements %}
+               {% if student.paiements.get(v) is sameas true %}
+               {% set _ = class_totals.paye.update({v: (class_totals.paye.get(v, 0) + 1)}) %}
+               {% elif student.paiements.get(v) is number %}
+               {% set class_totals.balance = class_totals.balance + (student.paiements.balance | default(0) | float) %}
+               {% set class_totals.avance = class_totals.avance + (student.paiements.get(v) | float) %}
+               {% endif %}
+               {% endfor %}
+               {% endfor %}
+
+               <tr>
+                    <td>{{ key }}</td>
+                    <td>
+                         {{ payments | length }}
+                         <span style="color:green; font-size:10px">{{ class_totals.bourse ~ ' B' if class_totals.bourse
+                              > 0 }}</span>
+                         <span style="color:orange; font-size:10px">{{ class_totals.demie ~ ' Db' if class_totals.demie
+                              > 0 }}</span>
+                    </td>
+                    {% for v in entetesVersements %}
+                    <td>{{ class_totals.paye.get(v, 0) }}</td>
+                    {% set _ = gen.paye_par_v.update({v: (gen.paye_par_v.get(v, 0) + class_totals.paye.get(v, 0))}) %}
+                    {% endfor %}
+                    <td>{{ "{:,.0f}".format(class_totals.avance).replace(',', ' ') }} GDES</td>
+                    <td>{{ "{:,.0f}".format(class_totals.balance).replace(',', ' ') }} GDES</td>
+               </tr>
+
+               {% set gen.eleves = gen.eleves + (payments | length) %}
+               {% set gen.avance = gen.avance + class_totals.avance %}
+               {% set gen.balance = gen.balance + class_totals.balance %}
+               {% endfor %}
+
+               <tr style="font-weight: bold; background-color: #f3f3f3;">
+                    <td>Total</td>
+                    <td>{{ gen.eleves }}</td>
+                    {% for v in entetesVersements %}
+                    <td>{{ gen.paye_par_v.get(v, 0) }}</td>
+                    {% endfor %}
+                    <td>{{ "{:,.0f}".format(gen.avance).replace(',', ' ') }} GDES</td>
+                    <td>{{ "{:,.0f}".format(gen.balance).replace(',', ' ') }} GDES</td>
+               </tr>
+          </tbody>
+     </table>
+     {% endif %}
+     {% else %}
+     <h3 style="text-align: center; color:crimson">Aucune donnée trouvée.</h3>
+     {% endif %}
+
+     <div style="margin-top:20px">
+          <p>B : Bourse | DB: Démie Bourse | 1/4 B: 1/4 Bourse</p>
+     </div>
+</body>
+
+</html>

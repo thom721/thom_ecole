@@ -1,0 +1,67 @@
+
+
+DELETE FROM cours_etudiants
+WHERE id IN (
+    '00942261-a605-4c26-b6a6-eae1908fc928',
+    'dded1557-3e80-4eb8-8002-7d761fe77063',
+    'cc06ab3d-f556-4f63-a747-97f8bc4aa259',
+    '9d40fdc3-3e85-46ad-8a39-20ccc525b63b',
+    '8e994ddf-1cad-4ce9-842f-0e2d4656292c',
+    '8d8e216d-1a10-4699-b876-70fe96f463ad',
+    '7eca0e57-9df5-4008-b1c7-f28885a765f6',
+    '6cd96b13-764e-4fbc-b315-6cfa9a006604',
+    '67408a8c-6768-4e63-9367-d31fd6f8ebbc',
+    '4c6dac4c-67b1-41dd-922b-e2e9e16d07cb',
+    '41e32d65-d7be-4e93-b469-13ac75237f33',
+    '3eae1594-72c5-46a5-8c65-c849a0828254',
+    '2dce0508-3f53-47dd-90d7-2c3289fa3330',
+    '229d7887-5b29-42cd-8db3-3d0ef1b6b207',
+    '1553a2d4-6db9-4389-bfb4-d69ccf5a0f56',
+    '1a998283-9a51-4eed-b283-3111662d37f6',
+    '183bb896-6233-491b-97c2-d11744ac5420'
+);
+
+bd5af252-206d-452b-bb3b-5a7210838715
+delete from paiements where id="bd5af252-206d-452b-bb3b-5a7210838715" and annee_academique="2024/2025";
+
+SELECT etudiant_id, annee_academique, COUNT(*) AS total
+FROM cours_etudiants
+GROUP BY etudiant_id, annee_academique
+HAVING total > 1;
+
+SELECT etudiant_id, annee_academique, data_etudiant
+FROM cours_etudiants where data_etudiant='"[]"' and annee_academique='2025/2026';
+
+SELECT etudiant_id, annee_academique, data_etudiant
+FROM cours_etudiants where data_etudiant='[]' and annee_academique='2025/2026';
+
+delete FROM cours_etudiants where data_etudiant='"[]"' and annee_academique='2025/2026';
+delete FROM cours_etudiants where data_etudiant='[]' and annee_academique='2025/2026';
+
+00942261-a605-4c26-b6a6-eae1908fc928
+
+paiements -> a5b143a8-2c4d-4c9c-8f5b-ed6e2356e9ca
+
+
+UPDATE parametre_paiements
+SET  montant_par = REPLACE(
+        REPLACE(
+            REPLACE(
+                REPLACE( montant_par,
+                    'Versement_1_None', 'Versement_1_8ef65c55-8166-4557-bc2f-5482d605cd76'),
+                'Versement_2_None', 'Versement_2_8ef65c55-8166-4557-bc2f-5482d605cd76'),
+            'Versement_3_None', 'Versement_3_8ef65c55-8166-4557-bc2f-5482d605cd76'),
+        'Versement_4_None', 'Versement_4_8ef65c55-8166-4557-bc2f-5482d605cd76')
+WHERE id = '4d8bc7e6-43f0-418f-8c39-96cdd1f4c181';
+
+
+usage: weasyprint [-h] [-e ENCODING] [-s STYLESHEETS] [-m MEDIA_TYPE] [-u BASE_URL]
+                  [-a ATTACHMENTS] [--pdf-identifier PDF_IDENTIFIER]
+                  [--pdf-variant {pdf/a-1b,pdf/a-2b,pdf/a-3b,pdf/a-2u,pdf/a-3u,pdf/a-4u,pdf/a-1a,pdf/a-2a,pdf/a-3a,pdf/a-4e,pdf/a-4f,pdf/ua-1,pdf/ua-2,pdf/x-1a,pdf/x-3,pdf/x-4,pdf/x-5g,debug}]
+                  [--pdf-version PDF_VERSION] [--pdf-forms] [--pdf-tags] [--uncompressed-pdf]
+                  [--custom-metadata] [-p] [--srgb] [--optimize-images] [-j JPEG_QUALITY]
+                  [--full-fonts] [--hinting] [-c CACHE] [-D DPI] [-v] [-d] [-q] [--version] [-i]
+                  [-t TIMEOUT] [--allowed-protocols ALLOWED_PROTOCOLS]
+                  input output
+
+ 

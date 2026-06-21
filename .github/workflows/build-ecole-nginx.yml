@@ -1,0 +1,72 @@
+name: Build ecole_nginx (Windows)
+
+# Déclenchement manuel pour commencer simple — on ajoutera un déclencheur
+# automatique (tag, push sur main...) une fois le pipeline validé.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: ecole_nginx
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: |
+            ecole_nginx/requirements.txt
+            ecole_nginx/requirements-gui.txt
+
+      - name: Installer les dépendances
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-gui.txt
+          pip install nuitka==2.6.9 pywin32==310
+
+      - name: Build Nuitka
+        run: >
+          python -m nuitka app.py
+          --standalone --onefile
+          --onefile-tempdir-spec="{CACHE_DIR}/Esystem/cache"
+          --enable-plugin=pyside6
+          --nofollow-import-to=PyQt5 --nofollow-import-to=PyQt6 --nofollow-import-to=PySide2
+          --include-package=jinja2 --include-package=uvicorn
+          --include-data-dir=Controllers=Controllers
+          --include-data-dir=app=app
+          --include-data-dir=app/alembic=app/alembic
+          --include-data-files=app/alembic.ini=app/alembic.ini
+          --include-data-files=app/alembic/versions/*.py=app/alembic/versions/
+          --include-data-file=app/alembic/env.py=app/alembic/env.py
+          --nofollow-import-to=app.alembic
+          --include-module=logging.config
+          --include-data-dir=Helper=Helper
+          --include-package-data=cryptography
+          --include-module=win32api --include-module=win32security
+          --windows-icon-from-ico=icon_server.ico
+          --windows-company-name="Infini-Software-server"
+          --windows-product-name="ecole Serveur"
+          --windows-product-version="1.0.3"
+          --windows-file-version="1.0.4"
+          --windows-file-description="Logiciel de gestion scolaire server"
+          --output-filename=ecole_nginx_server.exe
+          --output-dir=build
+          --remove-output
+          --nofollow-import-to=tkinter,test
+          --assume-yes-for-downloads
+          --lto=yes
+
+      # GTK (requis par WeasyPrint) n'est pas encore packagé à côté de l'exe —
+      # gtk_runtime/ existe dans le repo mais doit être copié/référencé
+      # explicitement après le build. À traiter dans un second temps.
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ecole-nginx-server
+          path: ecole_nginx/build/ecole_nginx_server.exe
+          if-no-files-found: error

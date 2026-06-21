@@ -1,0 +1,305 @@
+Pour gérer efficacement l'activation et la connexion des boutons en fonction des rôles multiples d'un utilisateur dans une application PyQt5, vous pouvez adapter votre code comme suit :
+
+
+---
+
+1. Définir les rôles et les boutons associés
+
+Commencez par définir les rôles et les boutons qui leur sont associés :
+
+roles_boutons = {
+    'admin': [
+        'btn_left_home', 'btn_left_admin', 'btn_left_etudiant', 'btn_left_paiement',
+        'btn_left_prof', 'btn_left_cours', 'btn_left_promus', 'btn_left_rapport',
+        'btn_left_vente', 'btn_left_profile', 'btn_settings', 'btn_actualiser'
+    ],
+    'professeur': ['btn_left_notes'],
+    'caissier': ['btn_left_paiement', 'btn_left_vente'],
+    'responsable_pedagogique': ['btn_left_paiement', 'btn_left_vente', 'btn_left_etudiant']
+}
+
+
+---
+
+2. Identifier les rôles de l'utilisateur
+
+Ensuite, obtenez les rôles de l'utilisateur actuel. Si un utilisateur peut avoir plusieurs rôles, vous pouvez les stocker dans une liste :
+
+roles_utilisateur = ['professeur', 'caissier']  # Exemple : l'utilisateur a les rôles 'professeur' et 'caissier'
+
+
+---
+
+3. Activer ou désactiver les boutons en fonction des rôles
+
+Parcourez tous les boutons et activez-les ou désactivez-les en fonction des rôles de l'utilisateur :
+
+# Liste de tous les boutons
+btn_left = [
+    'btn_left_home', 'btn_left_admin', 'btn_left_etudiant', 'btn_left_paiement',
+    'btn_left_prof', 'btn_left_cours', 'btn_left_promus', 'btn_left_rapport',
+    'btn_left_vente', 'btn_left_profile', 'btn_settings', 'btn_actualiser'
+]
+
+# Dictionnaire des callbacks de boutons
+button_callbacks = {
+    'btn_left_home': self.dash_page,
+    'btn_left_admin': self.admin_page,
+    'btn_left_etudiant': self.etudiant_page,
+    'btn_left_paiement': self.paiement_page,
+    'btn_left_prof': self.professeur_page,
+    'btn_left_cours': self.cours_page,
+    'btn_left_notes': self.notes_page,
+    'btn_settings': self.settings_page,
+    'btn_actualiser': self.actualiser_page,
+    'btn_left_promus': self.promus_page,
+    'btn_left_rapport': self.rapport_page,
+    'btn_left_vente': self.vente_page,
+    'btn_left_profile': self.profile,
+}
+
+# Activer ou désactiver les boutons en fonction des rôles
+for btn_name in btn_left:
+    btn = getattr(self.ui, btn_name)
+    if any(role in roles_utilisateur for role in roles_boutons if btn_name in roles_boutons[role]):
+        btn.setEnabled(True)
+        btn.clicked.connect(button_callbacks[btn_name])
+    else:
+        btn.setEnabled(False)
+
+# Rediriger vers la page par défaut
+if 'admin' in roles_utilisateur:
+    self.ui.main_with_shadow.setCurrentIndex(4)
+    self.ui.stackedWidget.setCurrentIndex(0)
+else:
+    self.ui.stackedWidget.setCurrentIndex(7)
+    self.ui.btn_left_notes.clicked.connect(self.notes_page)
+
+
+---
+
+4. Explication du code
+
+roles_boutons : Un dictionnaire associant chaque rôle à une liste de boutons activés pour ce rôle.
+
+roles_utilisateur : La liste des rôles de l'utilisateur actuel.
+
+btn_left : La liste de tous les boutons disponibles.
+
+button_callbacks : Un dictionnaire associant chaque bouton à sa méthode de callback correspondante.
+
+Boucle for : Parcourt chaque bouton et l'active ou le désactive en fonction des rôles de l'utilisateur.
+
+
+
+---
+
+5. Remarques supplémentaires
+
+Gestion des rôles multiples : Si un utilisateur peut avoir plusieurs rôles, le code vérifie si l'un de ses rôles lui permet d'accéder à un bouton donné.
+
+Utilisation de blockSignals(True) : Si vous souhaitez empêcher temporairement la connexion d'un signal à un bouton, vous pouvez utiliser btn.blockSignals(True) pour désactiver les signaux du bouton. Cela peut être utile si vous devez effectuer des opérations sans déclencher d'événements liés aux boutons.
+
+
+N'hésitez pas à ajuster ce code en fonction de la structure exacte de votre application et des besoins spécifiques de votre projet.
+
+
+
+
+
+
+
+
+
+    def connect_buttons(self):
+        QTimer.singleShot(200, self.request_finished)
+        self.ui.btn_left_deconnexion.clicked.connect(self.deconnexion)
+
+        # Liste des noms des boutons (exactement comme dans ton UI)
+        btn_left = [
+            'btn_left_admin', 'btn_left_etudiant',
+            'btn_left_paiement', 'btn_left_prof', 'btn_left_cours',
+             'btn_left_promus', 'btn_left_rapport',
+            'btn_left_vente', 'btn_left_profile'
+        ]
+# 'btn_left_notes','btn_left_home', 
+        # Dictionnaire des signaux à connecter
+        button_callbacks = {
+            # 'btn_left_home': self.dash_page,
+            'btn_left_admin': self.admin_page,
+            'btn_left_etudiant': self.etudiant_page,
+            'btn_left_paiement': self.paiement_page,
+            'btn_left_prof': self.professeur_page,
+            'btn_left_cours': self.cours_page,
+            # 'btn_left_notes': self.notes_page,
+            'btn_left_promus': self.promus_page,
+            'btn_left_rapport': self.rapport_page,
+            'btn_left_vente': self.vente_page,
+            'btn_left_profile': self.profile,
+        }
+
+        # Désactiver ou activer les boutons selon le rôle
+        should_disable = 'admin' not in self.user_roles
+
+        # for btn_name in btn_left:
+        #     btn = getattr(self.ui, btn_name)
+        #     btn.setDisabled(should_disable)  # Désactiver si pas admin
+        #     btn.clicked.connect(button_callbacks[btn_name])  # Connecter le signal
+
+        # # Rediriger vers la page par défaut si admin
+        self.ui.main_with_shadow.setCurrentIndex(4)
+        # if not should_disable:
+        #     self.ui.stackedWidget.setCurrentIndex(0)
+        # else:
+        #             # self.ui.main_with_shadow.setCurrentIndex(4)
+        #     self.ui.stackedWidget.setCurrentIndex(7)
+        #     self.ui.btn_left_notes.clicked.connect(self.notes_page)
+        #     self.ui.btn_left_home.clicked.connect(self.dash_page)
+        #     self.actualiser_page()
+
+            # noccean@hotmail.fr
+
+
+        # btn_left = ['btn_left_home', 'btn_left_admin', 'btn_left_etudiant','btn_left_paiement','btn_left_prof','btn_left_cours','btn_left_promus','btn_left_vente','btn_left_rapport','btn_left_profile']
+        # print(self.user_roles)
+        # if 'admin' not in self.user_roles:
+        #     self.ui.main_with_shadow.setCurrentIndex(4)
+        #     self.ui.stackedWidget.setCurrentIndex(7)
+        #     self.ui.btn_left_home.setDisabled(True)#clicked.connect(self.dash_page)
+        #     self.ui.btn_left_admin.setDisabled(True)#clicked.connect(self.admin_page)
+        #     self.ui.btn_left_etudiant.setDisabled(True)#clicked.connect(self.etudiant_page)
+        #     self.ui.btn_left_paiement.setDisabled(True)#clicked.connect(self.paiement_page)
+        #     self.ui.btn_left_prof.setDisabled(True)#clicked.connect(self.professeur_page)
+        #     self.ui.btn_left_cours.setDisabled(True)#clicked.connect(self.cours_page)
+        #     #self.ui.btn_left_notes.setDisabled(True)#clicked.connect(self.notes_page)
+        #     self.ui.btn_left_promus.setDisabled(True)#clicked.connect(self.promus_page)
+        #     self.ui.btn_left_rapport.setDisabled(True)#clicked.connect(self.rapport_page)
+        #     self.ui.btn_left_vente.setDisabled(True)#clicked.connect(self.vente_page)
+        #     self.ui.btn_left_profile.setDisabled(True)#clicked.connect(self.profile)
+        # else:
+        # self.ui.main_with_shadow.setCurrentIndex(4)
+        self.ui.stackedWidget.setCurrentIndex(0)
+        #     self.ui.btn_left_home.setDisabled(False)#clicked.connect(self.dash_page)
+        #     self.ui.btn_left_admin.setDisabled(False)#clicked.connect(self.admin_page)
+        #     self.ui.btn_left_etudiant.setDisabled(False)#clicked.connect(self.etudiant_page)
+        #     self.ui.btn_left_paiement.setDisabled(False)#clicked.connect(self.paiement_page)
+        #     self.ui.btn_left_prof.setDisabled(False)#clicked.connect(self.professeur_page)
+        #     self.ui.btn_left_cours.setDisabled(False)#clicked.connect(self.cours_page)
+        #     #self.ui.btn_left_notes.setDisabled(False)#clicked.connect(self.notes_page)
+        #     self.ui.btn_left_promus.setDisabled(False)#clicked.connect(self.promus_page)
+        #     self.ui.btn_left_rapport.setDisabled(False)#clicked.connect(self.rapport_page)
+        #     self.ui.btn_left_vente.setDisabled(False)#clicked.connect(self.vente_page)
+        #     self.ui.btn_left_profile.setDisabled(False)#clicked.connect(self.profile)
+
+        self.ui.btn_left_home.clicked.connect(self.dash_page)
+        self.ui.btn_left_admin.clicked.connect(self.admin_page)
+        self.ui.btn_left_etudiant.clicked.connect(self.etudiant_page)
+        self.ui.btn_left_paiement.clicked.connect(self.paiement_page)
+        self.ui.btn_left_prof.clicked.connect(self.professeur_page)
+        self.ui.btn_left_cours.clicked.connect(self.cours_page)
+        self.ui.btn_left_notes.clicked.connect(self.notes_page)
+        self.ui.btn_left_promus.clicked.connect(self.promus_page)
+        self.ui.btn_left_rapport.clicked.connect(self.rapport_page)
+        self.ui.btn_left_vente.clicked.connect(self.vente_page)
+        self.ui.btn_left_profile.clicked.connect(self.profile)
+
+        self.ui.paiement_dialog.clicked.connect(self.search_student)
+        self.ui.notes_dialog.clicked.connect(self.show_dialog_for_notes)
+
+
+        self.ui.cours_stack.clicked.connect(self.cours_page)
+        self.ui.addCours.clicked.connect(self.add_cours_page)
+        self.ui.add_course_line.clicked.connect(self.add_cours_line)
+        self.ui.enregistrer_cours.clicked.connect(self.enregistrer_cours)
+
+        self.ui.programme_stack.clicked.connect(self.programme_index)
+        self.ui.addProgramme.clicked.connect(self.add_programme_page)
+        self.ui.add_programme_line.clicked.connect(self.add_programme_line)
+        self.ui.enregistrer_programme.clicked.connect(self.enregistrer_programme)
+
+        
+        self.ui.btn_vente_page.clicked.connect(self.add_vente)
+        self.ui.btn_vente_back.clicked.connect(self.vente_page)
+        self.ui.imprimer_vente.clicked.connect(self.imprimer_vente)
+        
+
+        self.ui.add_student.clicked.connect(self.add_student_page)
+        self.ui.modifier_etudiant.clicked.connect(self.modifier_etudiant_page)
+        self.ui.suivant_1.clicked.connect(self.responsable_info)
+        self.ui.suivant_2.clicked.connect(self.pieces_soumise)
+
+        self.ui.back_1.clicked.connect(self.back_to_personnal_info)
+        self.ui.back_2.clicked.connect(self.back_to_responsable)
+
+        self.ui.ajouter_document.clicked.connect(self.ajouter_document)
+        self.ui.enregistre.clicked.connect(self.sauvegarde_etudiant)
+        self.ui.back_to_details.clicked.connect(self.back_to_details)
+        # self.ui.search_student_for_detail.textChanged.connect(lambda: self.set_table_refresh_data_for_live_search_student())
+        
+        self.ui.imprimer_etudiant.clicked.connect(self.print_student_details)
+
+
+        
+        # self.ui.recherche_un_user.textChanged.connect(lambda: self.search_timer_permission.start())
+
+        self.ui.recherche_user_role.clicked.connect(lambda: self.set_table_refresh_data_for_live_search_role())
+
+        self.ui.add_personnel.clicked.connect(self.add_personnel)
+        self.ui.enregistrer_admin.clicked.connect(self.sauvegarder_admin)
+
+        self.ui.add_prof_button.clicked.connect(self.add_professeur)
+        self.ui.enregistrer_prof.clicked.connect(self.sauvegarder_professeur)
+
+        self.ui.btn_settings.clicked.connect(self.settings_page)
+        self.ui.btn_actualiser.clicked.connect(self.actualiser_page)
+
+        # self.fetch_data_roles = self.fetch_data_.roles()
+        # self.ui.admin_role
+        # self.fetch_data_permissions = self.fetch_data_.permissions()
+
+
+        self.ui.btn_param_paiement.clicked.connect(self.paiement_params_page)
+        self.ui.btn_param_exam.clicked.connect(self.exam_params_page)
+        self.ui.btn_frais.clicked.connect(self.frais_params_page)
+        self.ui.btn_annee.clicked.connect(self.annee_params_page)
+        self.ui.btn_classe.clicked.connect(self.class_params_page)
+
+        # self.ui.add_year.clicked.connect(self.add_year)
+        # self.ui.add_param_exam.clicked.connect(self.add_param_exam)
+        # self.ui.add_class.clicked.connect(self.add_classe)
+        # self.ui.add_frais.clicked.connect(self.add_frais)
+        # self.ui.add_paiement_params.clicked.connect(self.add_paiement_params)
+
+        # self.ui.global_rapport_imprimer.clicked.connect(self.print_global_report)
+
+        self.ui.valider_profile.clicked.connect(self.save_profile)
+
+        self.ui.btn_permission_page.clicked.connect(self.permission_page)
+        self.ui.btn_role_page.clicked.connect(self.role_page)
+
+
+        self.ui.btn_badge.clicked.connect(self.make_an_identity_card)
+        self.ui.search_for_card.textChanged.connect(lambda: self.set_table_refresh_search_for_card())
+
+        # self.classes_combo = self.fetch_data_.classes_show_check()
+
+
+
+mysql -u root -p -e "SELECT id2, nom, prenom, SUM(versement) AS total_versement FROM paiements WHERE annee_academique = '2024-2025' GROUP BY id2, nom, prenom INTO OUTFILE 'C:/temp/versements.csv' FIELDS TERMINATED BY ',' ENCLOSED BY '\"' LINES TERMINATED BY '\n';" your_database_name
+
+$csv = & cmd /c 'mysql -u root -p1234 -h 127.0.0.1 -P 3306 -D mysql_table -B -e "SELECT idel, anne, SUM(versement) AS total_versement FROM paiement WHERE anne = ''2024-2025'' GROUP BY idel, anne;"'
+$csv | ConvertFrom-Csv -Header idel,anne,total_versement | Export-Csv -Path 'C:\versements.csv' -NoTypeInformation -Encoding UTF8
+
+
+
+mysql -u root -p -D your_database_name -B -e "SELECT id2, nom, prenom, SUM(versement) AS total_versement FROM paiements WHERE annee_academique = '2024-2025' GROUP BY id2, nom, prenom;" > C:\temp\versements.csv
+C:\wamp\bin\mysql\mysql5.6.17\bin>mysql -u root -p1234 -h 127.0.0.1 -P 3306 -D mysql_table -B -e "SELECT idel, anne, SUM(versement) AS total_versement FROM paiement WHERE anne = '2024-2025' GROUP BY idel, anne;" | powershell -Command "Get-Content - | ConvertFrom-Csv -Header idel,anne,total_versement | Export-Csv -Path 'C:\versements.csv' -NoTypeInformation -Encoding UTF8"
+Warning: Using a password on the command line interface can be insecure.
+Get-Content : Cannot find path 'C:\wamp\bin\mysql\mysql5.6.17\bin\-' because it does not exist.
+At line:1 char:1
++ Get-Content - | ConvertFrom-Csv -Header idel,anne,total_versement | E ...
++ ~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (C:\wamp\bin\mysql\mysql5.6.17\bin\-:String) [Get-Content], ItemNotFound
+   Exception
+    + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.GetContentCommand
+

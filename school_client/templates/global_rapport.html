@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+     <style>
+          body {
+               font-family: "Times New Roman", Times;
+               font-size: 13px;
+          }
+
+          .center {
+               text-align: center;
+          }
+
+          .returned {
+               text-decoration: line-through;
+               color: #888;
+          }
+
+          @page {
+               margin-top: 30px
+          }
+
+          table {
+               width: 100%;
+               border-collapse: collapse;
+          }
+
+          table,
+          th,
+          td {
+               border: 1px solid gray;
+               padding: 3px;
+          }
+
+          .school-logo {
+               width: 5rem;
+               height: 5rem;
+               border-radius: 50%;
+               object-fit: cover;
+          }
+     </style>
+</head>
+
+<body>
+     {# En Jinja2, on utilise un namespace pour modifier des variables globales depuis l'intérieur d'une boucle #}
+     {% set ns = namespace(
+     total_final=0,
+     total_depense=0,
+     total_pret_accorder=0,
+     total_remboursement=0
+     ) %}
+
+     <div class="bg-slate-600">
+          <div style="position: absolute; top: 0; margin: 0; border-radius: 50%;">
+               {% if info and info.logo_image_path %}
+               <img src="{{ url_for('static', path='logo/school_logo.png') }}" alt="logo" width="85" height="85"
+                    class="school_logo" />
+               {% endif %}
+          </div>
+          <h2 style="text-align:center; margin:0px">{{ info.nom | default('School name') }}</h2>
+          <p style="text-align:center; margin:0px">{{ info.adresse | default('School Address') }}</p>
+          <p style="text-align:center; margin:0px">{{ info.email | default('School Email') }}</p>
+          <p style="text-align:center; margin:0px">{{ info.ligne1 | default('Phone 1') }} / {{ info.ligne2 |
+               default('Phone 2') }}</p>
+     </div>
+     <hr />
+     <p style="font-size:19px; text-align:center">
+          Ce rapport présente un récapitulatif des opérations financières enregistrées durant la période du
+          <strong>{{ date1 }}</strong> au <strong>{{ date2 }}</strong>.
+     </p>
+
+     <table id="collapse" style="width:100%; margin-top:14px">
+          <thead>
+               <tr>
+                    <td style="width:40%;font-size:14px;font-weight:bold; text-align:center">Désignation</td>
+                    <td style="font-size:14px;font-weight:bold; text-align:center">Statut</td>
+                    <td style="width:15%; font-size:14px;font-weight:bold; text-align:center">Montant</td>
+               </tr>
+          </thead>
+
+          <tbody>
+               {% if type == 'Global' %}
+               {% for level in getNivel %}
+               {% set level_ns = namespace(totalDepot=0) %}
+               <tr>
+                    <td colspan="3" style="font-weight: 900; text-align:center; font-size:14px">{{ level.name }}</td>
+               </tr>
+
+               {% for item in payments %}
+               {% if item.niveau == level.name %}
+               {% set is_returned = item.status_paiement and item.status_paiement.etat is defined %}
+
+               {% if not is_returned %}
+               {% set level_ns.totalDepot = level_ns.totalDepot + (item.depot | float)%}
+               {% endif %}
+
+               <tr>
+                    <td>
+                         <span style="text-transform: uppercase; margin-right:8px">{{ item.nom }}</span> {{ item.prenom
+                         }}
+                    </td>
+                    <td>
+                         {% if item.status_paiement is mapping %}
+                         {% set acquittes = [] %}
+                         {% set avances = [] %}
+                         {% set return_status = item.status_paiement.etat | default('') %}
+
+                         {% for key, val in item.status_paiement.items() %}
+                         {% if val is string %}
+                         {% if val.startswith('Acqt:') %}
+                         {% do acquittes.append(val[5:19]) %}
+                         {% elif val.startswith('Avns:') %}
+                         {% do avances.append(val[5:19]) %}
+                         {% endif %}
+                         {% endif %}
+                         {% endfor %}
+
+                         {% if acquittes %}
+                         <span style="color: green; font-weight: bold;">Acquitté : {{ acquittes | join(', ') }}.</span>
+                         {% endif %}
+
+                         {% if avances %}
+                         <br><span style="color: orange; font-weight: bold;">Avance : {{ avances | join(', ') }}.</span>
+                         {% endif %}
+
+                         {% if return_status %}
+                         <br>
+                         <span style="color: orange; font-weight: bold;">
+                              {% set last_status = item.status_paiement.last_status | default([]) %}
+                              {% set avances_text = last_status | map('replace', 'Acqt: ', '') | map('replace', 'Avns:
+                              ', '') | join(', ') if last_status else '—' %}
+
+                              {{ return_status }}<br>
+                              Ce dépôt de <strong>{{ item.get('depot') }} {{ item.get('devise') }}</strong> a été
+                              effectué le
+                              {{ item.get('date_created', '').replace(' ', ' à ') }} correspond au ({{ avances_text }})
+                              a été retourné le
+                              {{ item.get('date_retour', '').replace('--', ' à ') }}
+                         </span>
+                         {% endif %}
+                         {% else %}
+                         {% if item.status_avance and item.depot_et_avance and item.depot_et_avance > 0 %}
+                         Avance: {{ item.status_avance[:9] if item.status_avance is iterable else
+                         item.status_avance[:9] }} .
+                         {% elif item.status_paiements %}
+                         Acquitté:
+                         {% for val in item.status_paiements %}
+                         {{ val[:8] if val.startswith('1er Versem') else val[:9] }}{{ ", " if not loop.last }}
+                         {% endfor %}
+                         {% endif %}
+                         {% endif %}
+
+                         <span style="margin-left: 16px; float:right; font-weight:800">
+                              ->{{ item.classe[0] if item.classe is iterable and item.classe else item.classe |
+                              default('') }}
+                         </span>
+                    </td>
+                    <!-- <td style="text-align: center; {{ 'text-decoration: line-through;' if is_returned }}">
+                         {{ item.depot }}
+                    </td> -->
+
+                    <td class="center {% if is_returned %}returned{% endif %}">
+                         {{ item.depot }}
+                    </td>
+               </tr>
+               {% endif %}
+               {% endfor %}
+
+               <tr>
+                    <td colspan="2" style="font-size: 14px;font-weight:bold">
+                         Total Paiements <span style="margin-left: 10px;">{{ level.name }}</span>
+                    </td>
+                    <td style="font-size: 14px;font-weight:bold; text-align:center; background-color:lightgray">
+                         {{ level_ns.totalDepot }}
+                    </td>
+               </tr>
+               {% endfor %}
+
+               {# Calcul du grand total global des paiements #}
+               {% set grandTotal_ns = namespace(val=0) %}
+               {% for item in payments %}
+               {% if not (item.status_paiement and item.status_paiement.etat is defined) %}
+               {% set grandTotal_ns.val = grandTotal_ns.val + (item.depot | float) %}
+               {% set ns.total_final = ns.total_final + (item.depot | float) %}
+               {% endif %}
+               {% endfor %}
+
+               <tr>
+                    <td colspan="2" style="font-size: 14px;font-weight:bold;background-color:#dfdede;">
+                         TOTAL PAIEMENT DES ELEVES
+                    </td>
+                    <td
+                         style="font-size: 14px;font-weight:bold; text-align:center; background-color:#dfdede; color:#2e2d2d">
+                         {{ grandTotal_ns.val }} GDES
+                    </td>
+               </tr>
+               {% endif %}
+
+               {# Section Inscriptions #}
+               {% if type == 'Global' or type == 'Inscription' %}
+               <tr>
+                    <td colspan="3" style="font-weight: 900; text-align:center; font-size:15px">INSCRIPTION</td>
+               </tr>
+               {% for key, item in inscription.items() %}
+               <tr>
+                    <td colspan="2" style="font-size:15px">Incription {{ key }}</td>
+                    <td style="text-align:center; font-size:15px">{{ item.total_inscrit }}</td>
+               </tr>
+               <tr style="font-weight: bold">
+                    <td colspan="2" style="font-size:15px">Total Incription {{ key }}</td>
+                    <td style="text-align:center; font-size:15px;background-color:#dfdede">
+                         {{ item.frais_total }} GDES
+                    </td>
+               </tr>
+               {% set ns.total_final = ns.total_final + item.frais_total %}
+               {% endfor %}
+               {% endif %}
+
+               {# Section Vente Matériel #}
+               <tr>
+                    <td colspan="3" style="font-weight: 900; text-align:center; font-size:14px">VENTE DE MATÉRIEL</td>
+               </tr>
+               {% for key, item in sales.items() %}
+               {% if type == 'Global' or type == key %}
+               <tr>
+                    <td colspan="3" style="text-align: center">---------------------------- <span
+                              style="font-size: 16px; font-weight:300">{{ key }}{{ 's' if key == 'Arriéré' }}</span>
+                         -------------------------</td>
+               </tr>
+               <tr>
+                    <td colspan="2" style="font-size:15px">{{ 'Quantité' if key == 'Arriéré' else 'Quantité(e) vendue'
+                         }}</td>
+                    <td style="text-align:center; font-size:15px">{{ item.quantite }}</td>
+               </tr>
+               {% if item.items %}
+               <tr>
+                    <th>Nom</th>
+                    <th>Description</th>
+                    <th>{{ 'Montant' if key == 'Arriéré' else 'Prix' }}</th>
+               </tr>
+               {% for v in item.items %}
+               <tr>
+                    <td>{{ v.fname }} {{ v.prenom }}</td>
+                    <td>{{ v.vente_name }}</td>
+                    <td>{{ v.order_total }}</td>
+               </tr>
+               {% endfor %}
+               {% endif %}
+               <tr style="font-weight: bold">
+                    <td colspan="2" style="font-size:15px">{{ 'Total' if key == 'Arriéré' else 'Total des ventes' }}
+                    </td>
+                    <td style="text-align:center; font-size:15px;background-color:#dfdede">
+                         {{ item.total }} GDES
+                    </td>
+               </tr>
+               {% set ns.total_final = ns.total_final + item.total %}
+               {% endif %}
+               {% endfor %}
+
+               {# Section Prêts #}
+               {% if type == 'Global' or type == 'Prêt' %}
+               <tr>
+                    <td colspan="3"
+                         style="font-weight: 900; text-align:center; font-size:15px; text-transform:uppercase">Prêt
+                         accordé</td>
+               </tr>
+               {% for item in loans %}
+               <tr>
+                    <td colspan="2" style="font-size:15px">{{ item.amount }}</td>
+                    <td style="text-align:center; font-size:15px">{{ item.amount }}</td>
+               </tr>
+               {% set ns.total_pret_accorder = ns.total_pret_accorder + item.amount %}
+               {% endfor %}
+               <tr style="font-weight: bold">
+                    <td colspan="2" style="font-size:15px">Total des Prêts accordés</td>
+                    <td style="text-align:center; font-size:15px;background-color:#dfdede">{{ ns.total_pret_accorder }}
+                         GDES</td>
+               </tr>
+               {% set ns.total_final = ns.total_final - ns.total_pret_accorder %}
+               {% endif %}
+
+               {# Section Remboursements #}
+               {% if type == 'Global' or type == 'Remboursement' %}
+               <tr>
+                    <td colspan="3"
+                         style="font-weight: 900; text-align:center; font-size:15px; text-transform:uppercase">
+                         Remboursement</td>
+               </tr>
+               {% for item in repayment %}
+               <tr>
+                    <td colspan="2" style="font-size:15px">{{ item.paid_amount }}</td>
+                    <td style="text-align:center; font-size:15px">{{ item.paid_amount }}</td>
+               </tr>
+               {# % set ns.total_remboursement = ns.total_remboursement + item.paid_amount % #}
+               {{ item.keys() }}
+               {% set ns.total_remboursement = ns.total_remboursement + (item['paid_amount'] | default(0) | float) %}
+               {% endfor %}
+               <tr style="font-weight: bold">
+                    <td colspan="2" style="font-size:15px">Total des Remboursements</td>
+                    <td style="text-align:center; font-size:15px;background-color:#dfdede">{{ ns.total_remboursement }}
+                         GDES</td>
+               </tr>
+               {% set ns.total_final = ns.total_final + ns.total_remboursement %}
+               {% endif %}
+
+               {# Section Dépenses #}
+               {% if type == 'Global' or type == 'Depenses' %}
+               <tr>
+                    <td colspan="3"
+                         style="font-weight: 900; text-align:center; font-size:15px; text-transform:uppercase">dépenses
+                    </td>
+               </tr>
+               {% for item in depenses %}
+               <tr>
+                    <td colspan="2" style="font-size:15px">{{ item.description }}</td>
+                    <td style="text-align:center; font-size:15px">{{ item.prix }}</td>
+               </tr>
+               {% set ns.total_depense = ns.total_depense + item.prix %}
+               {% endfor %}
+               <tr style="font-weight: bold">
+                    <td colspan="2" style="font-size:15px">Total des dépenses</td>
+                    <td style="text-align:center; font-size:15px;background-color:#dfdede">{{ ns.total_depense }} GDES
+                    </td>
+               </tr>
+               {% endif %}
+
+               <tr>
+                    <td colspan="3" style="text-align:center">.</td>
+               </tr>
+               <tr>
+                    <td colspan="3" style="font-weight: 900; text-align:center; font-size:14px">GRAND TOTAL</td>
+               </tr>
+               <tr style="font-weight: bold">
+                    <td colspan="2" style="font-size:15px">Total des rentrées</td>
+                    <td style="text-align:center; font-size:15px;background-color:#dfdede">{{ ns.total_final }} GDES
+                    </td>
+               </tr>
+               <tr style="font-weight: bold">
+                    <td colspan="2" style="font-size:15px">Rentrées - Sortie</td>
+                    <td style="text-align:center; font-size:15px;background-color:#dfdede">{{ ns.total_final -
+                         ns.total_depense }} GDES</td>
+               </tr>
+          </tbody>
+     </table>
+</body>
+
+</html>

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+     <style>
+          body {
+               font-family: "Times New Roman", Times;
+          }
+
+          @page {
+               margin-top: 30px
+          }
+
+          table {
+               width: 100%;
+               border-collapse: collapse;
+          }
+
+          table,
+          th,
+          td {
+               border: 0px solid gray;
+               padding: 4px;
+          }
+
+
+          .school-logo {
+               width: 85px;
+               height: 85px;
+               border-radius: 50%;
+               object-fit: cover;
+          }
+
+          .school-logo {
+               width: 5rem;
+               /* Environ 80px */
+               height: 5rem;
+          }
+
+          .section-container {
+               width: 100%;
+               display: flex;
+          }
+
+          .section {
+               width: 50%;
+               margin-top: 14px;
+               text-align: center;
+          }
+
+          .section p {
+               margin-left: 20px;
+               font-weight: bold;
+               font-size: 17px;
+          }
+
+          .flex-container {
+               display: flex;
+               flex-wrap: nowrap;
+          }
+
+          .flex-container>div {
+               display: inline-flex;
+               width: 100px;
+               margin: 10px;
+               text-align: center;
+               line-height: 75px;
+               font-size: 17px;
+          }
+                    .school_logo {
+          position: absolute;
+          top: 15px;
+          left: 15px;
+          width: 85px;
+          height: 85px;
+          }
+
+          .page-break {
+               page-break-before: always;
+          }
+     </style>
+</head>
+
+<body>
+
+     <div class="bg-slate-600">
+
+              <!-- <div style="position: absolute; top: 0; margin: 0; border-radius: 50%;"> -->
+               {% if logo_image_path %}
+               <img src="{{logo_image_path}}" alt="logo" width="85" height="85" class="school_logo" />
+               {% endif %}
+          <!-- </div> -->
+          <h2 style="text-align:center; margin:0px">{{ info.nom if info else 'School name' }}</h2>
+          <p style="text-align:center; margin:0px">{{ info.adresse if info else 'School Address' }}</p>
+          <p style="text-align:center; margin:0px">{{ info.email if info else 'School Email' }}</p>
+          <p style="text-align:center; margin:0px">{{ info.ligne1 if info else 'Phone 1' }} / {{ info.ligne2 if info
+               else 'Phone 2' }}</p>
+     </div>
+     <hr />
+
+     {% if data_pedagogique %}
+     {% if classe == 'Toutes les classes' %}
+     {# Trier et grouper les données avec namespace #}
+     {% set ns_main = namespace(
+     sortedData=data_pedagogique|sort(attribute='classe'),
+     totalEchec=0,
+     groupes={}
+     ) %}
+
+     {# Calcul du total d'échec #}
+     {% for item in ns_main.sortedData %}
+     {% if item.status == "Echec" %}
+     {% set ns_main.totalEchec = ns_main.totalEchec + 1 %}
+     {% endif %}
+     {% endfor %}
+
+     {# Regroupement par classe #}
+     {% for item in ns_main.sortedData %}
+     {% set group_key = item.classe %}
+     {% if group_key in ns_main.groupes %}
+     {% set ns_main.groupes[group_key] = ns_main.groupes[group_key] + [item] %}
+     {% else %}
+     {% set ns_main.groupes[group_key] = [item] %}
+     {% endif %}
+     {% endfor %}
+
+     <table id="collapse" style="width:100%; margin-top:14px">
+          <thead>
+               <tr>
+                    <td style="width:40%;font-size:14px;font-weight:bold; text-align:center"></td>
+                    <td style="font-size:14px;font-weight:bold; text-align:center"></td>
+               </tr>
+          </thead>
+
+          <tbody>
+               {% for key, values in ns_main.groupes.items() %}
+               {# Variables pour chaque groupe avec namespace #}
+               {% set ns_group = namespace(
+               echec=0,
+               echecTotal=0,
+               echecList=[],
+               max_moyenne=-1,
+               meilleur_etudiant={},
+               professeur=''
+               ) %}
+
+               {% for v in values %}
+               {% set ns_group.professeur = v.professeur %}
+
+               {# Recherche du meilleur étudiant #}
+               {% if v.moyenne is defined and v.moyenne > ns_group.max_moyenne %}
+               {% set ns_group.max_moyenne = v.moyenne %}
+               {% set ns_group.meilleur_etudiant = {
+               'nom': v.nom if v.nom is defined else '',
+               'prenom': v.prenom if v.prenom is defined else '',
+               'moyenne': v.moyenne
+               } %}
+               {% endif %}
+
+               {# Comptage des échecs #}
+               {% if v.status == 'Echec' %}
+               {% set ns_group.echec = ns_group.echec + 1 %}
+               {% if v.nom is defined %}
+               {% set ns_group.echecList = ns_group.echecList + [{
+               'nom': v.nom,
+               'prenom': v.prenom,
+               'moyenne': v.moyenne
+               }] %}
+               {% endif %}
+               {% endif %}
+
+               {% set ns_group.echecTotal = ns_group.echecTotal + ns_group.echec %}
+               {% endfor %}
+
+               {% if loop.index > 1 %}
+               <tr>
+                    <td colspan="2" style="padding:12px;">
+                         <hr>
+                    </td>
+               </tr>
+               {% endif %}
+
+               <tr style="font-weight: bold">
+                    <td colspan="2" style="font-weight: bold; font-size:18px; text-align:center">{{ key }}</td>
+               </tr>
+               <tr style="font-weight: bold">
+                    <td style="font-weight: bold; font-size:15px">Effectif</td>
+                    <td style="font-weight: bold; font-size:15px">{{ values|length }}</td>
+               </tr>
+
+               <!-- <tr style="font-weight: bold">
+                            <td style="font-weight: bold; font-size:15px">Composés</td>
+                            <td style="font-weight: bold; font-size:15px">---</td>
+                        </tr> -->
+
+               <tr style="font-weight: bold">
+                    <td style="font-weight: bold; font-size:15px">Premier (ère)</td>
+                    <td style="font-weight: bold; font-size:15px">
+                         {% if ns_group.meilleur_etudiant %}
+               <tr>
+                    <td style="width:70%"><span style="margin-left:40px">1 - </span><span
+                              style="text-transform:uppercase">{{ ns_group.meilleur_etudiant.nom }}</span> {{
+                         ns_group.meilleur_etudiant.prenom }}</td>
+                    <td><span style="margin-left:20px; color:green">{{ ns_group.meilleur_etudiant.moyenne }}</span></td>
+               </tr>
+               {% endif %}
+               </td>
+               </tr>
+
+               <tr style="font-weight: bold">
+                    <td style="font-weight: bold; font-size:15px">Echoués</td>
+                    <td style="font-weight: bold; font-size:15px">{{ ns_group.echec }}</td>
+               </tr>
+
+               <tr>
+                    <td>
+                         <!-- La liste -->
+                    </td>
+                    <td>
+                         {% if ns_group.echecList %}
+                         {% for echec_item in ns_group.echecList %}
+               <tr>
+                    <td style="width:70%"><span style="margin-left:40px">{{ loop.index }} - </span><span
+                              style="text-transform:uppercase">{{ echec_item.nom }}</span> {{ echec_item.prenom }}</td>
+                    <td><span style="margin-left:20px; color:red">{{ echec_item.moyenne }}</span></td>
+               </tr>
+               {% endfor %}
+               {% endif %}
+               </td>
+               </tr>
+
+               <tr style="font-weight: bold">
+                    <td style="font-weight: bold; font-size:15px">Professeur</td>
+                    <td style="font-weight: bold; font-size:15px">{{ ns_group.professeur if ns_group.professeur else ""
+                         }}</td>
+               </tr>
+               {% endfor %}
+
+               <tr>
+                    <td colspan="2" style="padding-top:20px;">
+                         <hr>
+                    </td>
+               </tr>
+
+               <tr style="background-color:999x;padding:4px; padding-left:10px">
+                    <td>Effectif total</td>
+                    <td>{{ ns_main.sortedData|length }}</td>
+               </tr>
+
+               <tr style="background-color:999x;padding:4px; padding-left:10px">
+                    <td>Échec total</td>
+                    <td>{{ ns_main.totalEchec }}</td>
+               </tr>
+
+               <tr style="background-color:999px;padding:4px; padding-left:10px">
+                    <td>Pourcentage d'échec</td>
+                    <td>{{ "%.2f"|format((ns_main.totalEchec / ns_main.sortedData|length) * 100) if
+                         ns_main.sortedData|length > 0 else 0 }}%</td>
+               </tr>
+          </tbody>
+     </table>
+     {% endif %}
+     {% else %}
+     <h3 style="text-align: center; padding:15px; color:crimson">Aucune donnée ne correspond aux paramètres que vous
+          avez choisis.</h3>
+     {% endif %}
+
+</body>
+
+</html>

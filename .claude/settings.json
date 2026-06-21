@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ' *)",
+      "Bash(rm -rf .git)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git branch *)",
+      "Bash(git reset *)",
+      "Bash(rm -rf ecole_nginx/.git && find . -maxdepth 2 -iname \".git\" -type d)",
+      "Bash(grep -i \"\\\\.env$\")",
+      "Bash(grep -v \"^\\\\./node_modules$\\\\|^\\\\./venv$\")",
+      "Bash(git rm *)",
+      "Bash(grep -iE \"\\\\.env$\")",
+      "Bash(grep -iE \"\\\\.\\(db|sqlite3\\)$\")",
+      "Bash(grep -iE \"secret|credential|private.?key|\\\\.pem$|\\\\.key$\")",
+      "Bash(grep -iE \"\\\\.key$|server\\\\.key|ca\\\\.key|private\")",
+      "Bash(git ls-tree *)",
+      "Bash(awk '$4 > 50000000 {print $4/1024/1024 \" MB  \" $5}')"
+    ],
+    "additionalDirectories": [
+      "/Users/kikipllc/development/school/ecole_nginx/.git"
+    ]
+  }
+}

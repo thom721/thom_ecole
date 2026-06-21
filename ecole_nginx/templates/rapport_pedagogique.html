@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+     <meta charset="UTF-8">
+     <style>
+          @page {
+               size: A4 portrait;
+               margin: 30px;
+          }
+
+          body {
+               font-family: 'Times New Roman', Times, 'Segoe UI', Arial, sans-serif;
+               font-size: 11px;
+               color: #333;
+               line-height: 1.4;
+          }
+
+          /* En-tête */
+          .header {
+               text-align: center;
+               margin-bottom: 25px;
+               border-bottom: 2px solid #2c3e50;
+               padding-bottom: 10px;
+          }
+
+          .school-name {
+               font-size: 20px;
+               font-weight: bold;
+               color: #2c3e50;
+          }
+
+          /* Stats Globales */
+          .summary-grid {
+               display: grid;
+               grid-template-columns: repeat(3, 1fr);
+               gap: 25px;
+               margin-bottom: 30px;
+          }
+
+          .card {
+               padding: 15px;
+               border-radius: 8px;
+               text-align: center; 
+          }
+          .card.total {
+               background-color: #f5f5f5;
+               color: #666866;
+
+          }
+
+          .card.success {
+               background-color: #e6f4ea;
+               color: #34a853;
+
+          }
+
+          .card.failure {
+               background-color: #fce8e6; 
+               color: #ea4335;
+          }
+
+          .card .value {
+               font-size: 24px;
+               font-weight: bold;
+               display: block;
+          }
+
+          .card .label {
+               font-size: 12px;
+               text-transform: uppercase;
+               color: #666;
+          }
+
+          /* Barre de progression globale */
+          .progress-container {
+               margin: 20px 0;
+               background: #f8ebeb;
+               height: 12px;
+               border-radius: 6px;
+               overflow: hidden;
+               position: relative;
+          }
+
+          .progress-bar {
+               background: #34a853;
+               height: 100%;
+               transition: width 0.3s;
+          }
+
+          /* Tableau des échecs */
+          .section-title {
+               background: #2c3e50;
+               color: white;
+               padding: 8px 12px;
+               font-size: 13px;
+               border-radius: 4px;
+               margin-top: 30px;
+          }
+
+          table {
+               width: 100%;
+               border-collapse: collapse;
+               margin-top: 10px;
+          }
+
+          th {
+               background: #f8f9fa;
+               text-align: left;
+               padding: 10px;
+               border-bottom: 2px solid #2c3e50;
+          }
+
+          td {
+               padding: 10px;
+               border-bottom: 1px solid #eee;
+               vertical-align: top;
+          }
+
+          .student-name {
+               font-weight: bold;
+               color: #2c3e50;
+          }
+
+          .moyenne-badge {
+               background: #ea4335;
+               color: white;
+               padding: 2px 6px;
+               border-radius: 4px;
+               font-weight: bold;
+          }
+
+          /* Liste des matières */
+          .matiere-list {
+               display: flex;
+               flex-wrap: wrap;
+               gap: 5px;
+               margin-top: 5px;
+          }
+
+          .matiere-tag {
+               background: #fff0f0;
+               border: 1px solid #f9d6d5;
+               color: #b71c1c;
+               padding: 2px 8px;
+               border-radius: 12px;
+               font-size: 10px;
+          }
+
+                    .header-table {
+               width: 100%;
+               border: none;
+               margin-bottom: 10px;
+          }
+
+          .header-table td {
+               border: none;
+               padding: 0;
+               vertical-align: middle;
+          }
+
+          .school_logo {
+               width: 60px;
+               height: 60px;
+               object-fit: contain;
+          }
+
+          .school-info {
+               text-align: center;
+          }
+
+          .school-info h1 {
+               margin: 0;
+               color: #1a2a6c;
+               font-size: 22px;
+               text-transform: uppercase;
+          }
+
+          .school-info p {
+               margin: 2px 0;
+               font-size: 12px;
+          }
+
+          hr {
+               border: 0;
+               border-top: 1px solid #888;
+               margin: 10px 0;
+          }
+
+               .footer-section {
+          margin-top: 60px;
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+     }
+
+     .signature-box {
+          text-align: center;
+          width: 250px;
+     }
+
+     .signature-space {
+          height: 80px;
+          margin-top: 10px;
+          border-bottom: 1px dashed #333;
+          position: relative;
+     }
+
+     .seal-digital {
+          position: absolute;
+          top: -10px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 100px;
+          opacity: 0.6;
+          z-index: -1;
+     }
+
+     .stamp-text {
+          border: 2px double #d32f2f;
+          color: #d32f2f;
+          font-size: 10px;
+          font-weight: bold;
+          padding: 5px;
+          display: inline-block;
+          transform: rotate(-5deg);
+          border-radius: 5px;
+          margin-top: 10px;
+     }
+     </style>
+</head>
+
+<body>
+
+     <!-- <div class="header">
+          <div class="school-name">Institution Mixte DDO</div>
+         
+          <div style="color: #666;">Période : {{ periode }} | Date : {{ date_export }}</div>
+     </div> -->
+
+          <table class="header-table">
+               <tr>
+                    <td style="width: 15%;">
+                         {% if _info and _info.logo_image_base64 %}
+                         <img src="{{ _info.logo_image_base64 }}" class="school_logo">
+                         {% endif %}
+                    </td>
+                    <td class="school-info">
+                         <h1>{{ _info.nom or 'NOM DE L\'INSTITUTION' }}</h1>
+                         <p><strong>{{ _info.adresse or 'Adresse de l\'école' }}</strong></p>
+                         <p>Email: {{ _info.email or 'contact@ecole.com' }} | Tél: {{ _info.ligne1 }} {{ ' / ' + _info.ligne2 if
+                              _info.ligne2 }}</p>
+                         <p><em>"Vers l'excellence académique"</em></p>
+                    </td>
+                    <td style="width: 15%; text-align: right;">
+                         <p style="font-size: 10px;">Date: {{ date }}</p>
+
+                    </td>
+               </tr>
+          </table>
+          <hr>
+          <div style="text-transform: uppercase; letter-spacing: 1px; text-align: center; font-size: medium;">Rapport de Performance Pédagogique</div>
+          <p style="text-align: right;font-style: italic;">Période : {{ periode }}</p>
+     <div class="summary-grid">
+          <div class="card total">
+               <span class="label">Effectif Total</span>
+               <span class="value">{{ total_eleves }}</span>
+          </div>
+          <div class="card success" style="margin-top: 10px; margin-bottom: 10px;">
+               <span class="label">Réussite ({{ pourcentage_reussite }}%)</span>
+               <span class="value">{{ total_succes }}</span>
+          </div>
+          <div class="card failure">
+               <span class="label">Échec ({{ pourcentage_echec }}%)</span>
+               <span class="value">{{ total_echec }}</span>
+          </div>
+     </div>
+
+     <div class="progress-container">
+          <div class="progress-bar" style="width: {{ pourcentage_reussite }}%;"></div>
+     </div>
+
+     <div class="section-title">Focus Pédagogique : Liste des élèves en difficulté et matières associées</div>
+     <table>
+          <thead>
+               <tr>
+                    <th style="width: 25%;">Nom & Prénom</th>
+                    <th style="width: 15%;">Classe</th>
+                    <th style="width: 10%;">Moyenne</th>                    
+                    <th style="width: 50%;">Détail des Lacunes (Matières & Notes)</th>
+                    <!-- <th style="width: 50%;">Matières sous la moyenne (< {{ note_passage }})</th> -->
+               </tr>
+          </thead>
+          <tbody>
+               {% if liste_echecs|length > 0 %}
+               {% for eleve in liste_echecs %}
+               <tr>
+                    <td><span class="student-name">{{ eleve.nom }} {{ eleve.prenom }}</span></td>
+                    <td>{{ eleve.classe }}</td>
+                    <td><span class="moyenne-badge">{{ eleve.moyenne }}</span></td>
+                    <td>
+                         <div class="matiere-list">
+                              {% for matiere in eleve.matieres_faibles %}
+                              <span class="matiere-tag">{{ matiere.nom }} ({{ matiere.note }})</span>
+                              {% else %}
+                              <span style="color: #999; font-style: italic;">Échec global (moyenne pondérée)</span>
+                              {% endfor %}
+                         </div>
+                    </td>
+               </tr>
+               {% endfor %}
+               {% else %}
+               <tr>
+                    <td colspan="4" class="no-data" style="font-size: 12px;color: #34a853;text-align: center;text-transform: uppercase;">Félicitations ! Aucun échec enregistré pour cette sélection.</td>
+               </tr>
+               {% endif %}
+          </tbody>
+     </table>
+
+<div
+     style="margin-top: 50px; font-size: 12px; color: #aaa; text-align: center; border-top: 1px solid #eee; padding-top: 10px;">
+     Document interne à usage pédagogique - Généré le {{ date }}
+</div>
+ 
+
+<!-- <div class="footer-section">
+     <div class="signature-box">
+          <strong>Le Responsable Pédagogique</strong>
+          <div class="signature-space">
+          </div>
+          <p style="font-size: 10px;">Date : ____/____/2026</p>
+     </div>
+
+     <div class="signature-box">
+          <strong>Direction Générale</strong>
+          <div class="signature-space">
+               <div class="stamp-text">DIRECTION APPROUVÉE<br>DOCUMENT OFFICIEL</div>
+          </div>
+          <p style="font-size: 9px; font-style: italic; color: #666;">
+               Signé électroniquement par : <br>
+               {{ _info.directeur if _info else "Le Directeur" }}
+          </p>
+     </div>
+</div> -->
+
+</body>
+
+</html>

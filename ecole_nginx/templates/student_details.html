@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+     <meta charset="utf-8" />
+     <style>
+          /* @page {
+               margin: 1.5cm;
+          } */
+           @page {
+               margin: 30px;
+          }
+
+          body {
+               /* font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; */
+               font-family: 'Helvetica', 'Arial', sans-serif;
+               font-size: 14px;
+               color: #333; 
+               line-height: 1.3;
+          }
+
+          /* En-tête */
+          .header {
+               display: flex;
+               align-items: center;
+               border-bottom: 2px solid #444;
+               padding-bottom: 10px;
+          }
+
+          .logo {
+               width: 100px;
+               height: auto;
+          }
+
+          .school-info {
+               flex-grow: 1;
+               text-align: center;
+          }
+
+          /* Section Profil */
+          .section-title {
+               background: #f0f0f0;
+               padding: 5px 10px;
+               font-weight: bold;
+               border-left: 5px solid #333;
+               margin-top: 20px;
+               text-transform: uppercase;
+          }
+
+          .grid-info {
+               display: grid;
+               grid-template-columns: 1fr 1fr;
+               gap: 10px;
+               margin-top: 10px;
+          }
+
+          .info-item {
+               margin-bottom: 5px;
+          }
+
+          .label {
+               font-weight: bold;
+               color: #555;
+          }
+
+          /* Tableau du Parcours */
+          table {
+               width: 100%;
+               border-collapse: collapse;
+               margin-top: 10px;
+          }
+
+          th {
+               background-color: #333;
+               color: white;
+               text-align: left;
+               padding: 8px;
+               font-size: 14px;
+          }
+
+          td {
+               border: 1px solid #ddd;
+               padding: 7px;
+               font-size: 14px;
+          }
+
+          tr:nth-child(even) {
+               background-color: #f9f9f9;
+          }
+
+          
+                    .header-table {
+               width: 100%;
+               border: none;
+               margin-bottom: 10px;
+          }
+
+          .header-table td {
+               border: none;
+               padding: 0;
+               vertical-align: middle;
+          }
+
+          .school_logo {
+               width: 70px;
+               height: 70px;
+               object-fit: contain;
+          }
+
+          .school-info {
+               text-align: center;
+          }
+       .school-info h1 {
+               margin: 0;
+               color: #1a2a6c;
+               font-size: 22px;
+               text-transform: uppercase;
+          }
+
+          .school-info p {
+               margin: 2px 0;
+               font-size: 14px;
+          }
+                 hr {
+               border: 0;
+               border-top: 1px solid #ccc;
+               margin: 8px 0;
+          }
+     </style>
+</head>
+
+<body>
+
+     <table class="header-table">
+          <tr>
+               <td style="width: 15%;">
+                    {% if info and info.logo_image_base64 %}
+                    <img src="{{ info.logo_image_base64 }}" class="school_logo">
+                    {% endif %}
+               </td>
+               <td class="school-info">
+                    <h1>{{ info.nom or 'NOM DE L\'INSTITUTION' }}</h1>
+                    <p><strong>{{ info.adresse or 'Adresse de l\'école' }}</strong></p>
+                    <p>Email: {{ info.email or 'contact@ecole.com' }} | Tél: {{ info.ligne1 }} {{ ' / ' + info.ligne2 if
+                         info.ligne2 }}</p>
+                    <p><em>"Vers l'excellence académique"</em></p>
+               </td>
+               <td style="width: 15%; text-align: right;">
+                    <p style="font-size: 10px;">Date: {{ date }}</p>
+               </td>
+          </tr>
+     </table>
+     
+     <hr />
+
+     <!-- <div class="bg-slate-600">
+          <div style="position: absolute; top: 0; margin: 0; border-radius: 50%;">
+               {% if info and info.logo_image_base64 %}
+               <img src="{{ info.logo_image_base64 }}" class="school_logo">
+               {% else %}
+               <p>Logo non disponible</p>
+               {% endif %}
+     
+          </div>
+          <h1 style="text-align:center; margin:0px">{{ info.nom if info and info.nom else 'School name' }}</h1>
+          <p style="text-align:center; margin:0px">Fondée le 26 Avril 1985</p>
+          <p style="text-align:center; margin:0px">{{ info.adresse if info and info.adresse else 'School Address' }}</p>
+          <p style="text-align:center; margin:0px">{{ info.email if info and info.email else 'School Email' }}</p>
+          <p style="text-align:center; margin:0px">{{ info.ligne1 if info and info.ligne1 else 'Phone 1' }} / {{
+               info.ligne2 if info and info.ligne2 else 'Phone 2' }}</p>
+     </div>
+     <hr /> -->
+
+     <div class="section-title">Informations Personnelles</div>
+     <div class="grid-info">
+          <table style="border: none;">
+               <tbody>
+                    <tr>
+                         <td style="border: none;">Nom</td>
+                         <td style="border: none;">{{ data_student.nom }}</td>
+                    </tr>
+                    <tr>
+                         <td style="border: none;">Prénom</td>
+                         <td style="border: none;">{{ data_student.prenom }}</td>
+                    </tr>
+                    <tr>
+                         <td style="border: none;">Identifiant</td>
+                         <td style="border: none;">{{ data_student.identifiant }}</td>
+                    </tr>
+                    <tr>
+                         <td style="border: none;">Sexe</td>
+                         <td style="border: none;">{{ data_student.sexe or 'N/A' }}</td>
+                    </tr>
+                     <tr>
+                         <td style="border: none;">Courriel</td>
+                         <td style="border: none;">{{ data_student.email or 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                         <td style="border: none;">Date de naissance</td>
+                         <td style="border: none;">
+                              {{ data_student.date_de_naissance | date_formated or 'N/A' }}
+                         </td>
+                    </tr>
+                    <tr>
+                         <td style="border: none;">Lieu de naissance</td>
+                         <td style="border: none;">{{ data_student.lieu_de_naissance or 'N/A' }}</td>
+                    </tr>
+
+                    <tr>
+                         <td style="border: none;">Date d'entrée</td>
+                         <td style="border: none;">{{ data_student.created_at | date_formated or 'N/A' }}</td>
+                    </tr>
+               </tbody>
+          </table>  
+
+     <div class="section-title" style="margin-left: 7px;">Responsables / Parents</div>
+     <div class="grid-info" style="margin-left: 7px;">
+          {% if data_student.responsable %}
+          <div class="info-item">
+     
+     
+               <table style="border: none;">
+                    <tbody>
+                         <tr>
+                              <td style="border: none;">Nom</td>
+                              <td style="border: none;">{{ data_student.responsable.nom_responsable }}</td>
+                         </tr>
+                         <tr>
+                              <td style="border: none;">Prénom</td>
+                              <td style="border: none;">{{ data_student.responsable.prenom_responsable }}</td>
+                         </tr>
+                         <tr>
+                              <td style="border: none;">Téléphone</td>
+                              <td style="border: none;">{{ data_student.responsable.telephone_responsable }}</td>
+                         </tr>
+     
+                    </tbody>
+               </table>
+          </div>
+     
+          {% else %}
+          <p>Aucun responsable enregistré.</p>
+          {% endif %}
+     </div>
+     
+
+     <div class="section-title" style="margin-left: 7px;">Pièces Soumises</div>
+     <table style="width: 100%; border-collapse: collapse; margin-top: 10px;margin-left: 7px;">
+          <!-- <thead>
+               <tr style="background-color: #f2f2f2;">
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Type de Document</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Numéro</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Date d'expiration</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Statut</th>
+               </tr>
+          </thead> -->
+          <tbody>
+               {% if data_student.pieces_soumises %}
+               {% for piece in data_student.pieces_soumises %}
+               <tr>
+                    <td style="border: 1px solid #ddd; padding: 8px;">{{ piece.type_de_document }}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">{{ piece.document_numero or '---' }}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                         {{ piece.document_date_dexpiration | date_formated or 'N/A' }}
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
+                         {% if piece.document_status == 1 %}
+                         <span style="color: green;">✔ Soumis</span>
+                         {% else %}
+                         <span style="color: orange;">En attente</span>
+                         {% endif %}
+                    </td>
+               </tr>
+               {% endfor %}
+               {% else %}
+               <tr>
+                    <td colspan="4" style="border: 1px solid #ddd; padding: 15px; text-align: center; color: #666;">
+                         Aucune pièce jointe à ce dossier.
+                    </td>
+               </tr>
+               {% endif %}
+          </tbody>
+     </table>
+
+     
+     </div>
+
+     <div class="section-title">Parcours Académique</div>
+     <table>
+          <thead>
+               <tr>
+                    <th>Année Académique</th>
+                    <th>Niveau</th>
+                    <th>Classe</th>
+                    <th>Statut</th>
+               </tr>
+          </thead>
+          <tbody>
+               {% if data_student.classes_etudiant %}
+               {% for parcours in data_student.classes_etudiant %}
+               <tr>
+                    <td>{{ parcours.annee_academiques.annee_academique }}</td>
+                    <td>{{ parcours.niveaux.name }}</td>
+                    <td>{{ parcours.classes.nom_classe }}</td>
+                    <!-- <td>Admis</td> -->
+                    {#% set statut = parcours.annee_academiques.date_fin | statut_echeance %#}
+               <!-- <td style="border: 1px solid #ddd; padding: 8px;">
+               
+                    <b style="color: {{ 'green' if statut == 'En cours' else 'red' }}">
+                         {{ statut }}
+                    </b>
+               </td> -->
+               <td style="border: 1px solid #ddd; padding: 8px;">
+                    {% set statut = parcours.annee_academiques.date_debut | statut_echeance(parcours.annee_academiques.date_debut) %}
+
+                    <b style="color: {{ 
+                         'green' if statut == 'En cours' 
+                         else 'orange' if statut == 'En attente' 
+                         else 'red' 
+                    }}">
+                         {{ statut }}
+                    </b>
+               </td>
+               </tr>
+               {% endfor %}
+               {% else %}
+               <tr>
+                    <td colspan="4" style="text-align:center;">Aucun historique enregistré</td>
+               </tr>
+               {% endif %}
+          </tbody>
+     </table>
+
+     <!-- <div class="section-title">Parcours Académique & Performances</div> -->
+     
+     {% for parcours in data_student.classe_etudiant %}
+     <div style="margin-top: 15px; border: 1px solid #ddd; padding: 10px;">
+          <div style="background-color: #eee; padding: 5px; font-weight: bold;">
+               Année : {{ parcours.annee_academiques.annee_academique }} — {{ parcours.classes.nom_classe }}
+          </div>
+     
+          <table>
+               <thead>
+                    <tr style="background-color: #f9f9f9;">
+                         <th>Matière</th>
+                         <th>Moyenne</th>
+                         <th>Rang</th>
+                         <th>Appréciation</th>
+                    </tr>
+               </thead>
+               <tbody>
+                    {% if parcours.notes %}
+                    {% for note in parcours.notes %}
+                    <tr>
+                         <td>{{ note.matiere }}</td>
+                         <td>{{ note.valeur }}/10</td>
+                         <td>{{ note.rang or '-' }}</td>
+                         <td>{{ note.decision or 'N/A' }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr style="font-weight: bold; background-color: #f1f1f1;">
+                         <td>MOYENNE GÉNÉRALE ANNUELLE</td>
+                         <td colspan="3">
+                              {# Calcul rapide de la moyenne en Jinja2 (si possible) ou passé depuis Python #}
+                              {{ parcours.moyenne_annuelle }} / 10
+                         </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                         <td colspan="4" style="text-align:center; color: #888;">Aucune note enregistrée pour cette période.
+                         </td>
+                    </tr>
+                    {% endif %}
+               </tbody>
+          </table>
+     </div>
+     {% endfor %}
+
+<div class="section-title" style="padding: 6px;">Performances</div>
+     {% for annee in parcours %}
+     <div class="year-report" style="margin-bottom: 30px; border: 2px solid #333; page-break-inside: avoid;">
+          <div style="background: #333; color: white; padding: 10px; display: flex; justify-content: space-between;">
+               <span>ANNEE ACADÉMIQUE : {{ annee.annee }}</span>
+               <span>CLASSE : {{ annee.classe or "" }}</span>
+          </div>
+          {% set statut = annee.annee_academique.date_fin | statut_echeance %}
+          {% if statut == 'En cours' %}
+          <div style="background: #fff; padding: 7px; border-bottom: 1px solid #ccc;">
+               <p style="font-size: 20px; text-align: center; color: orange;display: flex;justify-content: center;align-items: center;">{{statut}}</p>
+          </div>
+          {% else %}
+
+          <div style="display: flex; background: #f1f1f1; padding: 10px; border-bottom: 1px solid #ccc;">
+               <div style="flex: 1; border-right: 1px solid #ddd; text-align: center;">
+                    <div style="font-size: 10px; color: #666;">MOYENNE GÉNÉRALE</div>
+                    <div style="font-size: 20px; font-weight: bold;">{{ annee.moyenne_gen }} / 10</div>
+                    <div style="font-size: 12px; font-weight: bold;">{{ annee.tendance }}</div>
+               </div>
+               <div style="flex: 1; border-right: 1px solid #ddd; padding-left: 10px;">
+                    <div style="font-size: 10px; color: #2e7d32;">POINTS FORTS</div>
+                    <div style="font-size: 13px;">🌟 <b>{{ annee.top.nom }}</b> ({{ "%.1f"|format(annee.top.moy) }})</div>
+               </div>
+               <div style="flex: 1; padding-left: 10px;">
+                    <div style="font-size: 10px; color: #c62828;">POINTS À AMÉLIORER</div>
+                    <div style="font-size: 13px;">⚠️ <b>{{ annee.low.nom }}</b> ({{ "%.1f"|format(annee.low.moy) }})</div>
+               </div>
+          </div>
+     {% endif %}
+          <table style="width: 100%; font-size: 12px;">
+          </table>
+     </div>
+     {% endfor %}
+    
+
+</body>
+
+</html>

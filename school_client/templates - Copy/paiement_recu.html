@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+     <meta charset="utf-8" />
+     <title>Reçu</title>
+     <style>
+          body {
+               margin: 0;
+               font-family: Arial;
+               font-size: 14px;
+          }
+
+          @page { 
+               size: 11in 8.5in;
+               margin: 5mm;
+          }
+
+          .receipts-container {
+               display: flex;
+               justify-content: space-between;
+          }
+
+          .receipt {
+               width: 32%;
+               border-right: 1px dashed #ccc;
+               padding: 5px;
+               box-sizing: border-box;
+          }
+
+          .receipt:last-child {
+               border-right: none;
+          }
+
+          table {
+               width: 100%;
+               border-collapse: collapse;
+               margin-top: 5px;
+          }
+
+          th,
+          td {
+               border: 1px solid #000;
+               padding: 4px 6px;
+               text-align: left;
+          }
+
+          th {
+               background: #eee;
+          }
+
+          .footer {
+               text-align: center;
+               margin-top: 5px;
+               font-size: 12px;
+          }
+ .receipt {
+    position: relative;
+}
+
+
+                    .school_logo {
+          position: absolute;
+          top: 40px;
+          left: 7px;
+          width: 40px;
+          height: 40px;
+          }
+     </style>
+</head>
+
+<body>
+     <div class="receipts-container">
+          {% for i in range(3) %}
+          <div class="receipt">
+               {% if logo_image_path %}
+               <img src="{{ logo_image_path }}" class="school_logo">
+               {% endif %}
+               <h2 style="text-align:center; font-size:17px; margin:0px">{{ info.nom }}</h2>
+               <p style="text-align:center; font-size:15px; margin:0px">{{ info.adresse }}</p>
+               <p style="text-align:center; font-size:15px; margin:0px">{{ info.email }}</p>
+               <p style="text-align:center; font-size:15px; margin:0px">{{ info.ligne1 }} / {{ info.ligne2 }}</p>
+
+               <p style="text-align:center; font-weight:bold; margin:5px 0;">
+                    {{ ['ORIGINAL','COPIE ÉTABLISSEMENT','COPIE PARENT'][i] }}
+               </p>
+
+               <div class="header">
+                    <p style="margin: 3px;">Date <span class="ms-2 font-bold">{{ date }}</span></p>
+                    <p style="margin: 3px;">Identifiant: <span class="font-bold">{{ etudiant.identifiant }}</span></p>
+                    <p style="margin: 3px;">Nom : <span class="ms-2 font-bold">{{ etudiant.nom }} {{ etudiant.prenom
+                              }}</span></p>
+                    <p style="margin: 3px;">Classe : <span class="ms-2 font-bold">{{ etudiant.classe}}</span></p>
+                    <p style="margin: 3px;">Année A. : <span class="ms-2 font-bold">{{ etudiant.annee_academique }}</span></p>
+                    {% if etudiant.aide_financiere != 'Aucune' %}
+                    <p style="margin: 3px;">Status de bourse : <span class="ms-2 font-bold">{{ etudiant.aide_financiere }}</span></p>
+                    {%endif%}
+                    <p style="margin: 3px;">Employer : <span class="ms-2 font-bold">{{ payment.employer }}</span></p>
+               </div>
+
+               <div style="display:flex;position:relative;padding-top:4px;align-items: center;margin-top: 15px;margin-bottom: 8px;">
+                    <p style="display:inline-flex; margin-right:auto; margin:0px;">Montant versé</p>
+                    <div style="position:absolute;top:0;right:0; margin:0px;">
+                         <span>{{ payment.depot }}</span> {{ payment.devise }}
+                    </div>
+               </div>
+
+               {% set ns = namespace(found=False) %}
+               
+               <div>
+                    {% for k in payment.keys() %}
+                    
+                    {% if k.startswith("Versement_") %}
+                    {% set ns.found = True %}
+                    {% endif %}
+                    {% endfor %}
+               
+                    {% set index_mois = mois | length %}
+
+
+                    {% if payment.status == 'retourné' %}
+
+                    status_paiement = payment.status_paiement 
+                    avances = status_paiement.last_status
+                    {% set last_status_table = [] %}
+
+                    {% for element in avances %}
+                    {% set _ = last_status_table.append(element.replace(['Acqt: ', 'Avns: '], '')) %}
+                    {% endfor %}                    
+                    
+                         <p>Ce dépôt de {{ payment.depot }} {{ payment.devise  }} a été effectué le {{ payment.date_created.replace(' ', ' à ') }} correspond au ({{last_status_table|join(', ')}}) a
+                         été retourné le
+                         {{ payment.date_retour.replace('--', 'à') }}
+                         </p>
+
+               
+                    {% elif payment and not ns.found and index_mois < 1 %}
+                         <p class="py-2">
+                         Vous avez une avance de {{ payment.depot_et_avance }} {{ payment.devise }} sur le {{ echeance_keys[index_mois]
+                         }}
+                         </p>
+                    {% else %}
+                    {% endif %}
+               </div>
+
+               
+               {% if payment and ns.found and not payment.status == 'retourné'%}
+                    {% for k in mois.keys() %}
+                         {% if payment[k] %}
+                              <div class="body" style="display: flex;margin:0px;padding:0px; align-items: center;margin-top: 15px;">
+                                   <p class="body" style="display:inline-flex;margin:0px;padding:0px;">Montant à payer </p>
+                                   <p class="body" style="display:inline-flex;margin:0px;float:right;margin-left:auto;padding:0px;"><span class="font-bold me-1">{{payment[k]}} </span> {{ payment.devise }}
+                                   </p> 
+                              </div>
+
+                              <p style="border-bottom:1px solid #777;margin:4px;padding: 0px;"></p>
+                              
+                    <div class="body" style="display: flex; margin: 0; padding: 0; align-items: center;">
+                         <p class="ps-2" style="display: inline-flex; margin: 0; padding: 0;">{{ k.split('_')[1] }} {{ k.split('_')[0] }}</p>
+                         <p class="pe-2"
+                              style="display: inline-flex; float: right; margin: 0; padding: 0; color: #40ca22; margin-left: auto;">
+                              Acquitté
+                         </p>
+                    </div>
+                         {% endif %}
+                    {%endfor%}
+               {%endif%}
+
+                {% if index_mois> 1 and payment.depot_et_avance > 0 and not payment.status == 'retourné'%}
+               <p style="padding-top: 8px;padding-bottom: 8px;" class="text-slate-500 text-[15px] mt-1">
+                    Une avance de {{ payment.depot_et_avance }}
+                    {{ payment.devise }} sur le {{ echeance_keys[index_mois] }}
+               </p>
+               {% endif %}
+
+               <div style="margin-top:6px;padding-top: 15px;">
+                    <div style="display:flex ;margin:0px;padding:0px;padding-bottom: 15px;align-items: center">
+                         <p style="display: inline-flex; margin-right:auto; margin:0px">Paiement total</p>
+                         <p style="display: inline-flex; margin:0px;float:right; margin-left: auto;"><span class="font-bold">{{ payment.total_verse }}</span> {{ payment.devise }}</p>
+                    </div>
+               
+                    <div style="display:flex;position:relative;padding-top:4px;padding-bottom: 15px;align-items: center">
+                         <p style="display:inline-flex; margin-right:auto; margin:0px;padding: 0px;">Montant A.</p>
+                         <div style="position:absolute;top:0;right:0;margin:0px;padding: 0px;">
+                              <span>{{ payment.total_annuel }}</span> {{ payment.devise }}
+                         </div>
+                    </div>
+               
+                    <p style="border-bottom:1px solid #777;margin-top:2px"></p>
+               
+                    <div style="display:flex;margin:0px;padding:0px; align-items: center">
+                         <p style="display: inline-flex; margin-right:auto; margin:0px;padding:0px;">Balance totale</p>
+                         <p style="display: inline-flex;margin:0px;padding:0px;float:right; margin-left: auto;">
+                              {% if payment.total_verse <= payment.total_annuel %} 
+                              <span class="font-bold">
+                                   {% if payment.status == 'retourné' %}
+                                        {{ payment.total_annuel - (payment.total_verse -payment.depot) }}
+                                   {% else %}
+                                        {{ payment.total_annuel - payment.total_verse }}
+                                   {%endif%}
+                              </span>
+                                   {%else%}
+                                   <span>Acquitté</span>
+                                   {%endif%}
+                                   {{ payment.devise }}
+                         </p>
+                    </div>
+               </div>
+               <div style="margin-top:20px;text-align: center;">Merci pour votre confiance!</div>
+          </div>
+          {% endfor %}
+     </div>
+</body>
+
+</html>

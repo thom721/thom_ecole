@@ -1,0 +1,223 @@
++--------------+---------------+-------------------------------+---------------------+------------------+-----------------+
+| identifiant  | nom           | prenom                        | nom_classe          | annee_academique | aide_financiere |
++--------------+---------------+-------------------------------+---------------------+------------------+-----------------+
+| 1-52528      | JOICIN        | Yaèl Hodaya                   | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-22801      | LAPAIX        | Skate Shaenda                 | CPB                 | 2024/2025        | Démie Bourse    |
+| 1-64830      | CAJUSTE       | Queency Charlernstina         | 7ème A.F            | 2024/2025        | Démie Bourse    |
+| 1-19885      | ARISTYL       | Phao-Nella                    | CMI A               | 2024/2025        | Bourse          |
+| 1-30496      | PIERRE LOUIS  | Adsana Bryan                  | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-10748      | ANTOINE       | Fededagens                    | CPB                 | 2024/2025        | Démie Bourse    |
+| 1-17309      | ESPERANCE     | Adlens                        | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-12205      | CHARLES       | Vickie Darah                  | 3ème Année Kind C   | 2024/2025        | Bourse          |
+| 1-44816      | CADET         | Nohémie                       | 7ème A.F            | 2024/2025        | Démie Bourse    |
+| 1-94344      | DUCLERVIL     | Esaïe                         | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-83264      | BONNY         | Eliana Christie               | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-72588      | CADET         | Jean Bechir Manasse           | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-53747      | JEAN LOUIS    | Hardwineyna                   | CE2 A               | 2024/2025        | Bourse          |
+| 1-93736      | BAPTISTE      | Sophie Hill Rose Lenka        | CE2 A               | 2024/2025        | Bourse          |
+| 1-67000      | CHARLES       | Daryl                         | CE1 B               | 2024/2025        | Bourse          |
+| 1-95847      | FAVEUR        | Angelina Melany               | CMII B              | 2024/2025        | Démie Bourse    |
+| 1-22891      | MICHEL        | Judenaica                     | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-65904      | FLEURISSAINT  | Mackenley                     | CPC                 | 2024/2025        | Démie Bourse    |
+| 1-83746      | ALEXIS        | Ordajie Vicky                 | 2ème Année Kind A   | 2024/2025        | Bourse          |
+| 1-44859      | JEAN BAPTISTE | Fritz Marah                   | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-51535      | NEI           | Clonalaèlle                   | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-37506      | BRICE         | Deborah Lorna Thereuseda      | 7ème A.F            | 2024/2025        | Démie Bourse    |
+| 1-31395      | IRA           | Soraya Marthe                 | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-91561      | CASIMIR       | Kethensky                     | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-27720      | GEORGES       | Glensky                       | 7ème A.F            | 2024/2025        | Démie Bourse    |
+| 1-91723      | LOUIS         | Roose Sephora                 | CPB                 | 2024/2025        | Démie Bourse    |
+| 1-57097      | JEAN BAPTISTE | Lorry Shaella                 | CPB                 | 2024/2025        | Démie Bourse    |
+| 1-73077      | PIERRE        | Djud-Scaëlle                  | 7ème A.F            | 2024/2025        | Démie Bourse    |
+| 1-55031      | DORGILLES     | Ciara                         | 7ème A.F            | 2024/2025        | Démie Bourse    |
+| 1-71709      | LAPORTE       | Shamsong Ernst                | 7ème A.F            | 2024/2025        | Bourse          |
+| 1-04953      | VALERY        | Brianylla                     | CPC                 | 2024/2025        | Démie Bourse    |
+| 1-48299      | ANDERSON      | Haurelson                     | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-30828      | SIVERAIN      | Chnaïdine                     | 7ème A.F            | 2024/2025        | Démie Bourse    |
+| 1-62604      | CHARLES       | Dwayne                        | 3ème Année Kind B   | 2024/2025        | Démie Bourse    |
+| 1-62108      | PAUL          | Géraldo Adsovy                | 7ème A.F            | 2024/2025        | Démie Bourse    |
+| 1-99742      | DESVALLONS    | Buendlina Nalee               | CPB                 | 2024/2025        | Bourse          |
+| 1-54106      | CELIUS        | Carl Chrisly                  | CPC                 | 2024/2025        | Démie Bourse    |
+| 1-84645      | JOSEPH        | Edensky                       | 7ème A.F            | 2024/2025        | Démie Bourse    |
+| 1-75388      | ARISTIL       | Laury Malaïka                 | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-47817      | CAJUSTE       | ERNSOT Louvensky              | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-93095      | DUROCHER      | Herlley Jodel                 | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-84759      | MARCELIN      | Jean Bissinson                | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-78498      | ASPILAIRE     | Lose Leïcka Bentchica Smirne  | 7ème A.F            | 2024/2025        | Démie Bourse    |
+| 1-29877      | PIERRE        | Sheïna Amarah                 | 7ème A.F            | 2024/2025        | Démie Bourse    |
+| 1-26644      | SAINT SURIN   | Minora                        | 7ème A.F            | 2024/2025        | Démie Bourse    |
+| 1-08555      | LEGAGNEUR     | Vasty Diva                    | 8ème A.F            | 2024/2025        | Bourse          |
+| 1-05762      | PIERRE        | Eroldson                      | CPB                 | 2024/2025        | Démie Bourse    |
+| 1-14350      | CHARLES       | Rutshelle                     | CMI B               | 2024/2025        | Bourse          |
+| 1-69323      | JEAN          | Ashbadianaica                 | CPC                 | 2024/2025        | Bourse          |
+| 1-82824      | GAUTHIER      | Alyah Lounisha                | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-11710      | ADAM          | Casthy                        | 3ème Année Kind C   | 2024/2025        | Démie Bourse    |
+| 1-58594      | VICTOR        | Mitchdaelle                   | CPB                 | 2024/2025        | Démie Bourse    |
+| 1-49064      | JEAN CLAUDE   | Ashley Isadorah               | 3ème Année Kind B   | 2024/2025        | Bourse          |
+| 1-61026      | ETIENNE       | Frantz Kerby                  | CPB                 | 2024/2025        | Démie Bourse    |
+| 1-66775      | PAUL          | Keysha Lyah                   | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-26520      | DESVALLONS    | Lynesa                        | 7ème A.F            | 2024/2025        | Démie Bourse    |
+| 1-84113      | LOUIS         | Rose Sendy                    | 3ème Année Kind C   | 2024/2025        | 1/4 Bourse      |
+| 1-24826      | DUCLOS        | Annaleticia L.                | CPB                 | 2024/2025        | Démie Bourse    |
+| 1-21831      | LOCHARD       | Jamy Miory José               | CPB                 | 2024/2025        | Démie Bourse    |
+| 1-48506      | JEAN JACQUES  | Ellada                        | 7ème A.F            | 2024/2025        | Bourse          |
+| 1-35382      | ARMAND        | Rosady Gerard                 | CMII B              | 2024/2025        | Démie Bourse    |
+| 1-95348      | LOUIS         | Christ Sleyd                  | CPB                 | 2024/2025        | Démie Bourse    |
+| 1-34069      | VICTA         | Rodzer                        | CPB                 | 2024/2025        | Bourse          |
+| BI25-04CA-56 | BIAMBY        | Carl Brown                    | CPB                 | 2024/2025        | Démie Bourse    |
+| 1-69422      | POLISCA       | Rochtcarine                   | CPB                 | 2024/2025        | Démie Bourse    |
+| 1-46791      | MAÎTRE        | Anne Sophie                   | 7ème A.F            | 2024/2025        | Démie Bourse    |
+| 1-58597      | JEAN BAPTISTE | Flore Angie                   | CPB                 | 2024/2025        | Démie Bourse    |
+| 1-23811      | JEAN          | Rayan Ivan Jhonshley          | CPB                 | 2024/2025        | Démie Bourse    |
+| 1-27028      | NORMIL        | Lay-Mia Nahama                | CPB                 | 2024/2025        | Démie Bourse    |
+| 1-40056      | VILME         | Denzel                        | 3ème Année Kind A   | 2024/2025        | Démie Bourse    |
+| 1-42970      | DELICE        | May                           | CPC                 | 2024/2025        | Démie Bourse    |
+| 1-58768      | CHARLES       | Louse Mica                    | 9ème A.F            | 2024/2025        | Bourse          |
+| 1-72900      | VERNET        | Wezdaina Cyara Merkel         | 7ème A.F            | 2024/2025        | Démie Bourse    |
+| 1-19909      | CONDESTIN     | Marvenshly                    | 7ème A.F            | 2024/2025        | Démie Bourse    |
+| 1-55280      | DESVALLON     | Christ Anaelle                | CPA                 | 2024/2025        | Bourse          |
+| 1-36760      | SAINT-AIME    | Pierre Richard                | CPB                 | 2024/2025        | Démie Bourse    |
+| 1-49762      | AUGUSTE       | Koralie Sarahfina             | 7ème A.F            | 2024/2025        | Bourse          |
+| 1-05142      | ARISTYL       | Jocelyne                      | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-16228      | JOINVIL       | Yonelson                      | 7ème A.F            | 2024/2025        | Démie Bourse    |
+| 1-75964      | OCCEAN        | Yscar                         | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-10771      | ARISTYL       | Nelvedy Djesca                | CE1 A               | 2024/2025        | Bourse          |
+| 1-21550      | ALEXANDRE     | Malaina Sashah                | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-86683      | VALEUS        | John Thierry                  | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-73850      | ROSIER        | Kenayah Bertha                | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-11806      | ISAAC         | Sledje Emmanuel               | 3ème Année Kind A   | 2024/2025        | Bourse          |
+| 1-87367      | LOUIDOR       | Lenz Andersky D.              | CMII A              | 2024/2025        | Bourse          |
+| 1-47596      | LEANDRE       | Gladinia                      | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-10261      | POLIDORT      | Gerensha Guetchina            | CPB                 | 2024/2025        | Démie Bourse    |
+| 1-19520      | FLEURENVIL    | Beyonca                       | 7ème A.F            | 2024/2025        | Démie Bourse    |
+| 1-32123      | DESIR         | Haamiah Yvie                  | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-67360      | LORANTIS      | Esther                        | CPB                 | 2024/2025        | Démie Bourse    |
+| 1-01053      | CHARLES       | Charlenska                    | 7ème A.F            | 2024/2025        | Bourse          |
+| 1-56009      | JEAN-JACQUES  | Eunice                        | CE1 A               | 2024/2025        | Démie Bourse    |
+| 1-80950      | RIGAUD        | Marie Claudiana               | CPB                 | 2024/2025        | Démie Bourse    |
+| 1-57143      | BRIOCHÉ       | Thara Michaëla                | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-71744      | DAUTRUCHE     | Winie Brandelle               | 7ème A.F            | 2024/2025        | Démie Bourse    |
+| 1-62759      | DUROCHER      | Harlley Annia                 | CPA                 | 2024/2025        | Démie Bourse    |
+| 1-54000      | ISAAC         | Obed John Markelly            | CMII A              | 2024/2025        | Bourse          |
+| 1-93095      | DUROCHER      | Herlley Jodel                 | CE1 A               | 2025/2026        | Démie Bourse    |
+| 1-21550      | ALEXANDRE     | Malaina Sashah                | CE1 A               | 2025/2026        | Démie Bourse    |
+| 1-56009      | JEAN-JACQUES  | Eunice                        | CE2 A               | 2025/2026        | Démie Bourse    |
+| 1-95348      | LOUIS         | Christ Sleyd                  | CE1 B               | 2025/2026        | Démie Bourse    |
+| 1-67360      | LORANTIS      | Esther                        | CE1 B               | 2025/2026        | Démie Bourse    |
+| 1-12205      | CHARLES       | Vickie Darah                  | CPA                 | 2025/2026        | Bourse          |
+| 1-36760      | SAINT-AIME    | Pierre Richard                | CE1 B               | 2025/2026        | Démie Bourse    |
+| 1-64830      | CAJUSTE       | Queency Charlernstina         | 8ème A.F            | 2025/2026        | Démie Bourse    |
+| 1-95847      | FAVEUR        | Angelina Melany               | 7ème A.F            | 2025/2026        | Démie Bourse    |
+| 1-54000      | ISAAC         | Obed John Markelly            | 7ème A.F            | 2025/2026        | Bourse          |
+| 1-61026      | ETIENNE       | Frantz Kerby                  | CE1 B               | 2025/2026        | Démie Bourse    |
+| 1-11710      | ADAM          | Casthy                        | CPA                 | 2025/2026        | Démie Bourse    |
+| 1-99742      | DESVALLONS    | Buendlina Nalee               | CE1 B               | 2025/2026        | Bourse          |
+| 1-80950      | RIGAUD        | Marie Claudiana               | CE1 B               | 2025/2026        | Démie Bourse    |
+| 1-17309      | ESPERANCE     | Adlens                        | CE1 A               | 2025/2026        | Démie Bourse    |
+| 1-52528      | JOICIN        | Yaèl Hodaya                   | CE1 A               | 2025/2026        | Démie Bourse    |
+| 1-46791      | MAÎTRE        | Anne Sophie                   | 8ème A.F            | 2025/2026        | Démie Bourse    |
+| 1-91723      | LOUIS         | Roose Sephora                 | CE1 B               | 2025/2026        | Démie Bourse    |
+| 1-66775      | PAUL          | Keysha Lyah                   | CPA                 | 2025/2026        | Démie Bourse    |
+| 1-30496      | PIERRE LOUIS  | Adsana Bryan                  | CE1 A               | 2025/2026        | Démie Bourse    |
+| BI25-04CA-56 | BIAMBY        | Carl Brown                    | CE1 B               | 2025/2026        | Démie Bourse    |
+| 1-93736      | BAPTISTE      | Sophie Hill Rose Lenka        | CMI A               | 2025/2026        | Bourse          |
+| 1-78498      | ASPILAIRE     | Lose Leïcka Bentchica Smirne  | 8ème A.F            | 2025/2026        | Démie Bourse    |
+| 1-67000      | CHARLES       | Daryl                         | CE2 B               | 2025/2026        | Bourse          |
+| 1-73077      | PIERRE        | Djud-Scaëlle                  | 8ème A.F            | 2025/2026        | Démie Bourse    |
+| 1-32123      | DESIR         | Haamiah Yvie                  | CE1 A               | 2025/2026        | Démie Bourse    |
+| 1-44816      | CADET         | Nohémie                       | 8ème A.F            | 2025/2026        | Démie Bourse    |
+| 1-53747      | JEAN LOUIS    | Hardwineyna                   | CMI A               | 2025/2026        | Bourse          |
+| 1-14350      | CHARLES       | Rutshelle                     | CMII B              | 2025/2026        | Bourse          |
+| 1-91561      | CASIMIR       | Kethensky                     | CE1 A               | 2025/2026        | Démie Bourse    |
+| 1-08555      | LEGAGNEUR     | Vasty Diva                    | 9ème A.F            | 2025/2026        | Bourse          |
+| 1-34069      | VICTA         | Rodzer                        | CE1 B               | 2025/2026        | Bourse          |
+| 1-84759      | MARCELIN      | Jean Bissinson                | CE1 A               | 2025/2026        | Démie Bourse    |
+| 1-82824      | GAUTHIER      | Alyah Lounisha                | CE1 A               | 2025/2026        | Démie Bourse    |
+| 1-94344      | DUCLERVIL     | Esaïe                         | CE1 A               | 2025/2026        | Démie Bourse    |
+| 1-27028      | NORMIL        | Lay-Mia Nahama                | CE1 B               | 2025/2026        | Démie Bourse    |
+| 1-05142      | ARISTYL       | Jocelyne                      | CE1 A               | 2025/2026        | Démie Bourse    |
+| 1-75388      | ARISTIL       | Laury Malaïka                 | CE1 A               | 2025/2026        | Démie Bourse    |
+| 1-58594      | VICTOR        | Mitchdaelle                   | CE1 B               | 2025/2026        | Démie Bourse    |
+| 1-57097      | JEAN BAPTISTE | Lorry Shaella                 | CE1 B               | 2025/2026        | Démie Bourse    |
+| 1-44859      | JEAN BAPTISTE | Fritz Marah                   | CE1 A               | 2025/2026        | Démie Bourse    |
+| 1-71709      | LAPORTE       | Shamsong Ernst                | 8ème A.F            | 2025/2026        | Bourse          |
+| 1-10261      | POLIDORT      | Gerensha Guetchina            | CE1 B               | 2025/2026        | Démie Bourse    |
+| 1-23811      | JEAN          | Rayan Ivan Jhonshley          | CE1 B               | 2025/2026        | Démie Bourse    |
+| 1-21831      | LOCHARD       | Jamy Miory José               | CE1 B               | 2025/2026        | Démie Bourse    |
+| 1-75964      | OCCEAN        | Yscar                         | CE1 A               | 2025/2026        | Démie Bourse    |
+| 1-84113      | LOUIS         | Rose Sendy                    | CPB                 | 2025/2026        | 1/4 Bourse      |
+| 1-26644      | SAINT SURIN   | Minora                        | 8ème A.F            | 2025/2026        | Démie Bourse    |
+| 1-58597      | JEAN BAPTISTE | Flore Angie                   | CE1 B               | 2025/2026        | Démie Bourse    |
+| 1-83264      | BONNY         | Eliana Christie               | CE1 A               | 2025/2026        | Démie Bourse    |
+| 1-27720      | GEORGES       | Glensky                       | 8ème A.F            | 2025/2026        | Démie Bourse    |
+| 1-31395      | IRA           | Soraya Marthe                 | CE1 A               | 2025/2026        | Démie Bourse    |
+| 1-22801      | LAPAIX        | Skate Shaenda                 | CE1 B               | 2025/2026        | Démie Bourse    |
+| 1-56294      | Brioche       | Fabiana Taisha Dulce          | CPA                 | 2025/2026        | Démie Bourse    |
+| 1-72900      | VERNET        | Wezdaina Cyara Merkel         | 8ème A.F            | 2025/2026        | Démie Bourse    |
+| 1-10748      | ANTOINE       | Fededagens                    | CE1 B               | 2025/2026        | Démie Bourse    |
+| 1-19520      | FLEURENVIL    | Beyonca                       | 8ème A.F            | 2025/2026        | Démie Bourse    |
+| 1-19909      | CONDESTIN     | Marvenshly                    | 8ème A.F            | 2025/2026        | Démie Bourse    |
+| 1-62759      | DUROCHER      | Harlley Annia                 | CE1 A               | 2025/2026        | Démie Bourse    |
+| 1-49762      | AUGUSTE       | Koralie Sarahfina             | 7ème A.F            | 2025/2026        | Bourse          |
+| 1-47817      | CAJUSTE       | ERNSOT Louvensky              | CE1 A               | 2025/2026        | Démie Bourse    |
+| 1-71744      | DAUTRUCHE     | Winie Brandelle               | 8ème A.F            | 2025/2026        | Démie Bourse    |
+| 1-69422      | POLISCA       | Rochtcarine                   | CE1 B               | 2025/2026        | Démie Bourse    |
+| 1-55031      | DORGILLES     | Ciara                         | 8ème A.F            | 2025/2026        | Démie Bourse    |
+| 1-10771      | ARISTYL       | Nelvedy Djesca                | CE2 A               | 2025/2026        | Bourse          |
+| 1-86683      | VALEUS        | John Thierry                  | CPA                 | 2025/2026        | Démie Bourse    |
+| 1-62108      | PAUL          | Géraldo Adsovy                | 8ème A.F            | 2025/2026        | Démie Bourse    |
+| 1-01053      | CHARLES       | Charlenska                    | 8ème A.F            | 2025/2026        | Bourse          |
+| 1-35382      | ARMAND        | Rosady Gerard                 | 7ème A.F            | 2025/2026        | Démie Bourse    |
+| 1-62604      | CHARLES       | Dwayne                        | CPB                 | 2025/2026        | Démie Bourse    |
+| 1-26520      | DESVALLONS    | Lynesa                        | 8ème A.F            | 2025/2026        | Démie Bourse    |
+| 1-72588      | CADET         | Jean Bechir Manasse           | CE1 A               | 2025/2026        | Démie Bourse    |
+| 1-84645      | JOSEPH        | Edensky                       | 7ème A.F            | 2025/2026        | Démie Bourse    |
+| 1-37506      | BRICE         | Deborah Lorna Thereuseda      | 8ème A.F            | 2025/2026        | Démie Bourse    |
+| 1-57143      | BRIOCHÉ       | Thara Michaëla                | CE1 A               | 2025/2026        | Démie Bourse    |
+| 1-29877      | PIERRE        | Sheïna Amarah                 | 8ème A.F            | 2025/2026        | Démie Bourse    |
+| 1-48299      | ANDERSON      | Haurelson                     | CPA                 | 2025/2026        | Démie Bourse    |
+| 1-51535      | NEI           | Clonalaèlle                   | CE1 A               | 2025/2026        | Démie Bourse    |
+| 1-19885      | ARISTYL       | Phao-Nella                    | CMII A              | 2025/2026        | Bourse          |
+| 1-05762      | PIERRE        | Eroldson                      | CE1 B               | 2025/2026        | Démie Bourse    |
+| 1-47596      | LEANDRE       | Gladinia                      | CPA                 | 2025/2026        | Démie Bourse    |
+| 1-73850      | ROSIER        | Kenayah Bertha                | CE1 A               | 2025/2026        | Démie Bourse    |
+| 1-24826      | DUCLOS        | Annaleticia L.                | CE1 B               | 2025/2026        | Démie Bourse    |
+| 1-87367      | LOUIDOR       | Lenz Andersky D.              | 7ème A.F            | 2025/2026        | Bourse          |
+| 1-16228      | JOINVIL       | Yonelson                      | 8ème A.F            | 2025/2026        | Démie Bourse    |
+| 1-22891      | MICHEL        | Judenaica                     | CE1 A               | 2025/2026        | Démie Bourse    |
+| 1-30828      | SIVERAIN      | Chnaïdine                     | 8ème A.F            | 2025/2026        | Démie Bourse    |
+| 1-55280      | DESVALLON     | Christ Anaelle                | CE1 A               | 2025/2026        | Bourse          |
+| 1-48506      | JEAN JACQUES  | Ellada                        | 8ème A.F            | 2025/2026        | Bourse          |
++--------------+---------------+-------------------------------+---------------------+------------------+-----------------+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+| 0c128f77-6062-436c-b884-63578b30dcef | 2021-02-09 | 2022-06-16 | Cycle         | 2021/2022        |      0 | 2026-02-16 14:13:23 | 2026-02-16 14:13:23 |
+| 27ba5ea7-dec4-4d53-975f-4154368f9b2b | 2022-02-09 | 2023-06-16 | Cycle         | 2022/2023        |      0 | 2026-02-16 14:14:07 | 2026-02-16 14:14:07 |
+| 4bfd191a-10d7-4719-9400-9fe241c82608 | 2019-09-02 | 2020-06-16 | Cycle         | 2019/2020        |      0 | 2026-02-16 14:10:52 | 2026-02-16 14:11:56 |
+| 4cd6c8dd-a346-4d1d-ac5d-f750f5329b9c | 2023-02-09 | 2024-06-16 | Cycle         | 2023/2024        |      0 | 2026-02-16 14:14:46 | 2026-02-16 14:14:46 |
+| 7328e046-8968-43b2-92a2-66aad72af437 | 2020-02-09 | 2021-06-06 | Cycle         | 2020/2021        |      0 | 2026-02-16 14:12:46 | 2026-02-16 14:12:46 |
+ 
+ 
+| ff1f1e23-fe9f-494e-b8d8-05dce781249f | 2018-09-03 | 2019-06-18 | Cycle         | 2018/2019        |      0 | 2026-02-16 14:09:44 | 2026-02-16 14:09:44 |
+
+INSERT INTO `annee_academiques` VALUES ('0c128f77-6062-436c-b884-63578b30dcef','2024-09-09','2025-07-25','Cycle 1','2024/2025',0,'2025-02-05 21:44:20','2025-08-27 21:01:40'),('8ef65c55-8166-4557-bc2f-5482d605cd76','2025-09-01','2026-07-31','Cycle','2025/2026',1,'2025-05-14 12:35:24','2025-08-27 21:01:40');
+
+nssm set Esystem AppEnvironmentExtra PYTHONIOENCODING=utf-8
+nssm restart Esystem

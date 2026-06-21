@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+     <meta charset="utf-8" />
+     <style>
+          @page {
+               margin: 30px;
+          }
+
+          body {
+               font-family: 'Helvetica', 'Arial', sans-serif;
+               font-size: 14px;
+               color: #333;
+               margin-bottom: 120px; 
+          }
+          /* Positionnement fixe au bas de la page */
+.footer-signature-container {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    /* border-top: 1px dashed #ccc;   */
+    padding-top: 10px;
+}
+
+.signature-grid {
+    width: 100%;
+}
+
+.signature-grid td {
+    border: none;
+    width: 50%;
+    text-align: center;
+    font-size: 13px;
+}
+
+ 
+          /* En-tête */
+          .header-table {
+               width: 100%;
+               border: none;
+               margin-bottom: 10px;
+          }
+
+          .header-table td {
+               border: none;
+               padding: 0;
+               vertical-align: middle;
+          }
+
+          .school_logo {
+               width: 60px;
+               height: 60px;
+               object-fit: contain;
+          }
+
+          .school-info {
+               text-align: center;
+          }
+
+          .school-info h1 {
+               margin: 0;
+               color: #1a2a6c;
+               font-size: 22px;
+               text-transform: uppercase;
+          }
+
+          .school-info p {
+               margin: 2px 0;
+               font-size: 12px;
+          }
+
+          hr {
+               border: 0;
+               border-top: 1px solid #eee;
+               margin: 10px 0;
+          }
+
+          .title-box {
+               text-align: center;
+               margin: 20px 0;
+          }
+
+          .title-box h3 {
+               border: 2px solid #1a2a6c;
+               display: inline-block;
+               padding: 8px 30px;
+               color: #1a2a6c;
+               text-transform: uppercase;
+               border-radius: 5px;
+          }
+
+          /* Tableau de données */
+          table.data-table {
+               width: 100%;
+               border-collapse: collapse;
+               margin-top: 10px;
+          }
+
+          table.data-table th,
+          table.data-table td {
+               padding: 12px;
+               border: 1px solid #ccc;
+               text-align: left;
+          }
+
+          table.data-table th {
+               background-color: #f8f9fa;
+               width: 35%;
+               color: #555;
+          }
+
+          .amount-box {
+               background-color: #e9ecef;
+               font-size: 1.1em;
+               font-weight: bold;
+          }
+
+          .footer-signature {
+               margin-top: 40px;
+          }
+
+          .signature-grid {
+               width: 100%;
+               margin-top: 20px;
+          }
+
+          .signature-grid td {
+               border: none;
+               width: 50%;
+               text-align: center;
+          }
+     </style>
+</head>
+
+<body>
+     <table class="header-table">
+          <tr>
+               <td style="width: 15%;">
+                    {% if info and info.logo_image_base64 %}
+                    <img src="{{ info.logo_image_base64 }}" class="school_logo">
+                    {% endif %}
+               </td>
+               <td class="school-info">
+                    <h1>{{ info.nom or 'NOM DE L\'INSTITUTION' }}</h1>
+                    <p><strong>{{ info.adresse or 'Adresse de l\'école' }}</strong></p>
+                    <p>Email: {{ info.email or 'contact@ecole.com' }} | Tél: {{ info.ligne1 }} {{ ' / ' + info.ligne2 if
+                         info.ligne2 }}</p>
+                    <p><em>"Vers l'excellence académique"</em></p>
+               </td>
+               <td style="width: 15%; text-align: right;">
+                    <p style="font-size: 10px;">Date: {{ date }}</p>
+               </td>
+          </tr>
+     </table>
+
+     <hr />
+
+     <div class="title-box">
+          <h3>Fiche de Paie</h3>
+     </div>
+
+     <div style="margin-bottom: 10px;">
+          <p><strong>Reçu N° :</strong> <span style="color: #d9534f;">REC-{{ data_student.identifiant or '00000'
+                    }}</span></p>
+          <p style="font-size: 16px;"><strong>Date d'inscription :</strong> <span style="color: #079eda;">{{ data_student.created_at | date_formated
+                              }}</span></p>
+     </div>
+
+     <table class="data-table">
+          <tr>
+               <th>Nom complet de l'élève</th>
+               <td><strong>{{ data_student.nom|upper }} {{ data_student.prenom }}</strong></td>
+          </tr>
+          <tr>
+               <th>Code Étudiant (ID)</th>
+               <td>{{ data_student.identifiant }}</td>
+          </tr>
+          
+          {% if is_faculte %}
+    
+          {% set parcours = data_student.etudiant_facultes[0] if data_student.etudiant_facultes else none %}
+          {% else %}
+          {% set parcours = data_student.classes_etudiant[0] if data_student.classes_etudiant else none %}
+          {% endif %}
+          {% if parcours %} 
+          <tr>
+               <th>Niveau / Section</th>
+               <td>{{ parcours.niveaux.name }}</td>
+          </tr>
+          {% if parcours.faculte %}
+          <tr>
+               <th>Faculté / Filière / Option</th>
+               <td>{{ parcours.faculte.nom }}</td>
+          </tr>
+          {% endif %}
+          <tr>
+               <th>Classe Actuelle</th>
+               <td>{{ parcours.classes.nom_classe }}</td>
+          </tr>
+          <tr>
+               <th>Année Académique</th>
+               <td>{{ parcours.annee_academiques.annee_academique }}</td>
+          </tr>
+          {% endif %}
+
+          <tr class="amount-box">
+               <th>MONTANT A PAYER</th>
+               <td style="color: #28a745;">
+                    {{ "{:,.2f}".format(recu.montant if recu else 0).replace(',', ' ') }} GDES
+               </td>
+          </tr>
+          <tr>
+               <th>Mode de paiement</th>
+               <td>{{ recu.mode_paiement or 'Espèces' }}</td>
+          </tr>
+     </table>
+
+     <p style="margin-top: 25px; font-size: 14px;">
+          <em><strong>Note :</strong> Les frais d'inscription ne sont pas remboursables. Ce reçu doit être conservé pour
+               toute réclamation.</em>
+     </p>
+
+<div class="footer-signature-container">
+     <table class="signature-grid">
+          <tr>
+               <td>
+                    <!-- <div style="height: 10px;"></div> -->
+                    <p>___________________________</p>
+                    <p>Signature de l'Étudiant/Parent</p>
+               </td>
+               <td>
+                    <!-- <div style="height: 10px;"></div> -->
+                    <p>____________________________</p>
+                    <p>Secretaire</p>
+               </td>
+               <td>
+                    <!-- <div style="height: 10px;"></div> -->
+                    <p>______________________________</p>
+                    <p>Le Comptable / Sceau</p>
+               </td>
+          </tr>
+     </table>
+     <div style="text-align: center; font-size: 10px; color: #777; margin-top: 5px;">
+          Document généré le {{ date }} - Logiciel de gestion scolaire
+     </div>
+</div>
+
+</body>
+
+</html>

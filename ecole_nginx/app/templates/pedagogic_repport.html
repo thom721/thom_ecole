@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+     <meta charset="UTF-8">
+     <style>
+          /* Configuration de la page pour WeasyPrint */
+          @page {
+               size: A4;
+               /* margin: 2cm; */
+          }
+
+          body {
+               font-family: Times,'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+               line-height: 1.4;
+               color: #333;
+               margin: 0;
+               padding: 0;
+          }
+
+          /* Saut de page après chaque matière */
+          .section-matiere {
+               page-break-after: always;
+          }
+
+          /* En-tête du rapport */
+          .header {
+               display: flex;
+               justify-content: space-between;
+               align-items: center;
+               border-bottom: 3px solid #2c3e50;
+               padding-bottom: 10px;
+               margin-bottom: 10px;
+          }
+
+          .school-info h1 {
+               margin: 0;
+               font-size: 22px;
+               color: #2c3e50;
+               text-transform: uppercase;
+          }
+
+          .report-title {
+               text-align: center;
+               background-color: #f8f9fa;
+               padding: 7px;
+               border-radius: 5px;
+               margin-bottom: 20px;
+          }
+
+          /* Cartes de statistiques */
+          .stats-grid {
+               display: grid;
+               grid-template-columns: repeat(3, 1fr);
+               gap: 15px;
+               margin-bottom: 30px;
+          }
+
+          .stat-card {
+               background-color: #ffffff;
+               border: 1px solid #dee2e6;
+               padding: 15px;
+               text-align: center;
+               border-radius: 8px;
+          }
+
+          .stat-card small {
+               display: block;
+               color: #6c757d;
+               text-transform: uppercase;
+               font-size: 10px;
+               margin-bottom: 5px;
+          }
+
+          .stat-card strong {
+               font-size: 18px;
+               color: #2c3e50;
+          }
+
+          /* Tableaux des notes */
+          table {
+               width: 100%;
+               border-collapse: collapse;
+               margin-top: 10px;
+          }
+
+          th {
+               background-color: #2c3e50;
+               color: white;
+               padding: 8px;
+               text-align: left;
+               font-size: 13px;
+          }
+
+          td {
+               padding: 6px;
+               border-bottom: 1px solid #eee;
+               font-size: 12px;
+          }
+
+          tr:nth-child(even) {
+               background-color: #fafafa;
+          }
+
+          /* Indicateurs de performance */
+          .badge {
+               padding: 4px 6px;
+               border-radius: 4px;
+               font-weight: bold;
+               font-size: 11px;
+          }
+
+          .succes {
+               background-color: #d4edda;
+               color: #155724;
+          }
+
+          .echec {
+               background-color: #f8d7da;
+               color: #721c24;
+          }
+
+          .note-rouge {
+               color: #dc3545;
+               font-weight: bold;
+          }
+
+          .footer-sign {
+               margin-top: 50px;
+               display: flex;
+               justify-content: space-between;
+          }
+
+          .signature-box {
+               width: 200px;
+               border-top: 1px solid #333;
+               text-align: center;
+               padding-top: 5px;
+               font-size: 12px;
+          }
+
+          .header-table {
+               width: 100%;
+               border: none;
+               margin-bottom: 10px;
+          }
+
+          .header-table td {
+               border: none;
+               padding: 0;
+               vertical-align: middle;
+          }
+
+          .school_logo {
+               width: 70px;
+               height: 70px;
+               object-fit: contain;
+          }
+
+          .school-info {
+               text-align: center;
+          }
+       .school-info h1 {
+               margin: 0;
+               color: #1a2a6c;
+               font-size: 22px;
+               text-transform: uppercase;
+          }
+
+          .school-info p {
+               margin: 2px 0;
+               font-size: 14px;
+          }
+          hr {
+               border: 0;
+               border-top: 1px solid #b1afaf;
+               margin: 8px 0;
+          }
+     </style>
+</head>
+
+<body>
+
+     {# On boucle sur le dictionnaire de matières généré en Python #}
+     {% for nom_matiere, info in matieres_stats.items() %}
+     <div class="section-matiere">
+
+               <table class="header-table">
+                    <tr>
+                         <td style="width: 15%;">
+                              {% if _info and _info.logo_image_base64 %}
+                              <img src="{{ _info.logo_image_base64 }}" class="school_logo">
+                              {% endif %}
+                         </td>
+                         <td class="school-info">
+                              <h1>{{ _info.nom or 'NOM DE L\'INSTITUTION' }}</h1>
+                              <p><strong>{{ _info.adresse or 'Adresse de l\'école' }}</strong></p>
+                              <p>Email: {{ _info.email or 'contact@ecole.com' }} | Tél: {{ _info.ligne1 }} {{ ' / ' + _info.ligne2 if
+                                   _info.ligne2 }}</p>
+                              <p><em>"Vers l'excellence académique"</em></p>
+                         </td>
+                         <td style="width: 15%; text-align: right;">
+                              <p style="font-size: 10px;">Date: {{ date }}</p>
+                         </td>
+                    </tr>
+               </table>
+
+                    <div class="report-title">
+                         <h2>RAPPORT PÉDAGOGIQUE : {{ nom_matiere }}</h2>
+                         <p>Professeur : <strong>{{ info.professeur }}</strong> | Classe : <strong>{{ classe }}</strong></p>
+                    </div>     
+
+                         <table style="width: 100%;" class="header-table">
+                              <tr>
+                                   <td style="width: 36%;">Moyenne de classe</td>
+                                   <td style="width: 30%;">Taux de réussite</td>
+                                   <td style="width: 30%;">Effectif évalué</td>
+                              </tr>
+                              <tr>
+                                   <td>
+                                        <strong>{{ info.moyenne_matiere }} / 10</strong>
+                                   </td>
+                                   <td>
+                                        <strong>{{ info.taux_reussite }} %</strong>
+                                   </td>
+                                   <td >
+                                        <strong>{{ info.nb_notes }} élèves</strong>
+                                   </td>
+                              </tr>
+                         </table>
+
+          <table>
+               <thead>
+                    <tr>
+                         <th style="width: 10%;">N°</th>
+                         <th style="width: 50%;">Nom & Prénom</th>
+                         <th style="width: 20%;">Note</th>
+                         <th style="width: 20%;">Observation</th>
+                    </tr>
+               </thead>
+               <tbody>
+                    {% for eleve in info.eleves %}
+                    <tr>
+                         <td>{{ loop.index }}</td>
+                         <td>{{ eleve.nom }}</td>
+                         <td class="{{ 'note-rouge' if eleve.note < 5 else '' }}">
+                              {{ eleve.note }}
+                         </td>
+                         <td>
+                              <span class="badge {{ 'succes' if eleve.status == 'Succès' else 'echec' }}">
+                                   {{ eleve.status }}
+                              </span>
+                         </td>
+                    </tr>
+                    {% endfor %}
+               </tbody>
+          </table>
+
+          <div class="footer-sign">
+               <div class="signature-box">Signature du Professeur</div>
+               <div class="signature-box">Direction Pédagogique</div>
+          </div>
+
+     </div>
+     {% endfor %}
+
+</body>
+
+</html>

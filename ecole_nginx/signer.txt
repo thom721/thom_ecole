@@ -1,0 +1,638 @@
+Parfait 👌 tu es en train d’automatiser le tout.
+
+### 🔹 1. Correction rapide de ton code
+
+Dans ton `installer_certificat`, il y a une petite erreur d’indentation :
+
+```python
+def installer_certificat(self):
+    """
+    Installe le certificat PFX dans Cert:\LocalMachine\Root
+    """
+    PFX_PATH = r"C:\Program Files\gestion ecole\cert\codesign-test.pfx"
+    PFX_PASSWORD = "@#Janvier21"
+
+    cmd = [
+        "powershell",
+        "-Command",
+        (
+            f"$Password = ConvertTo-SecureString '{PFX_PASSWORD}' -AsPlainText -Force; "
+            f"Import-PfxCertificate -FilePath '{PFX_PATH}' "
+            f"-CertStoreLocation 'Cert:\\LocalMachine\\Root' "
+            f"-Password $Password | Out-Null"
+        )
+    ]
+    try:
+        subprocess.run(cmd, capture_output=True, text=True, check=True)
+        print("[OK] Certificat installé avec succès ✅")
+    except subprocess.CalledProcessError as e:
+        print("[ERREUR] Échec de l'installation du certificat ❌")
+        print(e.stderr)
+```
+
+---
+
+### 🔹 2. Commande PowerShell qui génère ton certificat **PFX**
+
+Tu peux générer ton certificat auto-signé de la manière suivante :
+
+```powershell
+$cert = New-SelfSignedCertificate `
+  -Type CodeSigningCert `
+  -Subject "CN=app.exe" `
+  -KeyExportPolicy Exportable `
+  -KeyLength 2048 `
+  -KeyAlgorithm RSA `
+  -HashAlgorithm SHA256 `
+  -CertStoreLocation "Cert:\CurrentUser\My"
+
+# Mot de passe du PFX
+$pwd = ConvertTo-SecureString -String "@#Janvier21" -Force -AsPlainText
+
+# Export du certificat en PFX
+Export-PfxCertificate -Cert $cert -FilePath "C:\Program Files\gestion ecole\cert\codesign-test.pfx" -Password $pwd
+```
+
+---
+
+### 🔹 3. Variante Python pour générer le certificat avec `subprocess`
+
+Si tu veux **générer le certificat directement depuis ton programme Python**, voici un exemple :
+
+```python
+import subprocess
+
+def generer_certificat():
+    PFX_PATH = r"C:\Program Files\gestion ecole\cert\codesign-test.pfx"
+    PASSWORD = "@#Janvier21"
+
+    cmd = [
+        "powershell",
+        "-Command",
+        (
+            "$cert = New-SelfSignedCertificate "
+            "-Type CodeSigningCert "
+            "-Subject 'CN=app.exe' "
+            "-KeyExportPolicy Exportable "
+            "-KeyLength 2048 "
+            "-KeyAlgorithm RSA "
+            "-HashAlgorithm SHA256 "
+            "-CertStoreLocation 'Cert:\\CurrentUser\\My'; "
+            f"$pwd = ConvertTo-SecureString -String '{PASSWORD}' -Force -AsPlainText; "
+            f"Export-PfxCertificate -Cert $cert -FilePath '{PFX_PATH}' -Password $pwd"
+        )
+    ]
+    try:
+        subprocess.run(cmd, capture_output=True, text=True, check=True)
+        print("[OK] Certificat généré et exporté ✅")
+    except subprocess.CalledProcessError as e:
+        print("[ERREUR] Impossible de générer le certificat ❌")
+        print(e.stderr)
+
+# Exemple d'utilisation
+generer_certificat()
+```
+
+---
+
+👉 Comme ça, tu peux :
+
+1. Vérifier si le certificat existe (`certificat_existe`)
+2. Si non, générer (`generer_certificat`)
+3. Puis installer (`installer_certificat`)
+
+---
+
+Veux-tu que je t’écrive une **classe complète `CertificateManager`** qui regroupe ces trois méthodes (`existe`, `generer`, `installer`) pour que ton programme soit 100% autonome ?
+
+
+
+
+
+
+Parfait 👍
+On peut convertir ton script PowerShell en **Python** avec `subprocess`, en vérifiant d’abord si ton certificat est déjà présent dans le magasin Windows avant de l’installer.
+
+Voici un exemple complet :
+
+```python
+import subprocess
+
+# Paramètres
+
+
+def certificat_existe(self ,subject_name="CN=app.exe"):
+    """
+    Vérifie si le certificat existe déjà dans Cert:\LocalMachine\Root
+    """
+    cmd = [
+        "powershell",
+        "-Command",
+        f"Get-ChildItem -Path Cert:\\LocalMachine\\Root | Where-Object {{ $_.Subject -eq '{subject_name}' }}"
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return bool(result.stdout.strip())  # True si quelque chose est trouvé
+    except subprocess.CalledProcessError as e:
+        print("Erreur lors de la vérification du certificat :", e.stderr)
+        return False
+
+def installer_certificat(self):
+    """
+    Installe le certificat PFX dans Cert:\LocalMachine\Root
+    """
+    PFX_PATH = r"C:\Program Files\gestion ecole\cert\codesign-test.pfx"
+     PFX_PASSWORD = "@#Janvier21"
+    cmd = [
+        "powershell",
+        "-Command",
+        (
+            f"$Password = ConvertTo-SecureString '{PFX_PASSWORD}' -AsPlainText -Force; "
+            f"Import-PfxCertificate -FilePath '{PFX_PATH}' "
+            f"-CertStoreLocation 'Cert:\\LocalMachine\\Root' "
+            f"-Password $Password | Out-Null"
+        )
+    ]
+    try:
+        subprocess.run(cmd, capture_output=True, text=True, check=True)
+        print("[OK] Certificat installé avec succès ✅")
+    except subprocess.CalledProcessError as e:
+        print("[ERREUR] Échec de l'installation du certificat ❌")
+        print(e.stderr)
+
+if __name__ == "__main__":
+    print("=== Vérification du certificat ===")
+    if certificat_existe():
+        print("[INFO] Certificat déjà présent, installation ignorée.")
+    else:
+        print("[INFO] Certificat absent → Installation en cours...")
+        installer_certificat()
+```
+
+---
+
+### 🔹 Explication
+
+1. `certificat_existe()` → lance un `powershell Get-ChildItem Cert:\LocalMachine\Root` et cherche le **Subject** (`CN=ecole.exe`).
+2. `installer_certificat()` → importe ton fichier PFX avec le mot de passe dans le magasin **LocalMachine\Root**.
+3. Le script s’exécute silencieusement → si le certificat est déjà installé, rien n’est refait.
+
+⚠️ **Important :** il faut lancer ton script en **administrateur** pour que `LocalMachine\Root` accepte l’installation.
+
+---
+
+👉 Veux-tu que je t’ajoute une variante où le mot de passe est demandé à l’utilisateur via une **fenêtre graphique sécurisée (tkinter/PySide6)** au lieu d’être en dur dans le script ?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Bonne question 👍
+
+Non 🙂 → C:\cert\codesign.pfx n’existe pas par défaut sur Windows.
+C’est juste un exemple de chemin où tu pourrais mettre ton certificat de signature de code.
+
+
+---
+
+Détails :
+
+Un fichier .pfx contient ton certificat Code Signing + ta clé privée.
+
+Tu dois soit :
+
+1. Acheter un certificat Code Signing chez une autorité de certification (DigiCert, Sectigo, GlobalSign, etc.). Ils te fourniront un .pfx (ou un token matériel si c’est un EV).
+
+
+2. Créer un certificat auto-signé (valable pour tester uniquement).
+
+
+
+
+
+---
+
+Exemple : générer un certificat auto-signé (pour tests)
+
+Ouvre PowerShell en admin et exécute :
+
+# Génère un certificat auto-signé
+$cert = New-SelfSignedCertificate `
+  -Type CodeSigningCert `
+  -Subject "CN=ecole.exe" `
+  -KeyExportPolicy Exportable `
+  -KeyLength 2048 `
+  -KeyAlgorithm RSA `
+  -HashAlgorithm SHA256 `
+  -CertStoreLocation "Cert:\CurrentUser\My"
+
+# Mot de passe du PFX
+$pwd = ConvertTo-SecureString -String "@#Janvier21" -Force -AsPlainText
+
+# Exporte le certificat en PFX
+Export-PfxCertificate -Cert $cert -FilePath "C:\cert\codesign-test.pfx" -Password $pwd
+
+👉 Tu auras maintenant un fichier C:\cert\codesign-test.pfx que tu peux utiliser avec signtool.
+
+
+---
+
+Exemple de signature avec ce certificat
+
+signtool sign /f "C:\cert\codesign-test.pfx" /p "MotDePasseFort" `
+  /tr http://timestamp.digicert.com /td SHA256 /fd SHA256 `
+  "dist\main.dist\main.exe"
+
+⚠️ Attention :
+
+Ce certificat auto-signé n’empêchera pas SmartScreen d’afficher un avertissement si tu distribues ton app sur Internet.
+
+Mais il évite déjà que Windows Defender le détruise automatiquement.
+
+Pour la production, il faut un vrai certificat Code Signing (payant).
+
+
+
+---
+
+Veux-tu que je t’écrive un script PowerShell prêt à l’emploi qui fait à la fois :
+
+1. génère un certificat auto-signé,
+
+
+2. compile ton app avec Nuitka,
+
+
+3. signe ton .exe automatiquement ?
+
+
+
+
+
+
+
+
+
+
+
+
+
+Très bonne question 👌
+Tu touches ici à la **signature de code Windows** avec un certificat auto-signé.
+
+---
+
+## 1️⃣ Faire ça en **CMD** (sans PowerShell)
+
+En **CMD pur**, tu ne peux pas générer de certificat comme avec `New-SelfSignedCertificate`.
+Mais tu peux utiliser **`makecert.exe`** (ancien, retiré de Windows SDK) ou mieux **`certutil`** (inclus dans Windows).
+
+👉 Exemple avec `certutil` :
+
+```bat
+:: Crée un certificat auto-signé dans le magasin CurrentUser\My
+certutil -scinfo
+
+:: Génération
+certutil -user -selfsign "CN=app.exe" ^
+  -r -pe -n "app Code Signing" ^
+  -eku 1.3.6.1.5.5.7.3.3 ^
+  -sv app.pvk app.cer
+
+:: Export en PFX
+pvk2pfx -pvk app.pvk -spc app.cer -pfx app.pfx -po @#Janvier21
+```
+
+⚠️ Le hic :
+
+* `pvk2pfx` vient aussi du Windows SDK, pas présent par défaut.
+* Donc **PowerShell reste plus simple** pour générer/ exporter un PFX.
+
+---
+
+## 2️⃣ Faut-il installer le certificat chez les autres utilisateurs ?
+
+Oui ✅
+
+* Ton exécutable **signé avec un certificat auto-signé** ne sera pas reconnu comme "éditeur de confiance" par Windows.
+* Chaque utilisateur (chaque PC, pas seulement chaque session) doit **installer ton certificat racine** dans le **Magasin "Autorités de certification racines de confiance"** pour éviter l’avertissement *"Éditeur inconnu"*.
+
+👉 Commande d’installation pour tous les utilisateurs (Admin requis) :
+
+```bat
+certutil -addstore -f "Root" C:\cert\codesign-test.pfx
+```
+
+Ou via PowerShell :
+
+```powershell
+Import-PfxCertificate -FilePath "C:\cert\codesign-test.pfx" `
+  -CertStoreLocation "Cert:\LocalMachine\Root" `
+  -Password (ConvertTo-SecureString "@#Janvier21" -Force -AsPlainText)
+```
+
+---
+
+## 🚨 Résumé clair
+
+* En **CMD** : possible avec `certutil` + `pvk2pfx`, mais galère → PowerShell est plus simple.
+* Pour que ton `.exe` signé soit reconnu **sans avertissement** :
+
+  * Chaque **machine cliente** doit installer ton certificat (dans *Autorités racines de confiance*).
+* Si tu veux éviter ça, il faut acheter un **vrai certificat Code Signing** auprès d’une autorité (DigiCert, Sectigo, GlobalSign…).
+
+---
+
+Veux-tu que je t’écrive un **script d’installation automatique** du certificat sur les PC des utilisateurs (en .bat ou .ps1) pour éviter qu’ils le fassent à la main ?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Parfait 👌
+Je vais te donner **2 scripts prêts à l’emploi** :
+
+---
+
+## 🔹 1. Script **Batch (.bat)** → simple pour Windows
+
+👉 Crée un fichier `install_cert.bat` avec ceci :
+
+```bat
+@echo off
+setlocal
+
+:: Chemin vers ton certificat PFX
+set PFX_PATH=C:\cert\codesign-test.pfx
+set PFX_PASSWORD=@#Janvier21
+
+
+:: Importation dans le magasin "Root" (Autorités de certification racines de confiance)
+certutil -f -p %PFX_PASSWORD% -importpfx Root "%PFX_PATH%"
+
+if %errorlevel%==0 (
+    echo [OK] Certificat installe avec succes.
+) else (
+    echo [ERREUR] Echec de l'installation du certificat.
+)
+
+pause
+```
+
+⚠️ À lancer **en administrateur**.
+
+---
+
+## 🔹 2. Script **PowerShell (.ps1)** → plus robuste
+
+👉 Crée un fichier `install_cert.ps1` :
+
+```powershell
+# Chemin vers ton certificat
+$PfxPath = "C:\cert\codesign-test.pfx"
+$Password = ConvertTo-SecureString "@#Janvier21" -AsPlainText -Force
+
+Write-Host "=== Installation du certificat pour tous les utilisateurs ==="
+
+# Importation dans le magasin racine LocalMachine
+Import-PfxCertificate -FilePath $PfxPath `
+  -CertStoreLocation "Cert:\LocalMachine\Root" `
+  -Password $Password | Out-Null
+
+if ($?) {
+    Write-Host "[OK] Certificat installe avec succes."
+} else {
+    Write-Host "[ERREUR] Echec de l'installation du certificat."
+}
+```
+
+⚠️ À exécuter aussi **en admin** (sinon ça reste limité à l’utilisateur courant).
+
+---
+
+## 🔹 Résultat
+
+* Une fois ce script lancé sur un poste client ✅ → tes exécutables signés avec ce certificat **ne montreront plus d’avertissement Windows SmartScreen** (*éditeur inconnu*).
+* Tu peux distribuer ce script avec ton logiciel → l’utilisateur double-clique et installe ton certificat.
+
+---
+
+👉 Veux-tu que je te prépare aussi la **version qui installe automatiquement le certificat en mode silencieux** (sans pause, sans confirmation) pour que tu puisses l’intégrer directement à ton `.exe` au premier lancement ?
+
+
+
+
+
+    def write_license_to_registry00000(self, license_data):
+        """Utilise reg.exe pour écrire dans le registre"""
+        name = self.sanitize_app_name(ecole-server)
+        key_path = fr"HKCU\Software\{name}\Licenses"
+        # f"HKCU\Software\{self.app_name}\Licenses"
+        try:
+            # reg add "HKCU\Software\test-cle" /v test /t REG_SZ /d test /f
+            subprocess.run(
+                ["reg", "add", key_path,
+                "/v", "ExpiryDate", "/t", "REG_SZ",
+                "/d", license_data['expiry_date'], "/f"],
+                check=True
+            )
+            subprocess.run(
+                ["reg", "add", key_path,
+                "/v", "LicenseKey", "/t", "REG_SZ",
+                "/d", license_data['key'], "/f"],
+                check=True
+            )
+
+
+            return True
+
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Erreur CalledProcessError : {e}") 
+            import traceback
+            traceback.print_exc()  
+            return False
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return False
+
+
+    def lock_registry_key():
+    """Verrouille la clé de registre via reg et PowerShell"""
+    self_app_name = "ecole-server"
+    key_path = f"Software\{self_app_name}\Licenses"
+    full_reg_path = f"HKCU\{key_path}"
+    ps_reg_path = f"HKCU:\{key_path}"
+
+    try:
+        # 1. Créer la clé si elle n'existe pas
+        subprocess.run(
+            ['reg', 'add', full_reg_path, '/f'],
+            check=True,
+            capture_output=True
+        )
+
+        # 2. PowerShell pour modifier les droits
+        ps_script = f'''
+        $keyPath = "{ps_reg_path}"
+        $acl = Get-Acl -Path $keyPath
+        $rule = New-Object System.Security.AccessControl.RegistryAccessRule(
+            "Everyone", "ReadKey", "Allow"
+        )
+        $acl.SetAccessRuleProtection($true, $false)  # Désactive héritage
+        $acl.SetAccessRule($rule)
+        Set-Acl -Path $keyPath -AclObject $acl
+        '''
+
+        result = subprocess.run(
+            ["powershell", "-Command", ps_script],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+
+        # 3. Vérification
+        verify_cmd = ['reg', 'query', full_reg_path, '/s']
+        result = subprocess.run(verify_cmd, capture_output=True, text=True)
+
+        if "ERROR" in result.stderr.upper():
+            raise PermissionError("Impossible de verrouiller la clé")
+
+        print("✅ Clé verrouillée avec succès")
+        return True
+
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Erreur subprocess : {e.stderr}")
+    except Exception as e:
+        print(f"❌ Erreur générale : {str(e)}")
+    
+    return False
+
+
+
+    Parfait ! Voici comment tu peux faire entièrement en CMD sans passer par Python.
+
+
+---
+
+1️⃣ Création / mise à jour de la licence dans le registre
+
+:: Variables
+set APP_NAME=ecole-server
+set REG_PATH=HKCU\Software\%APP_NAME%\Licenses
+set EXPIRY_DATE=2025-12-31
+set LICENSE_KEY=ABCDEF-123456
+
+:: Créer la clé et ajouter / mettre à jour ExpiryDate
+reg add "%REG_PATH%" /v ExpiryDate /t REG_SZ /d "%EXPIRY_DATE%" /f
+
+:: Ajouter / mettre à jour LicenseKey
+reg add "%REG_PATH%" /v LicenseKey /t REG_SZ /d "%LICENSE_KEY%" /f
+
+✅ Ici, /f force la mise à jour si la valeur existe déjà.
+
+
+---
+set APP_NAME=ecole-server & set REG_PATH=HKCU\Software\%APP_NAME%\Licenses & set EXPIRY_DATE=2025-09-24 & set LICENSE_KEY=WAAU-XUPM-XGC5-6IXM & reg add "%REG_PATH%" /v ExpiryDate /t REG_SZ /d "%EXPIRY_DATE%" /f & reg add "%REG_PATH%" /v LicenseKey /t REG_SZ /d "%LICENSE_KEY%" /f
+
+
+
+2️⃣ Verrouiller la clé avec PowerShell depuis CMD
+
+powershell -Command ^
+"$keyPath='HKCU:\Software\ecole-server\Licenses'; ^
+$acl=Get-Acl -Path $keyPath; ^
+$rule=New-Object System.Security.AccessControl.RegistryAccessRule('Everyone','ReadKey','Allow'); ^
+$acl.SetAccessRuleProtection($true,$false); ^
+$acl.SetAccessRule($rule); ^
+Set-Acl -Path $keyPath -AclObject $acl"
+
+⚠️ Explications :
+
+SetAccessRuleProtection($true,$false) → désactive l’héritage, protège les permissions.
+
+Everyone, ReadKey, Allow → seul la lecture est autorisée pour tous les autres utilisateurs.
+
+Ton compte (celui qui exécute CMD/PowerShell) pourra toujours écrire, mais les autres comptes ne pourront pas.
+
+
+
+---
+
+Si tu veux, je peux te donner une version 100% CMD/PowerShell combinée dans un seul fichier .bat qui écrit la licence et verrouille la clé en une seule commande.
+
+Veux‑tu que je fasse ça ?
+
+
+
+# Variables
+$self_app_name = "ecole-server"
+$keyPath = "HKCU:\Software\$self_app_name\Licenses"
+$expiryDate = "2025-12-31"
+$licenseKey = "ABCDEF-123456"
+
+# 1. Créer la clé si elle n'existe pas
+if (-not (Test-Path $keyPath)) {
+    New-Item -Path $keyPath -Force | Out-Null
+}
+
+# 2. Ajouter / mettre à jour ExpiryDate et LicenseKey
+New-ItemProperty -Path $keyPath -Name "ExpiryDate" -Value $expiryDate -PropertyType String -Force | Out-Null
+New-ItemProperty -Path $keyPath -Name "LicenseKey" -Value $licenseKey -PropertyType String -Force | Out-Null
+
+# 3. Modifier les droits pour que Everyone ait seulement ReadKey
+$acl = Get-Acl -Path $keyPath
+$rule = New-Object System.Security.AccessControl.RegistryAccessRule("Everyone", "ReadKey", "Allow")
+$acl.SetAccessRuleProtection($true, $false)  # désactive héritage
+$acl.SetAccessRule($rule)
+Set-Acl -Path $keyPath -AclObject $acl

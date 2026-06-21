@@ -1,0 +1,29 @@
+@import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css");
+@import url("https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css");
+
+@import url('https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css');
+@import "./style.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@keyframes myCustomBounce {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-20px);
+    }
+}
+
+.my-bounce {
+    animation: myCustomBounce 1.2s infinite ease-in-out;
+}
+
+[x-cloak] {
+    display: none;
+}

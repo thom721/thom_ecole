@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+     <style>
+          @page {
+               margin-top: 16px
+          }
+
+          body {
+               font-size: 17px
+          }
+
+          .header,
+          .footer {
+               text-align: center;
+          }
+
+          .content {
+               margin-top: 30px;
+          }
+
+          table {
+               width: 100%;
+               margin-top: 20px;
+               border-collapse: collapse;
+          }
+
+          td,
+          th {
+               padding: 10px;
+               border: 1px solid #000;
+          }
+
+          .signature {
+               margin-top: 50px;
+               text-align: right;
+          }
+                    .school_logo {
+          position: absolute;
+          top: 15px;
+          left: 15px;
+          width: 85px;
+          height: 85px;
+          }
+     </style>
+</head>
+
+<body>
+
+     <div style="text-align:center; margin:0px;">
+
+        <!-- <div style="position: absolute; top: 0; margin: 0; border-radius: 50%;"> -->
+               {% if logo_image_path %}
+               <img src="{{logo_image_path}}" alt="logo" width="85" height="85" class="school_logo" />
+               {% endif %}
+          <!-- </div> -->
+          <h2 style="text-align:center; margin:0px">{{ info.nom if info else 'School name' }}</h2>
+          <p style="text-align:center; margin:0px">{{ info.adresse if info else 'School Address' }}</p>
+          <p style="text-align:center; margin:0px">{{ info.email if info else 'School Email' }}</p>
+          <p style="text-align:center; margin:0px">{{ info.ligne1 if info else 'Phone 1' }} / {{ info.ligne2 if info
+               else 'Phone 2' }}</p>
+     </div>
+     <hr />
+
+
+     <div class="header">
+          <h3>Reçu d'inscription</h3>
+     </div>
+
+     <div class="content">
+          <p><strong>Date :</strong> {{ date }}</p>
+          <p><strong>Reçu n° : </strong>REC-{{ data_student.identifiant if data_student and data_student.identifiant
+               else '000001' }}</p>
+
+          <table>
+               <tr>
+                    <th style="text-align:left">Nom complet de l'élève</th>
+                    <td>{{ data_student.nom if data_student and data_student.nom else "" }} {{ data_student.prenom if
+                         data_student and data_student.prenom else "" }}</td>
+               </tr>
+               <tr>
+                    <th style="text-align:left">Identifiant</th>
+                    <td>{{ data_student.identifiant if data_student and data_student.identifiant else "" }}</td>
+               </tr>
+               <tr>
+                    <th style="text-align:left">Niveau / Cycle / Section</th>
+                    <td>{{ data_student.classe_etudiant[0].niveaux.name if data_student and data_student.classe_etudiant
+                         and data_student.classe_etudiant[0] and data_student.classe_etudiant[0].niveaux and
+                         data_student.classe_etudiant[0].niveaux.name else "" }}</td>
+               </tr>
+               <tr>
+                    <th style="text-align:left">Classe</th>
+                    <td>{{ data_student.classe_etudiant[0].classes.nom_classe if data_student and
+                         data_student.classe_etudiant and data_student.classe_etudiant[0] and
+                         data_student.classe_etudiant[0].classes and data_student.classe_etudiant[0].classes.nom_classe
+                         else "" }}</td>
+               </tr>
+               <tr>
+                    <th style="text-align:left">Année Académique</th>
+                    <td>{{ data_student.classe_etudiant[0].annee_academiques.annee_academique if data_student and
+                         data_student.classe_etudiant and data_student.classe_etudiant[0] and
+                         data_student.classe_etudiant[0].annee_academiques and
+                         data_student.classe_etudiant[0].annee_academiques.annee_academique else "" }}</td>
+               </tr>
+               <tr>
+                    <th style="text-align:left">Montant payé</th>
+                    <td>{{ "{:,.0f}".format(recu.montant) if recu and recu.montant else "0" }} GDES</td>
+               </tr>
+               <tr>
+                    <th style="text-align:left">Mode de paiement</th>
+                    <td>Espèces</td>
+               </tr>
+          </table>
+
+          <div class="signature" style="position:absolute;bottom: -1px; right:20px">
+               <!-- <p><strong>Signé le :</strong> {{ current_date.strftime('%d/%m/%Y') if current_date else '' }}</p> -->
+               <p>Signature du responsable</p>
+          </div>
+     </div>
+</body>
+
+</html>

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+     <meta charset="utf-8" />
+     <title>Reçu</title>
+     <style>
+          body {
+               margin: 0;
+               font-family: Times, serif;
+               font-size: 14px;
+               line-height: 1.5;
+          }
+
+          @page {
+               size: 11in 8.5in;
+               margin: 5mm;
+          }
+
+          .receipts-container {
+               display: flex;
+               justify-content: space-between;
+          }
+
+          .receipt {
+               width: 32%;
+               border-right: 1px dashed #ccc;
+               padding: 5px;
+               box-sizing: border-box;
+          }
+
+          .receipt:last-child {
+               border-right: none;
+          }
+
+          table {
+               width: 100%;
+               border-collapse: collapse;
+               margin-top: 5px;
+          }
+
+          th,
+          td {
+               border: 1px solid #888;
+               padding: 4px 6px;
+               text-align: left;
+          }
+
+          th {
+               background: #eee;
+          }
+
+          .footer {
+               text-align: center;
+               margin-top: 5px;
+               font-size: 12px;
+          }
+          .receipt {
+    position: relative;
+}
+
+
+.header-table {
+               width: 100%;
+               border: none;
+               margin-bottom: 10px;
+          }
+
+          .header-table td {
+               border: none;
+               padding: 0;
+               vertical-align: middle;
+          }
+
+          .school_logo {
+               width: 40px;
+               height: 40px;
+               object-fit: contain;
+          }
+
+          .school-info {
+               text-align: center;
+          }
+       .school-info h1 {
+               margin: 0;
+               color: #1a2a6c;
+               font-size: 16px;
+               text-transform: uppercase;
+          }
+
+          .school-info p {
+               margin: 2px 0;
+               font-size: 12px;
+          }
+                 hr {
+               border: 0;
+               border-top: 1px solid #ccc;
+               margin: 10px 0;
+          }
+
+     </style>
+</head>
+
+<body>
+     <div class="receipts-container">
+          {% for i in range(3) %}
+          <div class="receipt">
+<table class="header-table" style="line-height: 1;">
+     <tr>
+          <td style="width: 15%;">
+               {% if info and info.logo_image_base64 %}
+               <img src="{{ info.logo_image_base64 }}" class="school_logo">
+               {% endif %}
+          </td>
+          <td class="school-info">
+               <h1>{{ info.nom or 'NOM DE L\'INSTITUTION' }}</h1>
+               <p><strong>{{ info.adresse or 'Adresse de l\'école' }}</strong></p>
+               <p>Email: {{ info.email or 'contact@ecole.com' }} | Tél: {{ info.ligne1 }} {{ ' / ' + info.ligne2 if
+                    info.ligne2 }}</p>
+               <p><em>"Vers l'excellence académique"</em></p>
+          </td>
+
+     </tr>
+</table>
+
+               <p style="text-align:center; font-weight:bold; margin:5px 0;">
+                    {{ ['ORIGINAL','COPIE ÉTABLISSEMENT','COPIE PARENT'][i] }}
+               </p>
+               <div>
+                    <p  style="text-align:left; font-size:17px; margin:0px">Reçu No: {{ vente.order_itemId }}</p>
+               <p  style="text-align:left; font-size:17px; margin:0px">Employer: {{ vente.user.name }}</p>
+               <p  style="text-align:left; font-size:17px; margin:0px">Nom de l'élève: {{ vente.etudiant.nom }} {{ vente.etudiant.prenom }}</p>
+               <p  style="text-align:left; font-size:17px; margin:0px">Date: {{ date }}</p>
+               </div> 
+               <table>
+                    <thead>
+                         <tr>
+                              <th>Description</th>
+                              <th>Qt</th>
+                              <th>Prix U.</th>
+                              <th>Total</th>
+                         </tr>
+                    </thead>
+                    <tbody>
+                         {#% set total=0 %#}
+                         {% set ns_total = namespace(total=0) %}
+                         {% for item in vente.order_items %}
+                         <tr>
+                              <td>{{ item.category }} {{ item.nom }}</td>
+                              <td style="text-align:center">{{ item.quantite }}</td>
+                              <td style="text-align:center">{{ item.prix }}</td>
+                              <td style="text-align:center">{{ item.total }}</td>
+                         </tr>
+                         {% set ns_total.total = ns_total.total + item.total %}
+                         {% endfor %}
+                         <tr style="background:#ccc;font-weight:bold;">
+                              <td colspan="3">TOTAL</td>
+                              <td style="text-align:center">{{ ns_total.total }} G</td>
+                         </tr>
+                    </tbody>
+               </table>
+
+               <div class="footer">Merci pour votre confiance!</div>
+          </div>
+          {% endfor %}
+     </div>
+</body>
+
+</html>

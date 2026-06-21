@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+     <meta http-equiv="Content-Type" content="text/html" charset="UTF-8" />
+
+     <style>
+          body {
+               font-family: "Times New Roman", Times;
+               font-size: medium
+          }
+
+          @page {
+               margin: 30px
+          }
+
+          table {
+               width: 100%;
+               border-collapse: collapse;
+          }
+
+          .table_fin {
+               border-collapse: collapse;
+          }
+
+          .table_fin>th,
+          .table_fin>td {
+               border: 1px solid #888;
+          }
+
+          th,
+          td {
+               border: 1px solid #888;
+               padding: 8px;
+               text-align: left;
+          }
+
+          table,
+          th,
+          td {
+               padding: 4px 6px;
+               margin: 0px
+          }
+
+          .header-table {
+               width: 100%;
+               border: none;
+               margin-bottom: 10px;
+          }
+
+          .header-table td {
+               border: none;
+               padding: 0;
+               vertical-align: middle;
+          }
+
+          .school_logo {
+               width: 70px;
+               height: 70px;
+               object-fit: contain;
+          }
+
+          .school-info {
+               text-align: center;
+          }
+
+          .school-info h1 {
+               margin: 0;
+               color: #1a2a6c;
+               font-size: 22px;
+               text-transform: uppercase;
+          }
+
+          .school-info p {
+               margin: 2px 0;
+               font-size: 15px;
+          }
+
+          hr {
+               border: 0;
+               border-top: 1px solid #ccc;
+               margin: 15px 0;
+          }
+
+          .page-break {
+               page-break-after: always;
+               break-after: page;
+          }
+     </style>
+</head>
+
+<body>
+     {% for data_student in data_students %}
+     {% set etudiantId = data_student.identifiant %}
+     {% if data_student.data_etudiant is string %}
+     {% set dataEtudiant = data_student.data_etudiant | from_json %}
+     {% else %}
+     {% set dataEtudiant = data_student.data_etudiant %}
+     {% endif %}
+
+     {% if etudiantId not in dataEtudiant %}
+     {% continue %}
+     {% endif %}
+
+     {# En-tête de l'école #}
+     <!-- <p style="text-align:center; margin:0px">Fondée le 26 Avril 1985</p> -->
+     <table class="header-table">
+          <tr>
+               <td style="width: 20%;">
+                    {% if info and info.logo_image_base64 %}
+                    <img src="{{ info.logo_image_base64 }}" class="school_logo">
+                    {% endif %}
+               </td>
+               <td class="school-info">
+                    <h1>{{ info.nom or 'NOM DE L\'INSTITUTION' }}</h1>
+                    <p><strong>{{ info.adresse or 'Adresse de l\'école' }}</strong></p>
+                    <p>Email: {{ info.email or 'contact@ecole.com' }} </p>
+                    <p>Tél: {{ info.ligne1 }} {{ ' / ' + info.ligne2 if
+                         info.ligne2 }}</p>
+                    <p><em>"Vers l'excellence académique"</em></p>
+               </td>
+               <td style="width: 20%;"></td>
+          </tr>
+     </table>
+
+
+
+     {% if data_student.niveau_name in ['Cycle 3', 'Primaire', 'Technique'] %}
+     <hr style="margin:10px" />
+     {% else %}
+     <hr style="margin:3px" />
+     {% endif %}
+
+
+     {% if mois == 'Annuel' %}
+     <p style="font-size:22px; text-align:center;margin:0px;padding:0px">Bulletin scolaire annuel</p>
+     {% endif %}
+     {# Informations de l'étudiant #}
+
+     <div style="display: flex; justify-content: space-between;justify-items: center;">
+
+          <div style="left:0; top:0%; width:40%;line-height:16px">
+               <table style="border: none;">
+                    <tbody>
+                         <tr style="border: none;">
+                              <td style="border: none;font-size:17px;width:50%">Code :</td>
+                              <td style="border: none;font-size:17px; font-weight:bold;"> {{ data_student.identifiant }}
+                              </td>
+                         </tr>
+                         <tr style="border: none;">
+                              <td style="border: none;font-size:17px;width:50%;">Nom :</td>
+                              <td style="border: none;font-size:17px; font-weight:bold;"> {{ data_student.fname }}</td>
+                         </tr>
+                         <tr style="border: none;">
+                              <td style="border: none;font-size:17px;width:50%">Prénom(s) :</td>
+                              <td style="border: none;font-size:17px; font-weight:bold;"> {{ data_student.lname }}</td>
+                         </tr>
+                    </tbody>
+               </table>
+          </div>
+          <div style="right:0; top:0%;line-height:16px; width:40%">
+               <table>
+                    <tbody>
+                         <tr>
+                              <td style="border: none;font-size:17px;width:50%">Classe :</td>
+                              <td style="border: none;font-size:17px; font-weight:bold"> {{ data_student.nom_classe or
+                                   '' }}
+                              </td>
+                         </tr>
+                         <tr>
+                              <td style="border: none;font-size:17px;width:52%">Bulletin :</td>
+                              <td style="border: none;font-size:17px; font-weight:bold">
+                                   {% if data_student.niveau_name != 'Universitaire' %}
+                                   <span style="font-weight:bold; font-size:17px">{{ 'Annuel' if mois == 'all' else mois
+                                        }}</span>
+                                   {% else %}
+                                   <span style="margin-left:27px; font-weight:bold; font-size:17px">{{
+                                        data_student.nom_classe or '' }}</span>
+                                   {% endif %}
+                              </td>
+                         </tr>
+                         <tr>
+                              <td style="border: none;font-size:17px;width:52%">Année :</td>
+                              <td style="border: none;font-size:17px; font-weight:bold"> {{
+                                   data_student.annee_academique or
+                                   '' }}
+                              </td>
+                         </tr>
+                    </tbody>
+               </table>
+          </div>
+     </div>
+
+     {# Variables pour calculs #}
+     {% set totalCoeff = 0.0 %}
+     {% set sumOrals = 0 %}
+
+     {# Récupérer toutes les clés de notes #}
+     {% set allNotesKeys = [] %}
+     {% if etudiantId in dataEtudiant %}
+     {% for type_key, type_data in dataEtudiant[etudiantId].items() %}
+     {% for matiere_key, matiere_data in type_data.items() %}
+     {% if matiere_data.notes %}
+     {% for note_key in matiere_data.notes.keys() %}
+     {% if note_key not in allNotesKeys %}
+     {% set _ = allNotesKeys.append(note_key) %}
+     {% endif %}
+     {% endfor %}
+     {% endif %}
+     {% endfor %}
+     {% endfor %}
+     {% endif %}
+
+     {# SECTION NON-UNIVERSITAIRE #}
+     {% if data_student.niveau_name != 'Universitaire' %}
+     {% set etudiantFiltre = result | selectattr('identifiant', 'equalto', data_student.identifiant) | list %}
+     {% set nb_student = result | length %}
+
+     {% if mois != 'Annuel' %}
+     {# CYCLE 3 - Tableau simple #}
+     {% if data_student.niveau_name == 'Cycle 3' %}
+     {% if mois in allNotesKeys %}
+     <div style="margin-top:0px;padding:0px">
+          <div style="width:100%;margin-top:20px;padding:0px">
+               <table border="1">
+                    <thead style="background-color:rgb(219, 226, 228);">
+                         <tr>
+                              <th style="padding:6px">Matière</th>
+                              <th>Notes</th>
+                              <th>Coefficients</th>
+                         </tr>
+                    </thead>
+                    <tbody>
+                         {% for base_key, bases in dataEtudiant[etudiantId].items() %}
+                         {% if base_key in ['orale', 'base'] %}
+                         {% for detail, value in bases.items() %}
+                         {% if detail != " " %}
+                         <tr {% if loop.index % 2==0 %}style="background-color: rgb(230, 235, 236);" {% endif %}>
+                              <td style="padding:6px">{{ detail }}</td>
+                              <td style="text-align:center;">{{ value.notes[mois] if mois in value.notes else '-' }}
+                              </td>
+                              <td style="text-align:center;">{{ value.coefficients }}</td>
+                         </tr>
+                         {% endif %}
+                         {% endfor %}
+                         {% endif %}
+                         {% endfor %}
+
+                         {# Total #}
+                         {% set coeff_total = namespace(value=0) %}
+                         {% set notes_total = namespace(value=0) %}
+                         {% for base_key, bases in dataEtudiant[etudiantId].items() %}
+                         {% if base_key in ['orale', 'base'] %}
+                         {% for detail, value in bases.items() %}
+                         {% if detail != " " %}
+                         {% set coeff_total.value = (coeff_total.value | float) + (value.coefficients | float) %}
+                         {% set notes_total.value = (notes_total.value | float) + ((value.notes[mois] | float) if mois
+                         in value.notes else
+                         0) %}
+                         {% endif %}
+                         {% endfor %}
+                         {% endif %}
+                         {% endfor %}
+
+                         <tr style="font-weight: bold; font-size:17px;background-color: rgb(230, 235, 236)">
+                              <td>Total</td>
+                              <td style="text-align:center;">{{ notes_total.value }}</td>
+                              <td style="text-align:center;">{{ coeff_total.value }}</td>
+                         </tr>
+
+                         <tr style="font-weight: bold;background-color: rgb(230, 235, 236)">
+                              <td style="font-size:17px">Moyenne de l'élève</td>
+                              <td style="text-align:center;">{{ etudiantFiltre[0].moyenne if etudiantFiltre else '-' }}
+                              </td>
+                              <td style="text-align:center;">10</td>
+                         </tr>
+
+                         <tr style="font-weight: bold;background-color: rgb(230, 235, 236)">
+                              <td style="font-size:17px">Moyenne de la classe</td>
+                              <td style="text-align:center;">{{ moyenne_classe }}</td>
+                              <td style="text-align:center;">10</td>
+                         </tr>
+
+                         <tr>
+                              <td>Place</td>
+                              <td style="text-align:center;">
+                                   {% if etudiantFiltre %}
+                                   {% set position = etudiantFiltre[0].rang %}
+                                   {% set suffix = 'er (ère)' if position == 1 else 'ème' %}
+                                   {{ position }} {{ suffix }} /
+                                   {% endif %}
+                              </td>
+                              <td style="text-align:center;">{{ nb_student }}</td>
+                         </tr>
+                    </tbody>
+               </table>
+          </div>
+     </div>
+     {% else %}
+     <p style="text-align:center; font-size:17px;">Vous n'avez pas de données disponibles pour <strong>{{ mois
+               }}</strong></p>
+     {% endif %}
+
+     {# PRIMAIRE - Matières base et orales séparées #}
+     {% else %}
+     {% if data_student.niveau_name != 'Cycle 3' %}
+
+     {% if mois in allNotesKeys %}
+     <div style="display: flex;margin-top:65px;margin-bottom:0px;">
+          <div style="width:49%;">
+               <p style="font-weight:bold;font-size:18px;text-align:center">Matières de base</p>
+          </div>
+          <div style="width:49%;">
+               <p style="font-weight:bold;font-size:18px;text-align:center">Matières Orales</p>
+          </div>
+     </div>
+     {# Table Matières Orales (droite) #}
+     <div style="position: relative;">
+          <div style="position:absolute;right:0;top:0;width:48%;">
+               <table>
+                    <thead style="background-color: #f8fbfc;">
+                         <tr>
+                              <th>Matière</th>
+                              <th>Notes</th>
+                              <th>Coefficients</th>
+                         </tr>
+                    </thead>
+                    <tbody>
+                         {% for base_key, bases in dataEtudiant[etudiantId].items() %}
+                         {% if base_key == 'orale' %}
+                         {% for detail, value in bases.items() %}
+                         <tr>
+                              <td>{{ detail }}</td>
+                              <td style="text-align:center;">{{ value.notes[mois] if mois in value.notes else 0 }}</td>
+                              <td style="text-align:center;">{{ value.coefficients }}</td>
+                         </tr>
+                         {% endfor %}
+                         {% endif %}
+                         {% endfor %}
+
+                         {# Total Orales #}
+                         {% set oral_coeff = namespace(value=0) %}
+                         {% set oral_sum = namespace(value=0) %}
+                         {% for base_key, bases in dataEtudiant[etudiantId].items() %}
+                         {% if base_key == 'orale' %}
+                         {% for detail, value in bases.items() %}
+                         {% set oral_coeff.value = (oral_coeff.value | float) + (value.coefficients | float) %}
+                         {% set oral_sum.value = (oral_sum.value | float) + ((value.notes[mois] | float) if mois in
+                         value.notes else 0) %}
+                         {% endfor %}
+                         {% endif %}
+                         {% endfor %}
+
+                         <tr>
+                              <td style="font-weight: bold; text-align:center; font-size:16px">Total</td>
+                              <td style="font-weight: bold; text-align:center; font-size:16px">{{ oral_sum.value }}</td>
+                              <td style="font-weight: bold; text-align:center; font-size:16px">{{ oral_coeff.value }}
+                              </td>
+                         </tr>
+                    </tbody>
+               </table>
+          </div>
+
+          <div style="width:50%;">
+               <table>
+                    <thead style="background-color: #f8fbfc;">
+                         <tr>
+                              <th>Matière</th>
+                              <th>Notes</th>
+                              <th>Coefficients</th>
+                         </tr>
+                    </thead>
+                    <tbody>
+                         {% for base_key, bases in dataEtudiant[etudiantId].items() %}
+                         {% if base_key not in ['orale', 'statistiques'] %}
+                         {% for detail, value in bases.items() %}
+                         <tr>
+                              <td>{{ detail }}</td>
+                              <td style="text-align:center;">{{ value.notes[mois] if mois in value.notes else 0 }}</td>
+                              <td style="text-align:center;">{{ value.coefficients }}</td>
+                         </tr>
+                         {% endfor %}
+                         {% endif %}
+                         {% endfor %}
+
+                         {# Total Base #}
+                         {% set base_coeff = namespace(value=0) %}
+                         {% set base_sum = namespace(value=0) %}
+                         {% for base_key, bases in dataEtudiant[etudiantId].items() %}
+                         {% if base_key not in ['orale', 'statistiques'] %}
+                         {% for detail, value in bases.items() %}
+                         {% set base_coeff.value = (base_coeff.value | float) + (value.coefficients | float) %}
+                         {% set base_sum.value = (base_sum.value | float) + ((value.notes[mois] | float) if mois in
+                         value.notes
+                         else 0) %}
+                         {% endfor %}
+                         {% endif %}
+                         {% endfor %}
+
+                         <tr>
+                              <td style="font-weight: bold; text-align:center; font-size:16px">T. matières de base</td>
+                              <td style="font-weight: bold; text-align:center; font-size:16px">{{ base_sum.value }}</td>
+                              <td style="font-weight: bold; text-align:center; font-size:16px">{{ base_coeff.value }}
+                              </td>
+                         </tr>
+                    </tbody>
+               </table>
+          </div>
+     </div>
+     {% else %}
+     <p style="text-align:center; font-size:17px;">Vous n'avez pas de données disponibles pour le mois <strong>{{ mois
+               }}</strong></p>
+     {% endif %}
+     {% endif %}
+
+     {# Table Matières de Base (gauche) #}
+
+     {% endif %}
+
+     {# BULLETIN ANNUEL - Notes Mensuelles #}
+     {% else %}
+     <div style="width:100%;margin-top:1%;padding:0px">
+          <h4 style="text-align: center;padding:4px;margin: 2px; font-size: 18px;">Notes Mensuelles</h4>
+          <table style="padding:0px;border: none;">
+               <thead style="background-color: #f8fbfc;">
+                    <tr>
+                         <th>Matière</th>
+                         {% for valeur in allHeaders %}
+                         <th>{{ valeur[:3] }}.</th>
+                         {% endfor %}
+                         <th>TOT.</th>
+                         <th>Coef.</th>
+                    </tr>
+               </thead>
+               <tbody>
+                    {% for base_key, bases in dataEtudiant[etudiantId].items() %}
+                    {% for detail, value in bases.items() %}
+                    <tr {% if loop.index % 2==1 %}style="background-color: #f8fbfc;" {% endif %}>
+                         <td style="border: none;">{{ detail }}</td>
+                         {% set line_total = namespace(sum=0, coeff=0) %}
+                         {% for header in allHeaders %}
+                         {% if header in value.notes %}
+                         {% set line_total.sum = (line_total.sum | float) + (value.notes[header] | float) %}
+                         {% set line_total.coeff = (line_total.coeff | float) + (value.coefficients | float) %}
+                         {% endif %}
+                         <td style="text-align:center;border: none;">{{ value.notes[header] if header in value.notes
+                              else '-' }}</td>
+                         {% endfor %}
+                         <td style="text-align:center;border: none;">{{ line_total.sum }}</td>
+                         <td style="text-align:center;border: none;">{{ line_total.coeff }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% endfor %}
+
+                    {# Total #}
+                    <tr style="background-color: #f8fbfc;">
+                         <td style="font-weight: bold; font-size:14px;border: none;">Total</td>
+                         {% set grand_total = namespace(sum=0, coeff=0) %}
+                         {% for header in allHeaders %}
+                         {% set col_sum = namespace(value=0) %}
+                         {% for base_key, bases in dataEtudiant[etudiantId].items() %}
+                         {% for detail, value in bases.items() %}
+                         {% if header in value.notes %}
+                         {% set col_sum.value = (col_sum.value | float) + (value.notes[header] | float) %}
+                         {% set grand_total.coeff = (grand_total.coeff | float) + (value.coefficients | float) %}
+                         {% endif %}
+                         {% endfor %}
+                         {% endfor %}
+                         {% set grand_total.sum = grand_total.sum + col_sum.value %}
+                         <td style="font-weight: bold; text-align:center; font-size:14px;border: none;">{{ col_sum.value
+                              }}</td>
+                         {% endfor %}
+                         <td style="font-weight: bold; text-align:center; font-size:14px;border: none;">{{
+                              grand_total.sum }}</td>
+                         <td style="font-weight: bold; text-align:center; font-size:14px;border: none;">{{
+                              grand_total.coeff }}</td>
+                    </tr>
+
+                    {# Moyenne de l'élève #}
+                    <tr style="background-color: #e3e9eb;">
+                         <td style="font-weight: bold; font-size:14px;">M. de l'élève</td>
+                         {% set moy_calc = namespace(sum=0, count=0) %}
+                         {% for header in allHeaders %}
+                         {% set col_data = namespace(sum=0, coeff=0, nb=0) %}
+                         {% for base_key, bases in dataEtudiant[etudiantId].items() %}
+                         {% for value in bases.values() %}
+                         {% if header in value.notes %}
+                         {% set col_data.sum = (col_data.sum | float) + (value.notes[header] | float) %}
+                         {% set col_data.coeff = (col_data.coeff | float) + (value.coefficients | float) %}
+                         {% set col_data.nb = col_data.nb + 1 %}
+                         {% endif %}
+                         {% endfor %}
+                         {% endfor %}
+                         {% if col_data.nb > 0 %}
+                         {% set monthly_avg = (col_data.sum / col_data.coeff * 10) if col_data.coeff > 0 else 0 %}
+                         {% set moy_calc.sum = moy_calc.sum + monthly_avg %}
+                         {% set moy_calc.count = moy_calc.count + 10 %}
+                         <td style="font-weight: bold; text-align:center; font-size:14px;border: none;">{{
+                              "%.2f"|format(monthly_avg)
+                              }}</td>
+                         {% else %}
+                         <td style="font-weight: bold; text-align:center; font-size:14px;border: none;">-</td>
+                         {% endif %}
+                         {% endfor %}
+                         <td style="font-weight: bold; text-align:center; font-size:14px;border: none;">{{
+                              "%.2f"|format((moy_calc.sum
+                              / moy_calc.count * 10) if moy_calc.count > 0 else 0) }}</td>
+                         <td style="font-weight: bold; text-align:center; font-size:14px;border: none;">10</td>
+                    </tr>
+
+                    {# Moyenne de classe #}
+                    <tr>
+                         <td style="font-weight: bold; font-size:14px;border: none;">M. de classe</td>
+                         {% for header in allHeaders %}
+                         <td style="font-weight: bold; text-align:center; font-size:14px;border: none;"></td>
+                         {% endfor %}
+                         <td style="font-weight: bold; text-align:center; font-size:14px;border: none;">{{
+                              moyenne_classe }}</td>
+                         <td style="font-weight: bold; text-align:center; font-size:14px;border: none;">10</td>
+                    </tr>
+               </tbody>
+          </table>
+     </div>
+     {% endif %}
+
+     {# SECTION UNIVERSITAIRE #}
+     {% else %}
+     <table style="width:100%; margin-top:17px">
+          <thead>
+               <tr>
+                    <td style="width:40%; font-size:19px;font-weight:bold; text-align:center">Matières</td>
+                    <td style="font-size:19px;font-weight:bold; text-align:center">Intra</td>
+                    <td style="font-size:19px;font-weight:bold; text-align:center">Finales</td>
+               </tr>
+          </thead>
+          <tbody>
+               {% for matiere, details in dataEtudiant.items() %}
+               {% for cours, detailsCours in details.items() %}
+               {% for Etudiant, CoursEtudiant in detailsCours.items() %}
+               {% if cours == '1ere' %}
+               <tr>
+                    <td style="width:40%; font-size:18px; padding-left:10px">{{ Etudiant }}</td>
+                    <td style="font-size:18px; text-align:center">{{ CoursEtudiant.notes.intra if CoursEtudiant.notes
+                         and 'intra' in CoursEtudiant.notes else 'N/A' }}</td>
+                    <td style="font-size:18px; text-align:center">{{ CoursEtudiant.notes.finale if CoursEtudiant.notes
+                         and 'finale' in CoursEtudiant.notes else 'N/A' }}</td>
+               </tr>
+               {% endif %}
+               {% endfor %}
+               {% endfor %}
+               {% endfor %}
+          </tbody>
+     </table>
+     {% endif %}
+
+     {# CONDUITE / APPLICATION #}
+     {% if data_student.niveau_name not in ['Cycle 3'] and mois != 'Annuel' %}
+     <p style="text-align:center; font-size:17px; padding:5px; margin-top:15px">CONDUITE / APPLICATION</p>
+     <div class="display:flex;">
+          <div style="display:inline-flex;width:47%;">
+               <table style="width:100%; margin-top:0px">
+                    <tbody>
+                         <tr>
+                              <td>Absences</td>
+                              <td style="width: 60%;"></td>
+                         </tr>
+                         <tr>
+                              <td>Retards</td>
+                              <td></td>
+                         </tr>
+                         <tr>
+                              <td>Observations</td>
+                              <td></td>
+                         </tr>
+                    </tbody>
+               </table>
+          </div>
+          <!-- <p style="display: inline-flex; width: 2px;"></p> -->
+          <div style="display: inline-flex; width: 48%; right: 0;margin-left: auto; align-items: flex-end;">
+               <table style="width:100%; margin-top:0px">
+                    {% set total_gen = namespace(coeff=0, notes=0) %}
+                    {% for base_key, bases in dataEtudiant[etudiantId].items() %}
+                    {% for detail, value in bases.items() %}
+                    {% set total_gen.coeff = (total_gen.coeff | float) + (value.coefficients | float) %}
+                    {% if mois in value.notes %}
+                    {% set total_gen.notes = (total_gen.notes | float) + (value.notes[mois] | float) %}
+                    {% endif %}
+                    {% endfor %}
+                    {% endfor %}
+
+                    <tbody>
+                         <tr>
+                              <td style="font-weight: bold">TOTAL GENERAL</td>
+                              <td style="font-weight: bold; text-align:center; width:30%">{{ total_gen.notes if mois in
+                                   allNotesKeys else 0 }}</td>
+                              <td style="text-align:center; width:18%">{{ total_gen.coeff if mois in allNotesKeys else 0
+                                   }}</td>
+                         </tr>
+                         <tr>
+                              <td>Moyenne de l'élève</td>
+                              <td style="text-align:center;">{{ "%.2f"|format((total_gen.notes / total_gen.coeff * 10)
+                                   if total_gen.coeff > 0 else 0) }}</td>
+                              <td style="text-align:center;">10</td>
+                         </tr>
+                         <tr>
+                              <td>Place</td>
+                              <td style="text-align:center;">
+                                   {% if etudiantFiltre %}
+                                   {% set position = etudiantFiltre[0].rang %}
+                                   {% set suffix = 'er (ère)' if position == 1 else 'ème' %}
+                                   {{ position }} {{ suffix }} /
+                                   {% endif %}
+                              </td>
+                              <td style="text-align:center;">{{ nb_student }}</td>
+                         </tr>
+                         <tr>
+                              <td>Moyenne de la classe</td>
+                              <td style="text-align:center;">{{ moyenne_classe }}</td>
+                              <td style="text-align:center;">10</td>
+                         </tr>
+                    </tbody>
+               </table>
+          </div>
+     </div>
+     {% endif %}
+
+     {# Signatures #}
+     {% if mois == 'Annuel' %}
+     <div>
+          <p style="text-align:left; margin-top:20px">Décision :________________________</p>
+     </div>
+     <div style="position:absolute; left:0px; bottom:5%">
+          <p style="margin:0px">__________________________</p>
+          <p style="text-align:center; margin:0px">La direction</p>
+     </div>
+     <div style="position:absolute; bottom:5%; right:0">
+          <p style="margin:0px">__________________________</p>
+          <p style="text-align:center; margin:0px">Professeur</p>
+     </div>
+     {% else %}
+     <div style="position:absolute; bottom:5%">
+          <p style="margin:0px">_______________________</p>
+          <p style="text-align:center; margin:0px">La direction</p>
+     </div>
+
+     {% if data_student.niveau_name != 'Cycle 3' %}
+     <div style="position:absolute; bottom:5%; left:36%">
+          <p style="margin:0px">_______________________</p>
+          <p style="text-align:center; margin:0px">Professeur</p>
+     </div>
+     {% endif %}
+
+     <!-- <div style="position:absolute; bottom:5%; left:36%">
+          <p style="margin:0px">_______________________</p>
+          <p style="text-align:center; margin:0px">Professeur</p>
+     </div> -->
+     <div style="position:absolute;bottom:5%; right:0%">
+          <p style="margin:0px">_______________________</p>
+          <p style="text-align:center; margin:0px">Parent</p>
+     </div>
+     {% endif %}
+
+     {# Saut de page sauf pour le dernier #}
+     {% if not loop.last %}
+     <div class="page-break"></div>
+     {% endif %}
+
+     {% endfor %}
+</body>
+
+
+</html>

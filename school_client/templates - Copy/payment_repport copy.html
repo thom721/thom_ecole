@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+     <style>
+          body {
+               font-family: "Times New Roman", Times;
+          }
+
+          @page {
+               margin-top: 30px
+          }
+
+          table {
+               width: 100%;
+               border-collapse: collapse;
+          }
+
+          table,
+          th,
+          td {
+               border: 1px solid gray;
+               padding: 3px;
+          }
+
+
+          .school-logo {
+               width: 85px;
+               height: 85px;
+               border-radius: 50%;
+               object-fit: cover;
+          }
+
+          .school-logo {
+               width: 5rem;
+               /* Environ 80px */
+               height: 5rem;
+          }
+
+          .section-container {
+               width: 100%;
+               display: flex;
+          }
+
+          .section {
+               width: 50%;
+               margin-top: 14px;
+               text-align: center;
+          }
+
+          .section p {
+               margin-left: 20px;
+               font-weight: bold;
+               font-size: 17px;
+          }
+
+          .flex-container {
+               display: flex;
+               flex-wrap: nowrap;
+          }
+
+          .flex-container>div {
+               display: inline-flex;
+               width: 100px;
+               margin: 10px;
+               text-align: center;
+               line-height: 75px;
+               font-size: 17px;
+          }
+
+          body {
+               font-size: 14px
+          }
+     </style>
+</head>
+
+<body> 
+     <div class="bg-slate-600">
+
+          <div style="position: absolute; top: 0; margin: 0; border-radius: 50%;">
+               {% if info and info.logo_image_path %}
+               <img src="" alt="logo" width="100" height="85"
+                    class="school_logo" />
+               {% endif %}
+          </div>
+          <h2 style="text-align:center; margin:0px">{{ info.nom if info else 'School name' }}</h2>
+          <p style="text-align:center; margin:0px">{{ info.adresse if info else 'School Address' }}</p>
+          <p style="text-align:center; margin:0px">{{ info.email if info else 'School Email' }}</p>
+          <p style="text-align:center; margin:0px">{{ info.ligne1 if info else 'Phone 1' }} / {{ info.ligne2 if info
+               else 'Phone 2' }}</p>
+     </div>
+     <hr />
+
+     {% if data_payment %}
+     {% if versement != 'tous les versements' %}
+     <p>
+          Ce rapport synthétise les paiements effectués par les élèves de la <strong>{{ classe }}</strong> sur la
+          période allant du
+          <strong>{{ debut }}</strong> au <strong>{{ fin }}</strong>.
+          Il détaille, pour chaque élève, le statut du versement sélectionné : acquitté, partiel ou non payé.
+     </p><br>
+
+     <table id="collapse" style="width:100%; margin-top:17px">
+          <thead>
+               <tr>
+                    <!-- <th style="font-size:17px;font-weight:bold; text-align:center">Classe</th> -->
+                    <th style="width:20%; font-size:17px;font-weight:bold; text-align:center">Identifiant</th>
+                    <th style="width:30%; font-size:17px;font-weight:bold; text-align:center">Nom </th>
+
+                    {% if versement %}
+                    <th style="font-size:17px;font-weight:bold; text-align:center">{{ versement }} </th>
+                    {% endif %}
+
+                    <th style="font-size:17px;font-weight:bold; text-align:center">Avance</th>
+                    <th style="font-size:17px;font-weight:bold; text-align:center">Balance</th>
+               </tr>
+          </thead>
+
+          <tbody>
+               {% set ns = namespace(totalDepot=0, totalAvance=0, totalBalance=0) %}
+
+               {% for payment in data_payment %}
+               {% set ns.totalDepot = ns.totalDepot + (payment.paiements.total if payment.paiements and
+               payment.paiements.total else 0) %}
+
+               <tr>
+                    <!-- <td>{{ payment.cycle }}</td> aide_financiere -->
+                    {% if payment.aide_financiere == 'Bourse' %}
+                    <td style="font-weight:bold; color: green;">{{ payment.identifiant }}</td>
+                    {% elif payment.aide_financiere == 'Démie bourse' %}
+                    <td style="font-weight:bold; color: orange;">{{ payment.identifiant }}</td>
+                    {% else %}
+                    <td>{{ payment.identifiant }}</td>
+                    {% endif %}
+
+                    <td>{{ payment.nom }} <span style="margin-left: 5px;">{{ payment.prenom }}</span></td>
+
+                    <!-- <span>payment.paiements{{payment.paiements}} <br> versement {{versement}}</span> -->
+                    {% if versement %}
+                    {% if payment.paiements and versement in payment.paiements %}
+                    {% if payment.paiements[versement] == True %}
+                    <td style="text-align: center; color: green;">Acquitté</td>
+                    {% elif payment.paiements[versement] != False %}
+                    <td style="text-align: center; color: orange;"> {{ 'Partiel' if payment.paiements[versement] > 0
+                         else 'Non payé' }}</td>
+                    {% else %}
+                    <td style="text-align: center; color: red;">Non payé</td>
+                    {% endif %}
+                    {% else %}
+                    <td style="text-align: center; color: red;">Non payé</td>
+                    {% endif %}
+
+                    {% if payment.paiements and versement in payment.paiements %}
+                    {% if payment.paiements[versement] == True %}
+                    <td style="text-align: center; color: green;">Acquitté</td>
+                    {% elif payment.paiements[versement] != False %}
+                    <td style="text-align: center; color: orange;">
+                         {{ payment.paiements[versement] }} Gdes
+                    </td>
+                    {% set ns.totalAvance = ns.totalAvance + (payment.paiements.avance if payment.paiements and
+                    payment.paiements.avance else 0) %}
+                    {% else %}
+                    <td style="text-align: center; color: red;">0 Gdes</td>
+                    {% endif %}
+                    {% else %}
+                    <td style="text-align: center; color: red;">0 Gdes</td>
+                    {% endif %}
+
+                    {% if payment.paiements and versement in payment.paiements %}
+                    {% if payment.paiements[versement] == True %}
+                    <td style="text-align: center;">0 Gdes</td>
+                    {% elif payment.paiements[versement] is number %}
+                    <td style="text-align: center; color: orange;">
+                         {{ payment.paiements.balance if payment.paiements and payment.paiements.balance else 0 }} Gdes
+                    </td>
+                    {% set ns.totalBalance = ns.totalBalance + (payment.paiements.balance if payment.paiements and
+                    payment.paiements.balance else 0) %}
+                    {% else %}
+                    <td style="text-align: center; color: red;">0 Gdes</td>
+                    {% endif %}
+                    {% else %}
+                    <td style="text-align: center; color: red;">0 Gdes</td>
+                    {% endif %}
+                    {% else %}
+                    <td style="text-align: center;">-</td>
+                    {% endif %}
+               </tr>
+               {% endfor %}
+
+               <tr style="background-color:#ccc; font-size:14px">
+                    <td colspan='2'>TOTAL</td>
+                    <td>{{ ns.totalDepot }} GDES</td>
+                    <td>{{ ns.totalAvance }} GDES</td>
+                    <td>{{ ns.totalBalance }} GDES</td>
+               </tr>
+          </tbody>
+     </table>
+
+     {% else %}
+     {# Initialisation des variables globales #}
+     {% set entetesVersements = [] %}
+     {% set entetesVersements_ = [] %}
+     {% set total_general_eleves = 0 %}
+     {% set total_general_paye = {} %}
+     {% set total_general_avance_total = 0 %}
+     {% set total_general_balance_total = 0 %}
+     {% set montants_attendus = {} %}
+
+     {# Extraire toutes les entêtes de versement #}
+     {% for payment in data_payment %}
+     {% if payment.paiements and payment.paiements.check_echeances %}
+     {% for versement_key in payment.paiements.check_echeances.keys() %}
+     {% if versement_key not in entetesVersements %}
+     {% set entetesVersements = entetesVersements + [versement_key] %}
+     {% endif %}
+     {% endfor %}
+     {% endif %}
+     {% if payment.check_echeances %}
+     {% set _ = entetesVersements_.append(payment.check_echeances) %}
+     {% endif %}
+     {% endfor %}
+
+     {# Trier les données par cycle et regrouper par classe #}
+     {% set sortedData = data_payment|sort(attribute='cycle') %}
+     {% set groupedPayments = {} %}
+
+     {% for payment in sortedData %}
+     {% set group_key = payment.cycle ~ ' → ' ~ payment.classe_name %}
+     {% if group_key not in groupedPayments %}
+     {% set _ = groupedPayments.update({group_key: []}) %}
+     {% endif %}
+     {% set _ = groupedPayments[group_key].append(payment) %}
+     {% endfor %}
+
+     {# Calculer les montants attendus #}
+     {% for versements in entetesVersements_ %}
+     {% for libelle, montant in versements.items() %}
+     {% if libelle not in montants_attendus %}
+     {% set _ = montants_attendus.update({libelle: 0}) %}
+     {% endif %}
+     {% set _ = montants_attendus.update({libelle: montants_attendus[libelle] + (montant|int)}) %}
+     {% endfor %}
+     {% endfor %}
+
+     <p>
+          Ce rapport présente un récapitulatif des paiements effectués par les élèves dans chaque classe de chaque
+          niveau,
+          pour la période allant du <strong>{{ debut }}</strong> au <strong>{{ fin }}</strong>.
+          Il indique, pour chaque classe, l'effectif total des élèves, le nombre d'élèves ayant acquitté chaque
+          versement,
+          ainsi que les cas de paiements partiels ou avances.
+     </p>
+
+     <table id="collapse" style="width:100%; margin-top:14px; border-collapse: collapse;" border="1">
+          <thead style="background-color: #ddd;">
+               <tr>
+                    <th>Classe</th>
+                    <th>Effectifs</th>
+                    {% for versement in entetesVersements %}
+                    <th>{{ versement[:10] }}.</th>
+                    {% endfor %}
+                    <th>Avance (GDES)</th>
+                    <th style="font-size:17px;font-weight:bold; text-align:center">Balance</th>
+               </tr>
+          </thead>
+
+          <tbody>
+               {% for key, payments in groupedPayments.items() %}
+               {% set ns_class = namespace(
+               totalEleve=payments|length,
+               paye={},
+               avance_total=0,
+               balance_total=0,
+               total_bourse=0,
+               total_demie_bourse=0,
+               total_4_bourse=0
+               ) %}
+
+               {% for student in payments %}
+               {% set paiements = student.paiements if student.paiements else {} %}
+
+               {% if student.aide_financiere == 'Bourse' %}
+               {% set ns_class.total_bourse = ns_class.total_bourse + 1 %}
+               {% elif student.aide_financiere == 'Démie Bourse' %}
+               {% set ns_class.total_demie_bourse = ns_class.total_demie_bourse + 1 %}
+               {% elif student.aide_financiere == '1/4 Bourse' %}
+               {% set ns_class.total_4_bourse = ns_class.total_4_bourse + 1 %}
+               {% endif %}
+
+               {% for versement in entetesVersements %}
+               {% if versement not in ns_class.paye %}
+               {% set _ = ns_class.paye.update({versement: 0}) %}
+               {% endif %}
+
+               {% if versement in paiements %}
+               {% if paiements[versement] == True %}
+               {% set _ = ns_class.paye.update({versement: ns_class.paye[versement] + 1}) %}
+               {% elif paiements[versement] is number %}
+               {% set ns_class.balance_total = ns_class.balance_total + (paiements.balance if paiements.balance else 0)
+               %}
+               {% set ns_class.avance_total = ns_class.avance_total + paiements[versement] %}
+               {% endif %}
+               {% endif %}
+               {% endfor %}
+               {% endfor %}
+
+               {# Mettre à jour les totaux généraux #}
+               {% set total_general_eleves = total_general_eleves + ns_class.totalEleve %}
+               {% set total_general_avance_total = total_general_avance_total + ns_class.avance_total %}
+               {% set total_general_balance_total = total_general_balance_total + ns_class.balance_total %}
+
+               {% for versement in entetesVersements %}
+               {% if versement not in total_general_paye %}
+               {% set _ = total_general_paye.update({versement: 0}) %}
+               {% endif %}
+               {% set paye_count = ns_class.paye[versement] if versement in ns_class.paye else 0 %}
+               {% set _ = total_general_paye.update({versement: total_general_paye[versement] + paye_count}) %}
+               {% endfor %}
+
+               <tr>
+                    <td>{{ key }}</td>
+                    <td>{{ ns_class.totalEleve }}
+                         <span style="color:green; font-weight:bold;margin-left:5px; font-size:10px">{{
+                              ns_class.total_bourse ~ ' B' if ns_class.total_bourse > 0 else '' }}</span>
+                         <span style="color:orange; font-weight:bold;margin-left:5px; font-size:10px">{{
+                              ns_class.total_demie_bourse ~ ' Db' if ns_class.total_demie_bourse > 0 else '' }}</span>
+                         <span style="font-weight:bold;margin-left:5px; font-size:10px">{{ ns_class.total_4_bourse ~ '
+                              1/4 B' if ns_class.total_4_bourse > 0 else '' }}</span>
+                    </td>
+                    {% for versement in entetesVersements %}
+                    <td>{{ ns_class.paye[versement] if versement in ns_class.paye else 0 }}</td>
+                    {% endfor %}
+                    <td>{{ "{:,.0f}".format(ns_class.avance_total) }} GDES</td>
+                    <td>{{ "{:,.0f}".format(ns_class.balance_total) }} GDES</td>
+               </tr>
+               {% endfor %}
+
+               {# Ligne des totaux #}
+               <tr style="font-weight: bold; background-color: #f3f3f3;">
+                    <td>Total</td>
+                    <td>{{ total_general_eleves }}</td>
+                    {% for versement in entetesVersements %}
+                    <td>{{ total_general_paye[versement] if versement in total_general_paye else 0 }}</td>
+                    {% endfor %}
+                    <td>{{ "{:,.0f}".format(total_general_avance_total) }} GDES</td>
+                    <td>{{ "{:,.0f}".format(total_general_balance_total) }} GDES</td>
+               </tr>
+
+               <tr style="font-weight: bold; background-color: #e2eaff;">
+                    <td colspan="2">Montant attendu (GDES)</td>
+                    {% for versement in entetesVersements %}
+                    <td>{{ "{:,.0f}".format(montants_attendus[versement] if versement in montants_attendus else 0) }}
+                    </td>
+                    {% endfor %}
+                    <td>{{ "{:,.0f}".format(total_general_avance_total) }} GDES</td>
+                    <td>{{ "{:,.0f}".format(total_general_balance_total) }} GDES</td>
+               </tr>
+          </tbody>
+     </table>
+     {% endif %}
+
+     {% else %}
+     <h3 style="text-align: center; padding:15px; color:crimson">Aucune donnée ne correspond aux paramètres que vous
+          avez choisis.</h3>
+     {% endif %}
+
+     <div>
+          <p>B : Bourse</p>
+          <p>DB: Démie Bourse</p>
+          <p>1/4 B: 1/4 Bourse</p>
+     </div>
+</body>
+
+</html>

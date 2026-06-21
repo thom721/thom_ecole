@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+     <meta charset="utf-8" />
+<style>
+     @page {
+          size: A4 landscape;
+          margin: 1cm;
+     }
+
+     body {
+          font-family: "Times New Roman", serif;
+          font-size: 12pt;
+          margin: 0;
+          padding: 0;
+     }
+
+          table {
+               width: 100%;
+               border-collapse: collapse;
+          }
+          th, td,tr {
+               border: 1px solid #999;
+               padding: 8px;
+               text-align: left;
+               }
+
+          table,
+          th,
+          td {
+               padding: 5px 8px;
+               margin: 3px
+          }
+     .logo-box {
+          width: 80px;
+          text-align: center;
+     }
+
+     .title-box {
+          text-align: center;
+          text-transform: uppercase;
+          font-weight: bold;
+     }
+
+     .info-line {
+          font-size: 11pt;
+          margin-top: 5px;
+     }
+
+     .col-nom {
+          width: 15%;
+     }
+
+     .col-prenom {
+          width: 15%;
+     }
+
+     .col-date {
+          width: 22%;
+     }
+</style>
+</head>
+
+<body>
+<table class="header-table" style="border: none;">
+     <tr style="border: none;">
+          <td class="logo-box" style="border: none;">
+               <strong>MENFP</strong><br>
+               <small>DDO</small>
+          </td>
+          <td class="title-box" style="border: none;">
+               MINISTERE DE L'EDUCATION NATIONALE ET DE LA FORMATION PROFESSIONNELLE<br>
+               BUREAU DEPARTEMENTAL DES EXAMENS D'ETAT<br>
+               DIRECTION DEPARTEMENTALE DE L'OUEST<br>
+               <span style="font-size: 11px; margin-top: 10px;">Liste de Décision de fin d'année - Année {{ annee_academique }}</span>
+          </td>
+          <td style="width: 80px; font-weight: bold; font-size: 14pt; text-align: right;border: none;">{{classe}}</td>
+     </tr>
+</table>
+
+<div class="info-line" style="margin-bottom: 10px;">
+     District : <strong>Léogâne</strong> &nbsp;&nbsp; Siège / District Scolaire : ____________________
+</div>
+
+<table class="data-table" border="1">
+     <thead>
+          <tr style="background-color: beige;">
+               <th class="col-nom">Nom</th>
+               <th class="col-prenom">Prénom</th>
+               <th>Sexe</th>
+               <th class="col-date">Date et Lieu de naissance</th>
+               <th>NISU</th>
+               <th>Moyenne</th>
+               <th>Mention</th>
+          </tr>
+     </thead>
+     <tbody>
+          {% for student in result %}
+          <tr>
+               <td class="text-left">{{ student.nom }}</td>
+               <td class="text-left">{{ student.prenom }}</td>
+               <td>{{ student.sexe }}</td>
+               <td>{{ student.date_de_naissance }} <span style="margin-left: 10px;">{% if student.lieu_de_naissance %} à {{ student.lieu_de_naissance }} {% else %}( Non defini ) {% endif %}</span></td>
+               <td>{{ student.nisu if student.nisu else '' }}</td>
+               <td>{{ "%.2f"|format(student.moyenne) }}</td>
+               
+               <td><strong>{{ 'Admis(e)' if student.moyenne >= 6.0 else 'Echoué(e)' }}</strong></td>
+          </tr>
+          {% endfor %}
+     </tbody>
+</table>
+</body>
+
+</html>

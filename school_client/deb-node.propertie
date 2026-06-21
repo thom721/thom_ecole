@@ -1,0 +1,42 @@
+engine.name=deb-node
+group.id=main
+external.id=deb-node
+auto.registration=true
+registration.enabled=true
+registration.open=true
+
+db.driver=com.mysql.cj.jdbc.Driver
+db.url=jdbc:mysql://10.50.0.1:3306/lekol360
+db.user=repl
+db.password=@Lekol360
+
+http.port=31415
+registration.url=http://10.50.0.2:31415/sync/win-node
+sync.url=http://10.50.0.1:31415/sync/deb-node
+
+sync.triggers.allow.forward=yes
+sync.triggers.allow.reverse=yes
+
+conflict.detection=use_pk_values
+conflict.resolution=source_wins
+auto.sync.triggers.at.startup=true
+auto.config.database=true
+# Nombre max de lignes par batch
+initial.load.max.rows.per.batch=1000
+# Taille max en octets d’un batch
+transport.max.bytes.to.sync=1000000
+
+# How to run routing (in millis), which puts changes into batches.
+job.routing.period.time.ms=5000
+
+# How often to run push (in millis), which sends changes to other nodes.
+job.push.period.time.ms=10000
+
+# How often to run pull (in millis), which receives changes from other nodes.
+job.pull.period.time.ms=10000
+
+# Timeout HTTP (en ms)
+http.timeout.ms=220000
+
+# Temps max d’attente pour lecture (par défaut trop court)
+http.read.timeout.ms=220000 

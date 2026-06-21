@@ -1,0 +1,207 @@
+Parfait ! Vous voulez passer de PHP (Laravel) à FastAPI (Python) pour votre sous-domaine `admin.institutionlemignon.com`. Voici comment configurer Nginx pour servir une application FastAPI :
+
+## Configuration Nginx pour FastAPI
+
+```bash
+sudo nano /etc/nginx/sites-available/admin.institutionlemignon.com
+```
+
+Remplacez le contenu par cette configuration adaptée pour FastAPI :
+
+```nginx
+server {
+    server_name admin.institutionlemignon.com;
+
+    root /var/www/admin.institutionlemignon.com/public_html;
+    
+    location / {
+        # Proxy vers l'application FastAPI (généralement sur le port 8000)
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # Pour les fichiers statiques (CSS, JS, images)
+    location /static/ {
+        alias /var/www/admin.institutionlemignon.com/public_html/static/;
+        expires 30d;
+    }
+
+    # Pour les fichiers média uploadés
+    location /media/ {
+        alias /var/www/admin.institutionlemignon.com/public_html/media/;
+        expires 30d;
+    }
+
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/admin.institutionlemignon.com/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/admin.institutionlemignon.com/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+
+server {
+    if ($host = admin.institutionlemignon.com) {
+        return 301 https://$host$request_uri;
+    }
+
+    listen 80;
+    server_name admin.institutionlemignon.com;
+    return 301 https://$host$request_uri;
+}
+```
+
+## Configuration de l'application FastAPI
+
+### 1. Créer la structure de répertoires
+
+```bash
+# Créer le répertoire pour l'application
+sudo mkdir -p /var/www/admin.institutionlemignon.com/public_html
+sudo mkdir -p /var/www/admin.institutionlemignon.com/public_html/static
+sudo mkdir -p /var/www/admin.institutionlemignon.com/public_html/media
+sudo chown -R $USER:$USER /var/www/admin.institutionlemignon.com
+```
+
+### 2. Créer un environnement virtuel Python
+
+```bash
+cd /var/www/admin.institutionlemignon.com
+
+# Installer python3-venv si nécessaire
+sudo apt install python3-venv python3-pip -y
+
+# Créer l'environnement virtuel
+python3 -m venv venv
+
+# Activer l'environnement virtuel
+source venv/bin/activate
+```
+
+### 3. Installer FastAPI et Uvicorn
+
+```bash
+pip install fastapi uvicorn[standard]
+```
+
+### 4. Créer une application FastAPI de test
+
+```bash
+nano /var/www/admin.institutionlemignon.com/public_html/main.py
+```
+
+```python
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
+
+app = FastAPI(title="Admin Institution Lemoignon")
+
+# Monter les fichiers statiques
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/")
+async def root():
+    return JSONResponse({
+        "message": "Bienvenue sur l'interface d'administration",
+        "status": "online",
+        "version": "1.0.0"
+    })
+
+@app.get("/api/health")
+async def health_check():
+    return {"status": "healthy"}
+
+@app.get("/api/users")
+async def get_users():
+    # Exemple de données
+    return [
+        {"id": 1, "name": "Admin User", "email": "admin@example.com"},
+        {"id": 2, "name": "Test User", "email": "test@example.com"}
+    ]
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+```
+
+## Créer un service systemd pour FastAPI
+
+```bash
+sudo nano /etc/systemd/system/fastapi-admin.service
+```
+
+```ini
+[Unit]
+Description=FastAPI Admin Application
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/admin.institutionlemignon.com/public_html
+Environment="PATH=/var/www/admin.institutionlemignon.com/venv/bin"
+ExecStart=/var/www/admin.institutionlemignon.com/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000 --workers 4
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+## Démarrer l'application
+
+```bash
+# Donner les bonnes permissions
+sudo chown -R www-data:www-data /var/www/admin.institutionlemignon.com
+
+# Recharger systemd
+sudo systemctl daemon-reload
+
+# Démarrer le service
+sudo systemctl start fastapi-admin
+sudo systemctl enable fastapi-admin
+
+# Vérifier le statut
+sudo systemctl status fastapi-admin
+```
+
+## Tester la configuration Nginx
+
+```bash
+# Tester la configuration
+sudo nginx -t
+
+# Redémarrer Nginx
+sudo systemctl restart nginx
+```
+
+## Vérification
+
+```bash
+# Vérifier que FastAPI tourne
+curl http://127.0.0.1:8000
+
+# Vérifier via le domaine
+curl https://admin.institutionlemignon.com
+```
+
+## Pour les logs
+
+```bash
+# Voir les logs de FastAPI
+sudo journalctl -u fastapi-admin -f
+
+# Voir les logs Nginx
+sudo tail -f /var/log/nginx/admin.institutionlemignon.com.error.log
+```
+
+Votre application FastAPI devrait maintenant être accessible sur `https://admin.institutionlemignon.com`. La configuration Nginx agit comme un proxy inverse, redirigeant tout le trafic vers votre application FastAPI qui tourne sur le port 8000.
+
+Vous pouvez maintenant développer votre API d'administration en Python avec FastAPI ! Voulez-vous que je vous aide à ajouter une base de données ou d'autres fonctionnalités ?

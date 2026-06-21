@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+     <style>
+          body {
+               font-family: "Times New Roman", Times;
+               font-size: 13px;
+          }
+
+          @page {
+               margin-top: 30px
+          }
+
+          table {
+               width: 100%;
+               border-collapse: collapse;
+          }
+
+          table,
+          th,
+          td {
+               border: 1px solid gray;
+               padding: 3px;
+          }
+
+          .school-logo {
+               width: 85px;
+               height: 85px;
+               border-radius: 50%;
+               object-fit: cover;
+          }
+
+          .school-logo {
+               width: 5rem;
+               height: 5rem;
+          }
+     </style>
+</head>
+
+<body>
+
+     <div class="bg-slate-600">
+
+          <div style="position: absolute; top: 0; margin: 0; border-radius: 50%;">
+               {% if info and info.logo_image_path %}
+               <img src="{{ info.logo_image_path }}" alt="logo" width="85" height="85" class="school_logo" />
+               {% endif %}
+          </div>
+          <h2 style="text-align:center; margin:0px">{{ info.nom if info.nom else 'School name' }}</h2>
+          <p style="text-align:center; margin:0px">{{ info.adresse if info.adresse else 'School Address' }}</p>
+          <p style="text-align:center; margin:0px">{{ info.email if info.email else 'School Email' }}</p>
+          <p style="text-align:center; margin:0px">{{ info.ligne1 if info.ligne1 else 'Phone 1' }} / {{ info.ligne2 if
+               info.ligne2 else 'Phone 2'}}</p>
+     </div>
+     <hr />
+     <p style="font-size:19px; text-align:center">
+          Ce rapport présente un récapitulatif des opérations financières enregistrées durant la période du <strong>{{
+               date1 }}</strong> au <strong>{{ date2 }}</strong>.
+     </p>
+     {% set total_final = 0 %}
+     {% set total_depense = 0 %}
+  
+     
+     <table id="collapse" style="width:100%; margin-top:14px">
+          <thead>
+               <tr>
+                    <td style="width:40%;font-size:14px;font-weight:bold; text-align:center">-----</td>
+                    <td style="font-size:14px;font-weight:bold; text-align:center">-----</td>
+                    <td style="width:15%; font-size:14px;font-weight:bold; text-align:center">-----</td>
+               </tr>
+          </thead>
+
+          <tbody>
+
+               {% if type == 'Global' %}
+               {% for level in niveaux %}
+               {% set totalDepot = 0 %}
+               <tr>
+                    <td colspan="3" style="font-weight: 900; text-align:center; font-size:14px">{{ level.name }}</td>
+               </tr>
+
+               {% for item in payments %}
+               {% if item.niveau == level.name %}
+
+               <tr>
+                    <td>
+                         <span style="text-transform: uppercase; margin-right:8px">{{ item.nom }}</span>{{ item.prenom
+                         }}
+                    </td>
+                    <td>
+                         {% if item.status_paiement is defined and item.status_paiement is iterable %}
+                         {% set acquittes = [] %}
+                         {% set avances = [] %}
+                         {% for status in item.status_paiement %}
+                         {% if status.startswith('Acqt:') %}
+                         {% set _ = acquittes.append(status.replace('Acqt:', '').strip()) %}
+                         {% elif status.startswith('Avns:') %}
+                         {% set _ = avances.append(status.replace('Avns:', '').strip()) %}
+                         {% endif %}
+                         {% endfor %}
+                         {% if acquittes|length %}
+                         <span class="text-success fw-bold">
+                              Acquitté :
+                              {{ acquittes|join(', ') }}.
+                         </span>
+                         {% endif %}
+                         {% if avances|length %}
+                         <br>
+                         <span class="text-warning fw-bold">
+                              Avance :
+                              {{ avances|join(', ') }}.
+                         </span>
+                         {% endif %}
+                         {% else %}
+                         {% if item.status_avance  is not none and item.depot_et_avance  is not none and
+                         item.depot_et_avance > 0 %}
+                         Avance
+                         {{ item.status_avance if item.status_avance is not iterable else item.status_avance|join(', ')
+                         }}
+                         {% elif item.status_paiements  is not none and item.status_paiements %}
+                         {% if item.status_paiements is iterable %}
+                         Acquitté:
+                         {% for key, value in item.status_paiements.items() %}
+                         {{ value }}{% if not loop.last %}, {% endif %}
+                         {% endfor %}
+                         {% endif %}
+                         {% endif %}
+                         {% endif %}
+
+                         <span style="margin-left: 16px; display:flex; float:right; font-weight:800">
+                              ->{{ item.classe[0] if item.classe is iterable and item.classe|length>0 else item.classe
+                              if item.classe is defined else '' }}
+                         </span>
+                    </td>
+                    <td style="text-align: center">{{ item.depot }}</td>
+               </tr>
+                              {% set t = (item.depot | float) %}
+                              {% set totalDepot = totalDepot + t %}
+                              <span>totalDepot {{totalDepot}}</span>
+               {% endif %}
+               {% endfor %}
+
+               <tr>
+                    <td colspan="2" style="font-size: 14px;font-weight:bold">
+                         Total Paiements <span style="margin-left: 10px;">{{ level.name }}</span>
+                    </td>
+                    <td style="font-size: 14px;font-weight:bold; text-align:center; background-color:lightgray">---{{
+                         totalDepot }}</td>
+               </tr>
+
+               {% endfor %}
+  
+               {% set grandTotal = payments | map(attribute='depot') | map('float') | sum %}
+               {% set total_final = total_final + grandTotal %}
+
+               <tr>
+                    <td colspan="2" style="font-size: 14px;font-weight:bold;background-color:rgb(223, 222, 222);">
+                         TOTAL PAIEMENT DES ELEVES
+                    </td>
+                    <td
+                         style="font-size: 14px;font-weight:bold; text-align:center; background-color:rgb(223, 222, 222); color:rgb(46, 45, 45)">
+                         {{ grandTotal }} GDES
+                    </td>
+               </tr>
+               {% endif %}
+
+               {% if type in ['Global', 'Inscription'] %}
+               <tr>
+                    <td colspan="3" style="font-weight: 900; text-align:center; font-size:15px">INSCRIPTION</td>
+               </tr>
+
+               {% for key, item in inscription.items() %}
+               <tr>
+                    <td colspan="2" style="font-weight: 400; font-size:15px">Incription {{ key }}</td>
+                    <td style="font-weight: 400; text-align:center; font-size:15px"> {{ item.total_inscrit }}</td>
+               </tr>
+               <tr style="font-weight: bold">
+                    <td colspan="2" style="font-weight: bold; font-size:15px">Total Incription {{ key }}</td>
+                    <td
+                         style="font-weight: bold; text-align:center; font-size:15px;background-color:rgb(223, 222, 222)">
+                         {{ item.frais_total }} GDES----===</td>
+               </tr>
+               <tr>
+                    <td colspan="3" style="text-align: center">-------------------------------------------------------
+                    </td>
+               </tr>
+               <!-- <span>{{item}} </span>-->
+               <pre>{{ item | pprint }} {{key}}</pre> 
+               {# % set total_final = total_final + item.frais_total %#}
+               {% for item in inscription %}
+               {#% set total_final = total_final + (item['frais_total'] | float) %#}
+               {% endfor %}
+               {% endfor %}
+               {% endif %}
+
+               <tr>
+                    <td colspan="3" style="font-weight: 900; text-align:center; font-size:14px">VENTE DE MATÉRIEL</td>
+               </tr>
+
+               {% for key, item in sales.items() %}
+               {% if type == 'Global' or type == key %}
+               <tr>
+                    <td colspan="3" style="text-align: center">---------------------------- <span
+                              style="font-size: 16px; font-weight:300">{{ key }}{% if key == 'Arriéré' %}s{% endif
+                              %}</span> -------------------------</td>
+               </tr>
+               <tr>
+                    {% if key == 'Arriéré' %}
+                    <td colspan="2" style="font-weight: 400; font-size:15px">Quantité </td>
+                    {% else %}
+                    <td colspan="2" style="font-weight: 400; font-size:15px">Quantité(e) vendue </td>
+                    {% endif %}
+                    <td style="font-weight: 400; text-align:center; font-size:15px"> {{ item.quantite }}</td>
+               </tr> 
+               {% if item.items %}
+               <tr>
+                    <th>Nom </th>
+                    <th> Description</th>
+                    <th>{% if key == 'Arriéré' %} Montant {% else %} Prix {% endif %}</th>
+               </tr>
+               
+               {% for v in item['items'] %} 
+               <tr>
+                    <td> {{ v.fname }} {{ v.prenom }} </td>
+                    <td>{{ v.vente_name }}</td>
+                    <td>{{ v.order_total }}</td>
+               </tr>
+               {% endfor %} 
+               {% endif %}
+               <tr style="font-weight: bold">
+                    <td colspan="2" style="font-weight: bold; font-size:15px">
+                         {% if key == 'Arriéré' %}
+                         Total 
+                         {% else %}
+                         Total des ventes
+                         {% endif %}</td>
+                    <td
+                         style="font-weight: bold; text-align:center; font-size:15px;background-color:rgb(223, 222, 222)">
+                         {{ item.total }} GDES</td>
+               </tr>
+               
+               {% set total_final = total_final + (item.total | float) %}
+               {% endif %}
+               {% endfor %}
+<span>total_finaltotal_final total_finaltotal_final{{total_final}}</span>
+               {% if type in ['Global', 'Depenses'] %}
+               <tr>
+                    <td colspan="3"
+                         style="font-weight: 900; text-align:center; font-size:14px ;text-decoration:uppercase">dépenses
+                    </td>
+               </tr>
+               {% for item in depenses %}
+               <tr>
+                    <td colspan="2" style="font-weight: 400; font-size:15px">{{ item.description }} </td>
+                    <td style="font-weight: 400; text-align:center; font-size:15px"> {{ item.prix }}</td>
+               </tr>
+               {% set total_depense = total_depense + (item.prix | float) %} #+ item.prix
+               <p>item.prix: {{item.prix}}</p>
+               {% endfor %}
+               <tr style="font-weight: bold">
+                    <td colspan="2" style="font-weight: bold; font-size:15px">Total des dépenses </td>
+                    <td
+                         style="font-weight: bold; text-align:center; font-size:15px;background-color:rgb(223, 222, 222)">
+                         {{ total_depense }} GDES</td>
+               </tr>
+               {% endif %}
+
+               <tr>
+                    <td colspan="3" style="font-weight: 900; text-align:center; font-size:14px">. </td>
+               </tr>
+               <tr>
+                    <td colspan="3" style="font-weight: 900; text-align:center; font-size:14px">GRAND TOTAL </td>
+               </tr>
+
+               <tr style="font-weight: bold">
+                    <td colspan="2" style="font-weight: bold; font-size:15px">Total des rentrées </td>
+                    <td
+                         style="font-weight: bold; text-align:center; font-size:15px;background-color:rgb(223, 222, 222)">
+                         {{ total_final }} GDES</td>
+               </tr>
+
+               <tr style="font-weight: bold">
+                    <td colspan="2" style="font-weight: bold; font-size:15px">Rentrées - Sortie </td>
+                    <td
+                         style="font-weight: bold; text-align:center; font-size:15px;background-color:rgb(223, 222, 222)">
+                         {{ total_final - total_depense }} GDES</td>
+               </tr>
+
+          </tbody>
+     </table>
+
+</body>
+
+</html>

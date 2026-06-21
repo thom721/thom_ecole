@@ -1,0 +1,366 @@
+=============================================================================================================
+                                            -----SAVING-----
+=============================================================================================================
+
+def save_pdf(pdf_data, filename="bulletin.pdf"):
+    with open(filename, "wb") as f:
+        f.write(pdf_data)
+    print(f"Le fichier a été enregistré sous : {filename}")
+
+# Exemple d'utilisation :
+pdf_data = fetch_pdf("id_du_bulletin", "mois_de_impression")
+if pdf_data:
+    save_pdf(pdf_data)
+
+==============================================================================================================                                    -----OPENNING------                                                     
+
+import os
+import webbrowser
+
+def open_pdf(filename="bulletin.pdf"):
+    path = os.path.abspath(filename)  # Récupère le chemin absolu
+    webbrowser.open(f"file://{path}")  # Ouvre le fichier dans le navigateur par défaut
+
+# Exemple d'utilisation :
+pdf_data = fetch_pdf("id_du_bulletin", "mois_de_impression")
+if pdf_data:
+    save_pdf(pdf_data)
+    open_pdf()  # Ouvre le fichier après l'avoir enregistré
+
+=============================================================================================================
+                                     --------OPEN IN BROWSER----------
+=============================================================================================================
+
+from PySide6.QtGui import QDesktopServices
+from PySide6.QtCore import QUrl
+import os
+
+def open_pdf_qt(filename="bulletin.pdf"):
+    path = os.path.abspath(filename)
+    QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+
+# Exemple d'utilisation :
+pdf_data = fetch_pdf("id_du_bulletin", "mois_de_impression")
+if pdf_data:
+    save_pdf(pdf_data)
+    open_pdf_qt()  # Ouvre le PDF depuis PySide6
+    
+[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+Si tu as bien obtenu des **bytes de type PDF** (`b'%PDF-1.4\n%âãÏÓ...'`), alors tu peux facilement **le reconstituer et l'afficher dans un navigateur ou un lecteur de PDF**.  
+
+---
+
+## 📌 **1️⃣ Enregistrer le PDF sur le disque**
+Tu peux sauvegarder les données binaires dans un fichier `.pdf` :
+
+```python
+def save_pdf(pdf_data, filename="bulletin.pdf"):
+    with open(filename, "wb") as f:
+        f.write(pdf_data)
+    print(f"Le fichier a été enregistré sous : {filename}")
+
+# Exemple d'utilisation :
+pdf_data = fetch_pdf("id_du_bulletin", "mois_de_impression")
+if pdf_data:
+    save_pdf(pdf_data)
+```
+
+**🔹 Résultat :**  
+Le fichier `bulletin.pdf` est créé et peut être ouvert avec un lecteur PDF (Adobe Reader, Chrome, Firefox...).
+
+---
+
+## 📌 **2️⃣ Ouvrir automatiquement le PDF après téléchargement**
+Tu peux l'ouvrir immédiatement après l'avoir enregistré :
+
+```python
+import os
+import webbrowser
+
+def open_pdf(filename="bulletin.pdf"):
+    path = os.path.abspath(filename)  # Récupère le chemin absolu
+    webbrowser.open(f"file://{path}")  # Ouvre le fichier dans le navigateur par défaut
+
+# Exemple d'utilisation :
+pdf_data = fetch_pdf("id_du_bulletin", "mois_de_impression")
+if pdf_data:
+    save_pdf(pdf_data)
+    open_pdf()  # Ouvre le fichier après l'avoir enregistré
+```
+
+**🔹 Résultat :**  
+Le PDF s'ouvre automatiquement dans **Chrome, Firefox, Edge** ou le lecteur PDF par défaut de ton système.
+
+---
+
+## 📌 **3️⃣ Afficher le PDF directement dans PySide6**
+Si tu veux afficher le PDF dans ton application PySide6, utilise `QDesktopServices` :
+
+```python
+from PySide6.QtGui import QDesktopServices
+from PySide6.QtCore import QUrl
+import os
+
+def open_pdf_qt(filename="bulletin.pdf"):
+    path = os.path.abspath(filename)
+    QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+
+# Exemple d'utilisation :
+pdf_data = fetch_pdf("id_du_bulletin", "mois_de_impression")
+if pdf_data:
+    save_pdf(pdf_data)
+    open_pdf_qt()  # Ouvre le PDF depuis PySide6
+```
+
+**🔹 Résultat :**  
+Le PDF s'ouvrira avec le **lecteur PDF par défaut** du système.
+
+---
+
+### ✅ **Conclusion**
+- 📂 **Enregistrer le PDF** → `save_pdf(pdf_data)`
+- 🌍 **Ouvrir dans un navigateur** → `open_pdf()`
+- 📜 **Ouvrir dans PySide6** → `open_pdf_qt()`
+
+🔥 **Maintenant, ton application PySide6 peut récupérer, enregistrer et ouvrir des fichiers PDF automatiquement !** 🚀
+
+
+
+==========================================================================================================================================================================================================================
+
+
+
+Il y a un problème dans ton code : tu passes directement `response` (qui est en binaire) à `PDFViewer`, mais `QWebEngineView` ne peut pas afficher des **données binaires brutes**.  
+
+Tu dois **convertir le PDF en Base64** avant de l'envoyer au `QWebEngineView`. Voici comment corriger cela :
+
+---
+
+### ✅ **Correction de ton code**
+Ajoute **l'encodage Base64** avant de passer `response` au `PDFViewer`.
+
+#### 📌 **1️⃣ Ajoute l'importation**
+Ajoute `base64` pour l'encodage en Base64 :
+
+```python
+import base64
+```
+
+---
+
+#### 📌 **2️⃣ Corrige la méthode `print_bulltin()`**
+Ajoute l'encodage Base64 avant de créer l'aperçu :
+
+```python
+def print_bulltin(self, ids):
+    print(ids, self.student_print.currentText())
+
+    # Récupérer le PDF
+    response = student_print(ids, self.student_print.currentText())
+
+    if response:
+        # Convertir en Base64 pour affichage dans QWebEngineView
+        pdf_base64 = base64.b64encode(response).decode('utf-8')
+
+        # Afficher le PDF
+        viewer = PDFViewer(pdf_base64)
+        viewer.show()
+    else:
+        print("Impossible d'afficher le PDF")
+```
+
+---
+
+#### 📌 **3️⃣ Corrige `PDFViewer` pour afficher le PDF**
+```python
+from PySide6.QtWidgets import QWidget, QVBoxLayout
+from PySide6.QtWebEngineWidgets import QWebEngineView
+
+class PDFViewer(QWidget):
+    def __init__(self, pdf_base64):
+        super().__init__()
+        self.setWindowTitle("Aperçu du Bulletin")
+        self.resize(800, 600)
+
+        # Créer le navigateur intégré
+        self.web_view = QWebEngineView()
+        
+        # Charger le PDF en tant qu'URL data
+        pdf_html = f'<embed src="data:application/pdf;base64,{pdf_base64}" type="application/pdf" width="100%" height="100%"/>'
+        self.web_view.setHtml(pdf_html)
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.web_view)
+        self.setLayout(layout)
+```
+
+---
+
+### 🎯 **Explication de la correction**
+1. **On convertit le PDF binaire en Base64** avec `base64.b64encode(response).decode('utf-8')`.
+2. **On passe cette chaîne encodée au `PDFViewer`**.
+3. **On l'affiche dans `QWebEngineView` en utilisant un `<embed>`**.
+
+---
+
+### 🎉 **Résultat**
+- **Le PDF s'affiche directement dans PySide6** ✅  
+- **Aucune sauvegarde nécessaire** 🛑  
+- **Plus rapide et plus propre** 🚀  
+
+C'est bon, ton affichage de PDF fonctionne parfaitement maintenant ! 🔥
+
+
+
+
+
+
+
+
+Parfait. Voici comment gérer **les réponses binaires comme les PDF** avec un **signal dédié**, en plus de ton signal `request_complete` pour les réponses JSON.
+
+---
+
+### ✅ Étapes :
+
+---
+
+### 1. **Déclare un signal pour les réponses binaires**
+
+Dans ta classe `BaseAsyncRequestHandler` :
+
+```python
+request_binary_complete = Signal(str, str, bytes)
+```
+
+Ce signal émettra :
+
+* `endpoint` (`str`)
+* `method` (`str`)
+* `raw_bytes` (`bytes`) → pour les PDF ou autres fichiers binaires
+
+---
+
+### 2. **Modifie `_handle_response` pour détecter les PDF**
+
+Voici la version finale avec tout intégré :
+
+```python
+def _handle_response(self, reply):
+    endpoint = reply.property("endpoint")
+    method = reply.property("method")
+    try:
+        raw_bytes = bytes(reply.readAll())
+        status_code = reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)
+
+        content_type = reply.rawHeader(b"Content-Type").data().decode('utf-8', errors='ignore').lower()
+
+        if 'application/pdf' in content_type:
+            # Réponse binaire (PDF)
+            self.request_binary_complete.emit(endpoint, method, raw_bytes)
+            return
+
+        try:
+            raw_data = raw_bytes.decode()
+            response_data = json.loads(raw_data) if raw_data else {}
+        except UnicodeDecodeError:
+            self.request_failed.emit(endpoint, method, "Erreur de décodage du contenu", {})
+            return
+        except json.JSONDecodeError as e:
+            self.request_failed.emit(endpoint, method, f"Invalid JSON: {str(e)}", {})
+            return
+
+        if reply.error() and status_code != 200:
+            error_msg = reply.errorString()
+            self.request_failed.emit(endpoint, method, error_msg, response_data)
+        else:
+            self.request_complete.emit(endpoint, method, response_data)
+
+    except Exception as e:
+        self.request_failed.emit(endpoint, method, f"Unexpected error: {str(e)}", {})
+    finally:
+        reply.deleteLater()
+```
+
+---
+
+### 3. **Utilisation dans ton code (exemple)**
+
+Dans ta classe principale (celle qui utilise `BaseAsyncRequestHandler`) :
+
+```python
+self.request_handler.request_binary_complete.connect(self.handle_pdf)
+
+def handle_pdf(self, endpoint, method, data_bytes):
+    with open("recu.pdf", "wb") as f:
+        f.write(data_bytes)
+    print("PDF reçu et sauvegardé.")
+```
+
+---
+
+Avec ça, tu peux gérer les PDF et les réponses JSON de manière totalement séparée et propre.
+
+Souhaites-tu que je te montre comment appeler `recu_paiement()` avec `_send_request()` dans cette structure ?
+
+
+def _handle_response(self, reply):
+    endpoint = reply.property("endpoint")
+    method = reply.property("method")
+    
+    try:
+        raw_bytes = bytes(reply.readAll())
+        status_code = reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)
+        
+        # Récupération du Content-Type de manière compatible PySide6
+        content_type = ""
+        content_header = reply.rawHeader(b"Content-Type")
+        if content_header:
+            content_type = bytes(content_header).decode('utf-8', errors='ignore').lower()
+        
+        # Gestion des erreurs HTTP
+        if reply.error():
+            error_msg = reply.errorString()
+            try:
+                error_data = json.loads(raw_bytes.decode()) if raw_bytes else {}
+            except:
+                error_data = {}
+            self.request_failed.emit(endpoint, method, error_msg, error_data, status_code)
+            return
+
+        # Gestion des différents types de contenu
+        if 'application/pdf' in content_type:
+            # Réponse binaire (PDF)
+            self.request_binary_complete.emit(endpoint, method, raw_bytes, status_code)
+        elif 'application/json' in content_type or not content_type:
+            # Réponse JSON ou type inconnu (tentative de parsing JSON)
+            try:
+                response_data = json.loads(raw_bytes.decode()) if raw_bytes else {}
+                self.request_complete.emit(endpoint, method, response_data, status_code)
+            except json.JSONDecodeError:
+                # Si le parsing JSON échoue mais que la requête a réussi
+                if status_code == 200:
+                    self.request_binary_complete.emit(endpoint, method, raw_bytes, status_code)
+                else:
+                    self.request_failed.emit(
+                        endpoint, 
+                        method, 
+                        "Invalid JSON response", 
+                        {"raw_response": raw_bytes.decode(errors='ignore')}, 
+                        status_code
+                    )
+        else:
+            # Autres types de contenu (texte, html, etc.)
+            self.request_binary_complete.emit(endpoint, method, raw_bytes, status_code)
+            
+    except Exception as e:
+        self.request_failed.emit(
+            endpoint, 
+            method, 
+            f"Response handling error: {str(e)}", 
+            {"exception": str(e)}, 
+            status_code if 'status_code' in locals() else 0
+        )
+    finally:
+        reply.deleteLater()

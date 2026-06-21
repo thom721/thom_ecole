@@ -1,0 +1,26 @@
+__pycache__/
+*.pyc
+.git/
+.vscode/
+venv/
+school_clientcle/
+node_modules/
+frontend/
+Controllers/
+Controllers - Copy/
+Helper/
+Helper1/
+build/
+data/
+documents/
+gtk_runtime/
+other_gtk_bin/
+static/
+templates/
+uploads/
+*.sql
+*.zip
+*.exe
+*.spec
+nuitka-crash-report.xml
+PRD.md

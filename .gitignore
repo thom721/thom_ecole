@@ -1,0 +1,33 @@
+# Secrets — ne jamais committer
+.env
+**/.env
+!**/.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+**/venv/
+*.egg-info/
+
+# Bases de données locales (dev/test)
+*.db
+*.sqlite3
+
+# Node / frontend
+node_modules/
+node_modules1/
+**/node_modules/
+**/node_modules1/
+dist/
+**/dist/
+
+# Build (Nuitka / PyInstaller)
+build/
+**/build/
+*.zip
+
+# OS
+.DS_Store
+Thumbs.db

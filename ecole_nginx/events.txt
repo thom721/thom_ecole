@@ -1,0 +1,263 @@
+Parfait ! Je vais vous générer une structure complète. Voici l'architecture :
+
+```
+app/
+├── models/
+│   ├── category.py
+│   ├── event.py
+│   └── news.py
+├── schemas/
+│   ├── category.py
+│   ├── event.py
+│   └── news.py
+├── routes/
+│   ├── category.py
+│   ├── events.py
+│   └── news.py
+└── services/
+    ├── category_service.py
+    ├── event_service.py
+    └── news_service.py
+```
+
+---
+
+### 1. `models/category.py`
+```python
+from sqlalchemy import Column, Integer, String
+from app.config.database import Base
+
+class Category(Base):
+    __tablename__ = "categories"
+
+    id   = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), unique=True, nullable=False)
+```
+
+---
+
+### 2. `models/event.py`
+```python
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, Enum, ForeignKey
+from sqlalchemy.orm import relationship
+from datetime import datetime
+import enum
+from app.config.database import Base
+
+class AudienceType(str, enum.Enum):
+    public      = "public"
+    classe      = "classe"
+    professeurs = "professeurs"
+
+class Event(Base):
+    __tablename__ = "events"
+
+    id           = Column(Integer, primary_key=True, index=True)
+    title        = Column(String(255), nullable=False)
+    description  = Column(Text)
+    location     = Column(String(255))
+    start_date   = Column(DateTime, nullable=False)
+    end_date     = Column(DateTime, nullable=True)
+    image_url    = Column(String(500), nullable=True)
+    audience     = Column(Enum(AudienceType), default=AudienceType.public)
+    is_published = Column(Boolean, default=False)
+    category_id  = Column(Integer, ForeignKey("categories.id"), nullable=True)
+    created_at   = Column(DateTime, default=datetime.utcnow)
+
+    category = relationship("Category")
+```
+
+---
+
+### 3. `models/news.py`
+```python
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, Enum, ForeignKey
+from sqlalchemy.orm import relationship
+from datetime import datetime
+import enum
+from app.config.database import Base
+
+class AudienceType(str, enum.Enum):
+    public      = "public"
+    classe      = "classe"
+    professeurs = "professeurs"
+
+class News(Base):
+    __tablename__ = "news"
+
+    id           = Column(Integer, primary_key=True, index=True)
+    title        = Column(String(255), nullable=False)
+    content      = Column(Text)
+    image_url    = Column(String(500), nullable=True)
+    audience     = Column(Enum(AudienceType), default=AudienceType.public)
+    is_published = Column(Boolean, default=False)
+    published_at = Column(DateTime, nullable=True)
+    category_id  = Column(Integer, ForeignKey("categories.id"), nullable=True)
+    created_at   = Column(DateTime, default=datetime.utcnow)
+
+    category = relationship("Category")
+```
+
+---
+
+### 4. `schemas/category.py`
+```python
+from pydantic import BaseModel
+
+class CategoryCreate(BaseModel):
+    name: str
+
+class CategoryResponse(BaseModel):
+    id:   int
+    name: str
+
+    class Config:
+        from_attributes = True
+```
+
+---
+
+### 5. `schemas/event.py`
+```python
+from pydantic import BaseModel
+from datetime import datetime
+from typing import Optional
+from app.models.event import AudienceType
+from app.schemas.category import CategoryResponse
+
+
+```
+
+---
+
+### 6. `schemas/news.py`
+```python
+from pydantic import BaseModel
+from datetime import datetime
+from typing import Optional
+from app.models.news import AudienceType
+from app.schemas.category import CategoryResponse
+
+
+```
+
+---
+
+ 
+
+```
+
+---
+
+
+ 
+
+
+ 
+
+### 11. Enregistrement dans `main.py`
+```python
+
+
+# Servir les fichiers uploadés
+from fastapi.staticfiles import StaticFiles
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+```
+
+---
+
+### Résumé des endpoints disponibles
+
+| Méthode | URL | Description |
+|--------|-----|-------------|
+| GET | `/events?audience=public&published_only=true` | Lister les événements |
+| POST | `/events/` | Créer un événement |
+| PUT | `/events/{id}` | Modifier un événement |
+| DELETE | `/events/{id}` | Supprimer un événement |
+| POST | `/events/{id}/upload-image` | Uploader une image |
+| GET | `/news?audience=professeurs` | Lister les actualités |
+| POST | `/news/` | Créer une actualité |
+| POST | `/news/{id}/upload-image` | Uploader une image |
+
+Le filtre `audience` accepte `public`, `classe`, ou `professeurs` directement en query param. Voulez-vous que j'ajoute aussi la gestion des **catégories** (routes CRUD) ou une **pagination** sur les listes ?
+
+
+
+
+
+
+
+
+
+
+```
+
+---
+
+
+
+```
+
+---
+
+### Pagination — mise à jour des services
+
+Ajoutez `skip` et `limit` dans `event_service.py` et `news_service.py` :
+
+```python
+# Dans get_all() des deux services
+def get_all(
+    db: Session,
+    audience: Optional[AudienceType] = None,
+    published_only: bool = False,
+    skip: int = 0,
+    limit: int = 10
+):
+    query = db.query(Event)  # ou News
+    if audience:
+        query = query.filter(Event.audience == audience)
+    if published_only:
+        query = query.filter(Event.is_published == True)
+    
+    total = query.count()
+    items = query.order_by(Event.start_date).offset(skip).limit(limit).all()
+    
+    return {"total": total, "items": items}
+```
+
+Et dans les routes :
+
+```python
+@router.get("/", )
+def list_events(
+    audience: Optional[AudienceType] = None,
+    published_only: bool = False,
+    page: int = 1,
+    limit: int = 10,
+    db: Session = Depends(get_db)
+):
+    skip = (page - 1) * limit
+    result = event_service.get_all(db, audience, published_only, skip, limit)
+    return {
+        "total": result["total"],
+        "page": page,
+        "limit": limit,
+        "pages": (result["total"] + limit - 1) // limit,
+        "data": result["items"]
+    }
+```
+
+---
+
+### Résumé final des endpoints
+
+| Méthode | URL | Description |
+|--------|-----|-------------|
+| GET | `/categories/` | Lister toutes les catégories |
+| POST | `/categories/` | Créer une catégorie |
+| PUT | `/categories/{id}` | Modifier une catégorie |
+| DELETE | `/categories/{id}` | Supprimer une catégorie |
+| GET | `/events/?page=1&limit=10&audience=public` | Lister avec pagination |
+| GET | `/news/?page=2&limit=5&audience=professeurs` | Lister avec pagination |
+
+Voulez-vous ajouter une **authentification** (admin uniquement pour créer/modifier/supprimer) ?

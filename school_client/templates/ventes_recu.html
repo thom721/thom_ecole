@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+     <meta charset="utf-8" />
+     <title>Reçu</title>
+     <style>
+          body {
+               margin: 0;
+               font-family: Arial;
+               font-size: 14px;
+          }
+
+          @page { 
+               size: 11in 8.5in;
+               margin: 5mm;
+          }
+
+          .receipts-container {
+               display: flex;
+               justify-content: space-between;
+          }
+
+          .receipt {
+               width: 32%;
+               border-right: 1px dashed #ccc;
+               padding: 5px;
+               box-sizing: border-box;
+          }
+
+          .receipt:last-child {
+               border-right: none;
+          }
+
+          table {
+               width: 100%;
+               border-collapse: collapse;
+               margin-top: 5px;
+          }
+
+          th,
+          td {
+               border: 1px solid #000;
+               padding: 4px 6px;
+               text-align: left;
+          }
+
+          th {
+               background: #eee;
+          }
+
+          .footer {
+               text-align: center;
+               margin-top: 5px;
+               font-size: 12px;
+          }
+
+          /* img.logo {
+               width: 40px;
+               display: block;
+               margin: 0 auto;
+          } */
+                   .school_logo {
+          position: absolute;
+          top: 40px;
+          left: 7px;
+          width: 40px;
+          height: 40px;
+          }
+     </style>
+</head>
+
+<body>
+     <div class="receipts-container">
+          {% for i in range(3) %}
+          <div class="receipt">
+               {% if logo_image_path %}
+               <img src="{{logo_image_path}}" class="school_logo">
+               {% endif %}
+               <h2 style="text-align:center; font-size:17px; margin:0px">{{ info.nom }}</h2>
+               <p style="text-align:center; font-size:15px; margin:0px">{{ info.adresse }}</p>
+               <p style="text-align:center; font-size:15px; margin:0px">{{ info.email }}</p>
+               <p style="text-align:center; font-size:15px; margin:0px">{{ info.ligne1 }} / {{ info.ligne2 }}</p>
+
+               <p style="text-align:center; font-weight:bold; margin:5px 0;">
+                    {{ ['ORIGINAL','COPIE ÉTABLISSEMENT','COPIE PARENT'][i] }}
+               </p>
+               <p>Reçu No: {{ vente.order_itemId }}</p>
+               <p>Employer: {{ vente.user.name }}</p>
+               <p>Nom de l'élève: {{ vente.etudiant.nom }} {{ vente.etudiant.prenom }}</p>
+               <p>Date: {{ date }}</p>
+
+               <table>
+                    <thead>
+                         <tr>
+                              <th>Description</th>
+                              <th>Qt</th>
+                              <th>Prix U.</th>
+                              <th>Total</th>
+                         </tr>
+                    </thead>
+                    <tbody>
+                         {% set total=0 %}
+                         {% for item in vente.orderItems %}
+                         <tr>
+                              <td>{{ item.category }} {{ item.nom }}</td>
+                              <td style="text-align:center">{{ item.quantite }}</td>
+                              <td style="text-align:center">{{ item.prix }}</td>
+                              <td style="text-align:center">{{ item.total }}</td>
+                         </tr>
+                         {% set total = total + item.total %}
+                         {% endfor %}
+                         <tr style="background:#ccc;font-weight:bold;">
+                              <td colspan="3">TOTAL</td>
+                              <td style="text-align:center">{{ total }} G</td>
+                         </tr>
+                    </tbody>
+               </table>
+
+               <div class="footer">Merci pour votre confiance!</div>
+          </div>
+          {% endfor %}
+     </div>
+</body>
+
+</html>

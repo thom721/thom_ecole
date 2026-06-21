@@ -1,0 +1,409 @@
+
+programme
+
+<?php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
+
+class Programme extends Model
+{
+    use HasFactory;
+    use HasUuids;
+
+    protected $fillable = [
+        'cours_id',
+        'professeur_id',
+        'faculte_id',
+        'annee_academique',
+        'jours',
+        'heure',
+        'session',
+        'class',
+        'niveau_id',
+        'note_de_passage',
+        'coefficients',
+    ];
+
+    public $incrementing = false;
+    protected $keyType   = 'string';
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            $model->id = Str::uuid()->toString();
+        });
+    }
+}
+
+
+   Professeurs
+
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
+
+class Personnel extends Model
+{
+    use HasFactory;
+
+    use HasUuids;
+
+    public $incrementing = false;
+    protected $keyType = 'string';
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (empty($model->{$model->getKeyName()})) {
+                $model->{$model->getKeyName()} = (string) Str::uuid();
+            }
+        });
+    }
+
+    protected $fillable = [
+        'nom',
+        'prenom',
+        'sexe',
+        'email',
+        'telephone',
+        'adresse',
+        'role',
+    ];
+
+    public function user()
+    {
+        return $this->morphOne(User::class, 'userable');
+    }
+}
+
+
+   Personnel
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
+
+class Personnel extends Model
+{
+    use HasFactory;
+
+    use HasUuids;
+
+    public $incrementing = false;
+    protected $keyType = 'string';
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (empty($model->{$model->getKeyName()})) {
+                $model->{$model->getKeyName()} = (string) Str::uuid();
+            }
+        });
+    }
+
+    protected $fillable = [
+        'nom',
+        'prenom',
+        'sexe',
+        'email',
+        'telephone',
+        'adresse',
+        'role',
+    ];
+
+    public function user()
+    {
+        return $this->morphOne(User::class, 'userable');
+    }
+}
+
+
+CoursEtudiant
+
+<?php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
+
+class CoursEtudiant extends Model
+{
+    use HasUuids;
+    use HasFactory;
+
+    protected $fillable = [
+        'niveau',
+        'code',
+        'faculte',
+        'etudiant_id',
+        'identifiant',
+        'annee_academique',
+        'classe',
+        'data_etudiant',
+    ];
+
+    public $incrementing = false;
+    protected $keyType   = 'string';
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            $model->id = Str::uuid()->toString();
+        });
+    }
+
+    protected $casts = [
+        'data_etudiant' => 'array', // Cast JSON en array automatiquement
+    ];
+
+    // public function getPaiementDetailsAttribute($value)
+    // {
+    //     return $value ? json_decode($value, true) : [];
+    // }
+
+    public function etudiants()
+    {
+        return $this->hasMany(Etudiant::class, 'id', 'etudiant_id');
+    }
+
+    // public function classe()
+    // {
+    //     return $this->hasOne(\App\Models\Classe::class, 'id', 'classe');
+    // }
+
+    // Ajoutez cette méthode dans app/Models/CoursEtudiant.php
+    public function etudiant()
+    {
+        return $this->belongsTo(Etudiant::class, 'etudiant_id');
+    }
+}
+structure
+| cours_etudiants | CREATE TABLE `cours_etudiants` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `etudiant_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `identifiant` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `annee_academique` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `niveau` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `faculte` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `classe` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `data_etudiant` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  `code` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `cours_etudiants_etudiant_id_annee_academique_unique` (`etudiant_id`,`annee_academique`),
+  KEY `cours_etudiants_etudiant_id_foreign` (`etudiant_id`),
+  CONSTRAINT `cours_etudiants_etudiant_id_foreign` FOREIGN KEY (`etudiant_id`) REFERENCES `etudiants` (`id`),
+  CONSTRAINT `cours_etudiants_chk_1` CHECK (json_valid(`data_etudiant`))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci |
+
+
+
+Paiement
+
+<?php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
+
+class Paiement extends Model
+{
+    use HasUuids;
+    use HasFactory;
+
+    protected $fillable = [
+        'niveau_id',
+        'etudiant_id',
+        'faculte_id',
+        'classe',
+        'annee_academique',
+        'paiement_details',
+        'last_paiement_key',
+        'mois',
+        'accessoires',
+        'created_at',
+        'updated_at',
+    ];
+    public $incrementing = false;
+    protected $keyType   = 'string';
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            $model->id = Str::uuid()->toString();
+        });
+    }
+
+    // protected $casts = [
+    //     'paiement_details' => 'array', // Cast JSON en array automatiquement
+    // ];
+
+    // public function getPaiementDetailsAttribute()
+    // {
+    //     return $this->paiement_details ?? [];
+    // }
+
+    public function getPaiementDetailsAttribute($value)
+    {
+        return is_array($value) ? $value : json_decode($value, true);
+    }
+
+    public function getAccessoiresAttribute($value)
+    {
+        return $value ? json_decode($value, true) : [];
+    }
+
+    public function etudiants()
+    {
+        return $this->hasOne(Etudiant::class, 'id', 'etudiant_id');
+    }
+
+    public function niveaux()
+    {
+        return $this->hasOne(Niveau::class, 'id', 'niveau_id');
+    }
+
+    public function classes()
+    {
+        return $this->hasOne(Classes::class, 'id', 'classe');
+    }
+}
+
+structure 
+
+| paiements | CREATE TABLE `paiements` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `annee_academique` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `classe` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `faculte_id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `cours` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `niveau_id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `mois` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  `etudiant_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `paiement_details` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `last_paiement_key` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `paiements_annee_academique_etudiant_id_unique` (`annee_academique`,`etudiant_id`),
+  KEY `paiements_etudiant_id_foreign` (`etudiant_id`),
+  KEY `paiements_last_paiement_key_index` (`last_paiement_key`),
+  CONSTRAINT `paiements_etudiant_id_foreign` FOREIGN KEY (`etudiant_id`) REFERENCES `etudiants` (`id`),
+  CONSTRAINT `paiements_chk_1` CHECK (json_valid(`mois`)),
+  CONSTRAINT `paiements_chk_2` CHECK (json_valid(`paiement_details`))
+)
+
+parametrePaiement  
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+
+use Illuminate\Support\Str;
+
+class ParametrePaiement extends Model
+{
+    use HasFactory;
+    use HasUuids;
+
+    protected $fillable = [
+        'niveau_id',
+        'faculte_id',
+        'classe',
+        'echeance',
+        'devise',
+        'anneeAcademique',
+        'nb_echeance',
+        'montant',
+        'montant_par',
+        'accessoires'
+    ];
+
+    public $incrementing = false;
+    protected $keyType = 'string';
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            $model->id = Str::uuid()->toString();
+        });
+    }
+
+    public function niveau()
+    {
+        return $this->belongsTo(Niveau::class, 'niveau_id');
+    }
+
+    public function classe()
+    {
+        return $this->belongsTo(Classes::class, 'classe');
+    }
+
+    public function anneeAcademique()
+    {
+        return $this->belongsTo(AnneeAcademique::class, 'anneeAcademique');
+    }
+}
+
+structure
+
+| parametre_paiements | CREATE TABLE `parametre_paiements` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `niveau_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `faculte_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `classe` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `montant` decimal(10,2) unsigned DEFAULT NULL,
+  `devise` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `nb_echeance` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  `anneeAcademique` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `echeance` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `montant_par` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `accessoires` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `parametre_paiements_niveau_id_anneeacademique_classe_unique` (`niveau_id`,`anneeAcademique`,`classe`),
+  KEY `parametre_paiements_niveau_id_foreign` (`niveau_id`),
+  KEY `parametre_paiements_faculte_id_foreign` (`faculte_id`),
+  CONSTRAINT `parametre_paiements_faculte_id_foreign` FOREIGN KEY (`faculte_id`) REFERENCES `facultes` (`id`),
+  CONSTRAINT `parametre_paiements_niveau_id_foreign` FOREIGN KEY (`niveau_id`) REFERENCES `niveaux` (`id`),
+  CONSTRAINT `parametre_paiements_chk_1` CHECK (json_valid(`montant_par`)),
+  CONSTRAINT `parametre_paiements_chk_2` CHECK (json_valid(`accessoires`))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci |

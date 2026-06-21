@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+     <style>
+          body {
+               font-family: "Times New Roman", Times;
+          }
+
+          @page {
+               margin-top: 30px
+          }
+
+          .school-logo {
+               width: 5rem;
+               height: 5rem;
+               border-radius: 50%;
+               object-fit: cover;
+          }
+
+          table {
+               width: 100%;
+               border-collapse: collapse;
+          }
+
+          .table_fin {
+               border-collapse: collapse;
+          }
+
+          .table_fin>th,
+          .table_fin>td {
+               border: 1px solid #ccc;
+          }
+
+          table,
+          th,
+          td {
+               padding: 3px 6px;
+               margin: 0px
+          }
+     </style>
+
+</head>
+
+<body>
+
+     <div class="bg-slate-600" style="line-height:20px">
+
+          <div style="position: absolute; top: 0; margin: 0; border-radius: 50%;">
+               {% if info and info.logo_image_path %}
+               <img src="{{ logo_path }}" alt="logo" width="85" height="85" class="school_logo" />
+               {% endif %}
+          </div>
+
+          <h1 style="text-align:center; margin:0px">{{ info.nom if info and info.nom else 'School name' }}</h1>
+          <p style="text-align:center; margin:0px">Fondée le 26 Avril 1985</p>
+          <p style="text-align:center; margin:0px">{{ info.adresse if info and info.adresse else 'School Address' }}</p>
+          <p style="text-align:center; margin:0px">{{ info.email if info and info.email else 'School Email' }}</p>
+          <p style="text-align:center; margin:0px">{{ info.ligne1 if info and info.ligne1 else 'Phone 1' }} / {{
+               info.ligne2 if info and info.ligne2 else 'Phone 2' }}</p>
+     </div>
+
+     {% if data_student.name in ['Cycle 3', 'Primaire', 'Technique'] %}
+     <hr style="margin:10px" />
+     {% else %}
+     <hr style="margin:3px" />
+     {% endif %}
+
+     {% if mois == 'all' %}
+     <p style="font-size:22px; text-align:center;margin:0px;padding:0px">Bulletin scolaire annuel</p>
+     {% endif %}
+
+     {% if mois == 'all' %}
+     <div style="position: relative; width:100%; margin-bottom:50px">
+          {% else %}
+          <div style="position: relative; width:100%; margin-bottom:70px">
+               {% endif %}
+               <div style="position: absolute; left:0; top:0%; margin-bottom:7px; width:47%;line-height:22px">
+                    <table>
+                         <tbody>
+                              <tr style="padding:0px;margin:0px">
+                                   <td style="padding:0px;margin:0px; font-size:17px;width:40px">Code </td>
+                                   <td style="padding:0px;margin:0px;font-size:17px; font-weight:bold;">: {{
+                                        data_student.identifiant }}</td>
+                              </tr>
+                              <tr style="padding:0px;margin:0px">
+                                   <td style="padding:0px;margin:0px; font-size:17px;width:40px">Nom </td>
+                                   <td style="padding:0px;margin:0px;font-size:17px; font-weight:bold;">: {{
+                                        data_student.fname }}</td>
+                              </tr>
+                              <tr style="padding:0px;margin:0px">
+                                   <td style="padding:0px;margin:0px; font-size:17px;width:40px">Prénom(s) </td>
+                                   <td style="padding:0px;margin:0px;font-size:17px; font-weight:bold;">: {{
+                                        data_student.lname }}</td>
+                              </tr>
+                         </tbody>
+                    </table>
+               </div>
+
+               <div style="position: absolute; right:0; top:0%; margin-bottom:7px;line-height:22px">
+                    <table>
+                         <tbody>
+                              <tr style="padding:0px;margin:0px">
+                                   <td style="padding:0px;margin:0px; font-size:17px;width:40px">Classe </td>
+                                   <td style="padding:0px;margin:0px;font-size:17px; font-weight:bold">: {{
+                                        data_student.nom_classe if data_student.nom_classe else '' }}</td>
+                              </tr>
+                              <tr style="padding:0px;margin:0px">
+                                   <td style="padding:0px;margin:0px; font-size:17px;width:40px">Bulletin </td>
+                                   <td style="padding:0px;margin:0px;font-size:17px; font-weight:bold">:
+                                        {% if data_student.name != 'Universitaire' %}
+                                        <span style="font-weight:bold; font-size:17px">{{ 'Annuel' if mois == 'all' else
+                                             mois }}</span>
+                                        {% else %}
+                                        <span style="margin-left:27px; font-weight:bold; font-size:17px">{{
+                                             data_student.nom_classe if data_student.nom_classe else '' }}</span>
+                                        {% endif %}
+                                   </td>
+                              </tr>
+
+                              <tr style="padding:0px;margin:0px">
+                                   <td style="padding:0px;margin:0px; font-size:17px;width:40px">Année</td>
+                                   <td style="padding:0px;margin:0px;font-size:17px; font-weight:bold">: {{
+                                        data_student.annee_academique if data_student.annee_academique else '' }}</td>
+                              </tr>
+                         </tbody>
+                    </table>
+               </div>
+          </div>
+
+          {% set etudiant = data_student.data_etudiant if data_student.data_etudiant is mapping else
+          (data_student.data_etudiant | from_json if data_student.data_etudiant is string else None) %}
+
+          {% if not etudiant %}
+          <p style="text-align:center; font-size:17px;">
+               Vous n'avez pas de données disponibles pour cet étudiant.
+          </p>
+
+          {% else %}
+          {% set dataEtudiant = data_student.data_etudiant if data_student.data_etudiant is mapping else
+          (data_student.data_etudiant | from_json) %}
+          {% set nb_student = 0 %}
+
+          {% set totalCoeff = 0.0 %}
+          {% set totalCont1 = 0.0 %}
+          {% set totalCont2 = 0.0 %}
+          {% set totalCont3 = 0.0 %}
+          {% set totalCont4 = 0.0 %}
+          {% set nombreDeNotes = 0.0 %}
+          {% set nbMatiere = 0.0 %}
+          {% set sumOrals = 0 %}
+
+          {# Récupérer toutes les clés de notes uniques #}
+          {% set allNotesKeys = [] %}
+          {% for base_key, bases in dataEtudiant[data_student.identifiant].items() %}
+          {% for matiere_key, typeMatiere in bases.items() %}
+          {% if typeMatiere.notes %}
+          {% for note_key in typeMatiere.notes.keys() %}
+          {% if note_key not in allNotesKeys %}
+          {% set _ = allNotesKeys.append(note_key) %}
+          {% endif %}
+          {% endfor %}
+          {% endif %}
+          {% endfor %}
+          {% endfor %}
+
+          {% if data_student.name != 'Universitaire' %}
+
+          {% if mois != 'all' %}
+          {% set etudiantFiltre = [] %}
+          {% for etudiant_item in result %}
+          {% if etudiant_item.identifiant == data_student.identifiant %}
+          {% set _ = etudiantFiltre.append(etudiant_item) %}
+          {% endif %}
+          {% endfor %}
+          {% set nb_student = result | length %}
+
+          {% if data_student.name in ['Cycle 3', 'Technique'] %}
+
+          {% if mois in allNotesKeys %}
+
+          <div style="margin-top:100px;padding:0px">
+
+               <div style="width:100%;margin-top:20px;padding:0px">
+                    <table >
+                         <thead style="background-color:rgb(219, 226, 228);">
+                              <tr>
+                                   <th style="padding:5px; text-align:left">Matière</th>
+                                   {% for base_key, bases in dataEtudiant.items() %}
+                                   {% for matiere, details in bases.items() %}
+                                   {% if matiere in ['orale', 'base'] %}
+                                   {% for detail, value in details.items() %}
+                                   {% for header, valeur in value.notes.items() %}
+                                   {% if mois != 'All' %}
+                                   <th>Notes</th>
+                                   {% break %}
+                                   {% else %}
+                                   <th>{{ header }}</th>
+                                   {% endif %}
+                                   {% endfor %}
+                                   {% break %}
+                                   {% endfor %}
+                                   {% break %}
+                                   {% endif %}
+                                   {% endfor %}
+                                   {% endfor %}
+                                   <th>Coefficients</th>
+
+                                   {# Créer la liste des headers #}
+                                   {% set headers = [] %}
+                                   {% for base, bases in dataEtudiant.items() %}
+                                   {% for idStudent, details in bases.items() %}
+                                   {% if idStudent in ['orale', 'base'] and idStudent != 'statistiques' %}
+                                   {% for cours, values in details.items() %}
+                                   {% for keyTable, value in values.notes.items() %}
+                                   {% if mois != 'all' %}
+                                   {% if keyTable == mois and keyTable not in headers %}
+                                   {% set _ = headers.append(mois) %}
+                                   {% endif %}
+                                   {% else %}
+                                   {% if keyTable not in headers %}
+                                   {% set _ = headers.append(keyTable) %}
+                                   {% endif %}
+                                   {% endif %}
+                                   {% endfor %}
+                                   {% endfor %}
+                                   {% endif %}
+                                   {% endfor %}
+                                   {% endfor %}
+                              </tr>
+                         </thead>
+                         <tbody>
+                              {% for base, bases in dataEtudiant.items() %}
+                              {% for matiere, details in bases.items() %}
+                              {% if matiere in ['orale', 'base'] %}
+                              {% for detail, value in details.items() %}
+                              {% if detail != " " %}
+                              {% if loop.index % 2 == 1 %}
+                              <tr style="background-color: rgb(230, 235, 236);">
+                                   {% else %}
+                              <tr>
+                                   {% endif %}
+                                   <td style="padding:4px">{{ detail }}</td>
+                                   {% for header in headers %}
+                                   <td style="text-align:center;">{{ details[detail].notes[header] if header in
+                                        details[detail].notes else '-' }}</td>
+                                   {% endfor %}
+                                   <td style="text-align:center;">{{ value.coefficients }}</td>
+                              </tr>
+                              {% endif %}
+                              {% endfor %}
+                              {% endif %}
+                              {% endfor %}
+                              {% endfor %}
+
+                              <tr style="font-weight: bold; text-align:left; font-size:17px;padding:4px">
+                                   <td style="font-weight: bold; text-align:left; font-size:17px;padding:4px">Total</td>
+                                   {% set coeff = 0 %}
+                                   {% set sumOral = 0 %}
+
+                                   {% for base, bases in dataEtudiant.items() %}
+                                   {% for matiere, details in bases.items() %}
+                                   {% if matiere in ['orale', 'base'] %}
+                                   {% for detail, value in details.items() %}
+                                   {% if detail != " " %}
+                                   {% set coeff = coeff + value.coefficients %}
+                                   {% set sumOral = sumOral + (details[detail].notes[header] if header in
+                                   details[detail].notes else 0) %}
+                                   {% endif %}
+                                   {% endfor %}
+                                   {% endif %}
+                                   {% endfor %}
+                                   {% endfor %}
+
+                                   <td style="font-weight: bold; text-align:center; font-size:14px">{{ sumOral }}</td>
+                                   <td style="font-weight: bold; text-align:center; font-size:14px">{{ coeff }}</td>
+                              </tr>
+
+                              <tr style="font-weight: bold;background-color: rgb(230, 235, 236)">
+                                   <td style="text-wrap: no-wrap;padding:4px; font-size:17px">Moyenne de l'élève</td>
+                                   <td style="text-align:center; font-size:17px;"></td>
+                                   <td style="text-align:center; font-size:17px;">10</td>
+                              </tr>
+
+                              <tr style="font-weight: bold;background-color: rgb(230, 235, 236)">
+                                   <td style="text-wrap: no-wrap;padding:4px; font-size:17px">Moyenne de la classe</td>
+                                   <td style="text-align:center; font-size:17px;">{{ moyenne_classe }}</td>
+                                   <td style="text-align:center; font-size:17px;">10</td>
+                              </tr>
+                         </tbody>
+                    </table>
+
+               </div>
+          </div>
+          {% else %}
+          <p style="text-align:center; font-size:17px;">Vous n'avez pas de données disponibles pour <strong>{{ mois
+                    }}</strong></p>
+          {% endif %}
+
+          {# Section pour Primaire (matières de base et orales séparées) #}
+          {% else %}
+
+          <div style="display: flex;margin-top:100px;margin-bottom:0px;padding:0px">
+               <div style="display: inline-flex;width:49%;margin:0px;padding:0px">
+                    <p style="font-weight:bold;font-size:18px;text-align:center">Matières de base</p>
+               </div>
+
+               <div style="display: inline-flex;float:right;width:49%;margin:0px;padding:0px ">
+                    <p style="font-weight:bold;font-size:18px;text-align:center">Matières Orales</p>
+               </div>
+          </div>
+
+          {% if mois in allNotesKeys %}
+          <div style="position:relative ;margin:0px;padding:0px">
+
+               {# Table des matières de base #}
+               <div style="width:50%;margin:0px;padding:0px">
+                    <table style="">
+                         <thead style="background-color: rgb(230, 235, 236)">
+                              <tr>
+                                   <th>Matière</th>
+                                   <th>Coefficients</th>
+                                   {% for base, bases in dataEtudiant.items() %}
+                                   {% for matiere, details in bases.items() %}
+                                   {% if matiere not in ['orale', 'statistiques'] %}
+                                   {% for detail, value in details.items() %}
+                                   {% for header, valeur in value.notes.items() %}
+                                   {% if mois != 'All' %}
+                                   <th>Notes</th>
+                                   {% break %}
+                                   {% else %}
+                                   <th>{{ header }}</th>
+                                   {% endif %}
+                                   {% endfor %}
+                                   {% break %}
+                                   {% endfor %}
+                                   {% endif %}
+                                   {% endfor %}
+                                   {% endfor %}
+
+                                   {# Headers pour matières de base #}
+                                   {% set headers = [] %}
+                                   {% for base, bases in dataEtudiant.items() %}
+                                   {% for idStudent, details in bases.items() %}
+                                   {% if idStudent not in ['orale', 'statistiques'] %}
+                                   {% for cours, values in details.items() %}
+                                   {% for keyTable, value in values.notes.items() %}
+                                   {% if mois != 'all' %}
+                                   {% if keyTable == mois and keyTable not in headers %}
+                                   {% set _ = headers.append(mois) %}
+                                   {% endif %}
+                                   {% else %}
+                                   {% if keyTable not in headers %}
+                                   {% set _ = headers.append(keyTable) %}
+                                   {% endif %}
+                                   {% endif %}
+                                   {% endfor %}
+                                   {% endfor %}
+                                   {% endif %}
+                                   {% endfor %}
+                                   {% endfor %}
+                              </tr>
+                         </thead>
+                         <tbody>
+                              {% for base, bases in dataEtudiant.items() %}
+                              {% for matiere, details in bases.items() %}
+                              {% if matiere not in ['orale', 'statistiques'] %}
+                              {% for detail, value in details.items() %}
+                              {% if loop.index % 2 == 1 %}
+                              <tr style="background-color: rgb(230, 235, 236)">
+                                   {% else %}
+                              <tr>
+                                   {% endif %}
+                                   <td>{{ detail }}</td>
+                                   <td style="text-align:center;">{{ value.coefficients }}</td>
+                                   {% for header in headers %}
+                                   <td style="text-align:center;">{{ details[detail].notes[header] if header in
+                                        details[detail].notes else '-' }}</td>
+                                   {% endfor %}
+                              </tr>
+                              {% endfor %}
+                              {% endif %}
+                              {% endfor %}
+                              {% endfor %}
+
+                              <tr>
+                                   <td style="font-weight: bold; text-align:left; font-size:17px">T. matières de base
+                                   </td>
+                                   {% set coeff = 0 %}
+                                   {% for base, bases in dataEtudiant.items() %}
+                                   {% for matiere, details in bases.items() %}
+                                   {% if matiere not in ['orale', 'statistiques'] %}
+                                   {% for detail, value in details.items() %}
+                                   {% set coeff = coeff + value.coefficients %}
+                                   {% endfor %}
+                                   {% endif %}
+                                   {% endfor %}
+                                   {% endfor %}
+
+                                   <td style="font-weight: bold; text-align:center; font-size:14px">{{ coeff }}</td>
+
+                                   {% for header in headers %}
+                                   {% set sumBase = 0 %}
+                                   {% for base, bases in dataEtudiant.items() %}
+                                   {% for matiere, details in bases.items() %}
+                                   {% if matiere not in ['orale', 'statistiques'] %}
+                                   {% for detail, value in details.items() %}
+                                   {% set sumBase = sumBase + (details[detail].notes[header] if header in
+                                   details[detail].notes else 0) %}
+                                   {% endfor %}
+                                   {% endif %}
+                                   {% endfor %}
+                                   {% endfor %}
+                                   <td style="font-weight: bold; text-align:center; font-size:14px">{{ sumBase }}</td>
+                                   {% endfor %}
+                              </tr>
+                         </tbody>
+                    </table>
+               </div>
+
+               {# Table des matières orales #}
+               <div style="position:absolute;right:0;top:0;width:48%;margin-left:10px">
+                    <table style="width:100%">
+                         <thead style="background-color: rgb(230, 235, 236)">
+                              <tr>
+                                   <th style="width: 30%; text-align:left">Matière</th>
+                                   <th>Coefficients</th>
+                                   {% for base, bases in dataEtudiant.items() %}
+                                   {% for matiere, details in bases.items() %}
+                                   {% if matiere not in ['orale', 'statistiques'] %}
+                                   {% for detail, value in details.items() %}
+                                   {% for header, valeur in value.notes.items() %}
+                                   {% if mois != 'All' %}
+                                   <th>Notes</th>
+                                   {% break %}
+                                   {% else %}
+                                   <th>{{ header }}</th>
+                                   {% endif %}
+                                   {% endfor %}
+                                   {% break %}
+                                   {% endfor %}
+                                   {% endif %}
+                                   {% endfor %}
+                                   {% endfor %}
+
+                                   {# Headers pour matières orales #}
+                                   {% set headersOral = [] %}
+                                   {% for base, bases in dataEtudiant.items() %}
+                                   {% for idStudent, details in bases.items() %}
+                                   {% if idStudent not in ['orale', 'statistiques'] %}
+                                   {% for cours, values in details.items() %}
+                                   {% for keyTable, value in values.notes.items() %}
+                                   {% if mois != 'all' %}
+                                   {% if keyTable == mois and keyTable not in headersOral %}
+                                   {% set _ = headersOral.append(mois) %}
+                                   {% endif %}
+                                   {% else %}
+                                   {% if keyTable not in headersOral %}
+                                   {% set _ = headersOral.append(keyTable) %}
+                                   {% endif %}
+                                   {% endif %}
+                                   {% endfor %}
+                                   {% endfor %}
+                                   {% endif %}
+                                   {% endfor %}
+                                   {% endfor %}
+                              </tr>
+                         </thead>
+                         <tbody>
+                              {% for base, bases in dataEtudiant.items() %}
+                              {% for matiere, details in bases.items() %}
+                              {% if matiere == 'orale' %}
+                              {% for detail, value in details.items() %}
+                              {% if loop.index % 2 == 1 %}
+                              <tr style="background-color: rgb(230, 235, 236)">
+                                   {% else %}
+                              <tr>
+                                   {% endif %}
+                                   <td style="text-wrap: nowrap;width:40%">{{ detail }}</td>
+                                   <td style="text-align:center;">{{ value.coefficients }}</td>
+                                   {% for header in headersOral %}
+                                   <td style="text-align:center;">{{ details[detail].notes[header] if header in
+                                        details[detail].notes else '-' }}</td>
+                                   {% endfor %}
+                              </tr>
+                              {% endfor %}
+                              {% endif %}
+                              {% endfor %}
+                              {% endfor %}
+
+                              <tr>
+                                   <td style="font-weight: bold; text-align:left; font-size:17px">Total</td>
+                                   {% set coeff = 0 %}
+                                   {% for base, bases in dataEtudiant.items() %}
+                                   {% for matiere, details in bases.items() %}
+                                   {% if matiere == 'orale' %}
+                                   {% for detail, value in details.items() %}
+                                   {% set coeff = coeff + value.coefficients %}
+                                   {% endfor %}
+                                   {% endif %}
+                                   {% endfor %}
+                                   {% endfor %}
+
+                                   <td style="font-weight: bold; text-align:center; font-size:14px">{{ coeff }}</td>
+
+                                   {% for header in headersOral %}
+                                   {% set sumOral = 0 %}
+                                   {% for base, bases in dataEtudiant.items() %}
+                                   {% for matiere, details in bases.items() %}
+                                   {% if matiere == 'orale' %}
+                                   {% for detail, value in details.items() %}
+                                   {% set sumOral = sumOral + (details[detail].notes[header] if header in
+                                   details[detail].notes else 0) %}
+                                   {% endfor %}
+                                   {% endif %}
+                                   {% endfor %}
+                                   {% endfor %}
+                                   <td style="font-weight: bold; text-align:center; font-size:14px">{{ sumOral }}</td>
+                                   {% endfor %}
+                              </tr>
+                         </tbody>
+                    </table>
+               </div>
+          </div>
+          {% else %}
+          <p style="text-align:center; font-size:17px;">Vous n'avez pas de données disponibles pour <strong>{{ mois
+                    }}</strong></p>
+          {% endif %}
+          {% endif %}
+
+          {# Section pour bulletin annuel (all) #}
+          {% else %}
+          {% if data_student.name in ['Cycle 3', 'Technique'] %}
+          <div style="width:100%;margin-top:70px;padding:0px">
+               {% else %}
+               <div style="width:100%;margin-top:50px;padding:0px">
+                    {% endif %}
+
+                    <h4 style="text-align: center;padding:3px;margin:0px">Notes Mensuelles</h4>
+
+                    <table style="padding:0px;margin-top:2px">
+                         <thead style="background-color: rgb(230, 235, 236)">
+                              <tr>
+                                   <th style="text-align:left">Matière</th>
+
+                                   {% for base, bases in dataEtudiant.items() %}
+                                   {% for matiere, details in bases.items() %}
+                                   {% for detail, value in details.items() %}
+                                   {% for valeur in allHeaders %}
+                                   <th style="transform: rotate(-45degs)">{{ valeur[:3] }}.</th>
+                                   {% endfor %}
+                                   {% break %}
+                                   {% endfor %}
+                                   {% break %}
+                                   {% endfor %}
+                                   {% break %}
+                                   {% endfor %}
+                                   <th>TOT.</th>
+                                   <th>Coef.</th>
+                              </tr>
+                         </thead>
+                         <tbody>
+                              {% for base, bases in dataEtudiant.items() %}
+                              {% for matiere, details in bases.items() %}
+                              {% for detail, value in details.items() %}
+                              {% if detail != " " %}
+
+                              {% if loop.index % 2 == 1 %}
+                              <tr style="background-color: rgb(230, 235, 236); padding:0px; margin:0px">
+                                   {% else %}
+                              <tr style="padding:0px; margin:0px">
+                                   {% endif %}
+                                   <td>{{ detail }}</td>
+
+                                   {% set sumLine = 0 %}
+                                   {% set sumCoeffLine = 0 %}
+
+                                   {% for header in allHeaders %}
+                                   {% if header in value.notes %}
+                                   {% set sumCoeffLine = sumCoeffLine + value.coefficients %}
+                                   {% set sumLine = sumLine + value.notes[header] %}
+                                   {% endif %}
+                                   <td style="text-align:center;">{{ details[detail].notes[header] if header in
+                                        details[detail].notes else '-' }}</td>
+                                   {% endfor %}
+
+                                   <td style="text-align:center;">{{ sumLine }}</td>
+                                   <td style="text-align:center;">{{ sumCoeffLine }}</td>
+                              </tr>
+                              {% endif %}
+                              {% endfor %}
+                              {% endfor %}
+                              {% endfor %}
+
+                              <tr style="background-color: rgb(230, 235, 23633)">
+                                   <td style="font-weight: bold; font-size:16px">Total</td>
+
+                                   {% set coeff = 0 %}
+                                   {% for base, bases in dataEtudiant.items() %}
+                                   {% for matiere, details in bases.items() %}
+                                   {% for detail, value in details.items() %}
+                                   {% if detail != " " %}
+                                   {% set coeff = coeff + value.coefficients %}
+                                   {% endif %}
+                                   {% endfor %}
+                                   {% endfor %}
+                                   {% endfor %}
+
+                                   {% set totalSumBase = 0 %}
+                                   {% set totalCoeff = 0 %}
+
+                                   {% for header in allHeaders %}
+                                   {% set sumBase = 0 %}
+                                   {% for base, bases in dataEtudiant.items() %}
+                                   {% for matiere, details in bases.items() %}
+                                   {% for detail, value in details.items() %}
+                                   {% if detail != " " %}
+                                   {% set sumBase = sumBase + (details[detail].notes[header] if header in
+                                   details[detail].notes else 0) %}
+                                   {% if header in details[detail].notes %}
+                                   {% set totalCoeff = totalCoeff + value.coefficients %}
+                                   {% endif %}
+                                   {% endif %}
+                                   {% endfor %}
+                                   {% endfor %}
+                                   {% endfor %}
+                                   {% set totalSumBase = totalSumBase + sumBase %}
+                                   <td style="font-weight: bold; text-align:center; font-size:14px">{{ sumBase }}</td>
+                                   {% endfor %}
+                                   <td style="font-weight: bold; text-align:center; font-size:14px">{{ totalSumBase }}
+                                   </td>
+                                   <td style="font-weight: bold; text-align:center; font-size:14px">{{ totalCoeff }}
+                                   </td>
+                              </tr>
+
+                              {# Moyenne de l'élève #}
+                              <tr style="background-color: #e3e9eb;">
+                                   <td style="font-weight: bold; font-size:16px;text-wrap:no-wrap">M. de l'élève</td>
+
+                                   {% set totalSumBase = 0 %}
+                                   {% set nbBase = 0 %}
+                                   {% set sumMoyenne = 0 %}
+
+                                   {% for header in allHeaders %}
+                                   {% set sumBase = 0 %}
+                                   {% set nbCoeff = 0 %}
+                                   {% set coefficient = 0 %}
+
+                                   {% for bases in dataEtudiant.values() %}
+                                   {% for details in bases.values() %}
+                                   {% for value in details.values() %}
+                                   {% if header in value.notes %}
+                                   {% set sumBase = sumBase + value.notes[header] %}
+                                   {% set nbCoeff = nbCoeff +

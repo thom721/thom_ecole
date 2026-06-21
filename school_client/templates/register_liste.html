@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+     <style>
+          body {
+               font-family: "Times New Roman", Times;
+          }
+
+          @page {
+               margin-top: 30px
+          }
+
+          table {
+               width: 100%;
+               border-collapse: collapse;
+          }
+
+          table,
+          th,
+          td {
+               border: 1px solid gray;
+               padding: 2px;
+          }
+
+
+          .school_logo {
+          position: absolute;
+          top: 15px;
+          left: 15px;
+          width: 85px;
+          height: 85px;
+          }
+
+          .section-container {
+               width: 100%;
+               display: flex;
+          }
+
+          .section {
+               width: 50%;
+               margin-top: 14px;
+               text-align: center;
+          }
+
+          .section p {
+               margin-left: 20px;
+               font-weight: bold;
+               font-size: 17px;
+          }
+
+          .flex-container {
+               display: flex;
+               flex-wrap: nowrap;
+          }
+
+          .flex-container>div {
+               display: inline-flex;
+               width: 100px;
+               margin: 10px;
+               text-align: center;
+               line-height: 75px;
+               font-size: 17px;
+          }
+
+          .page-break {
+               page-break-before: always;
+          }
+     </style>
+</head>
+
+<body>
+
+     <div class="bg-slate-600">
+
+               <!-- <div style="position: absolute; top: 0; margin: 0; border-radius: 50%;"> -->
+               {% if logo_image_path %}
+               <img src="{{logo_image_path}}" alt="logo" width="85" height="85" class="school_logo" />
+               {% endif %}
+          <!-- </div> -->
+          <h2 style="text-align:center; margin:0px">{{ info.nom if info else 'School name' }}</h2>
+          <p style="text-align:center; margin:0px">{{ info.adresse if info else 'School Address' }}</p>
+          <p style="text-align:center; margin:0px">{{ info.email if info else 'School Email' }}</p>
+          <p style="text-align:center; margin:0px">{{ info.ligne1 if info else 'Phone 1' }} / {{ info.ligne2 if info
+               else 'Phone 2' }}</p>
+     </div>
+     <hr />
+
+     {% if data_register %}
+     {% if identifiant == True and classe == 'Toutes les classes' %}
+     {# Trier et grouper les données avec namespace #}
+     {% set ns = namespace(sortedData=data_register|sort(attribute='nom_classe'), groupedPayments={}) %}
+
+     {% for item in ns.sortedData %}
+     {% set group_key = item.classes_id %}
+     {% if group_key in ns.groupedPayments %}
+     {% set _ = ns.groupedPayments.update({group_key: ns.groupedPayments[group_key] + [item]}) %}
+     {#% set ns.groupedPayments[group_key] = ns.groupedPayments[group_key] + [item] %#}
+     {% else %}
+     {#% set ns.groupedPayments[group_key] = [item] %#}
+     {% set _ = ns.groupedPayments.update({group_key: [item]}) %}
+     {% endif %}
+     {% endfor %}
+
+     {% for key, values in ns.groupedPayments.items() %}
+     {% if loop.index > 1 %}
+     <div class="page-break"></div>
+
+     <div class="bg-slate-600">
+          <div style="position: absolute; top: 0; margin: 0; border-radius: 50%;">
+               {% if info and info.logo_image_path %}
+               <div style="position: absolute; top: 0; margin: 0; border-radius: 50%;">
+                    {% if info and info.logo_image_path %}
+                    <img src="" alt="logo" width="85" height="85"
+                         class="school_logo" />
+                    {% endif %}
+               </div>
+               {% endif %}
+          </div>
+          <h2 style="text-align:center; margin:0px">{{ info.nom if info else 'School name' }}</h2>
+          <p style="text-align:center; margin:0px">{{ info.adresse if info else 'School Address' }}</p>
+          <p style="text-align:center; margin:0px">{{ info.email if info else 'School Email' }}</p>
+          <p style="text-align:center; margin:0px">{{ info.ligne1 if info else 'Phone 1' }} / {{ info.ligne2 if info
+               else 'Phone 2' }}</p>
+     </div>
+     <hr />
+     {% endif %}
+
+     <h3 style="display: inline-flex; margin-bottom:0px; margin-left:15px"> Palmarès: {{ values[0].nom_classe }}
+     </h3>
+     <h3 style="display:flex; float:right; margin-bottom:0px; margin-right:15px"> Année: {{
+          values[0].annee_academique }}</h3>
+
+     <table id="collapse" style="width:100%; margin-top:10px">
+          <thead>
+               <tr>
+                    <td style="font-size:17px;font-weight:bold; text-align:center">Identifiant</td>
+                    <td style="font-size:17px;font-weight:bold; text-align:center">Nom</td>
+                    <td style="font-size:17px;font-weight:bold; text-align:center">Prénom</td>
+               </tr>
+          </thead>
+          <tbody>
+               {% set ns_inner = namespace() %}
+               {% for value in data_register %}
+               {% if value.nom_classe == values[0].nom_classe %}
+               <tr>
+                    <td style="padding-left: 10px;">{{ value.identifiant }}</td>
+                    <td style="text-transform:uppercase;padding-left: 10px; ">{{ value.nom }}</td>
+                    <td style="padding-left: 10px;">{{ value.prenom }}</td>
+               </tr>
+               {% endif %}
+               {% endfor %}
+          </tbody>
+     </table>
+     {% endfor %}
+
+     {% elif identifiant == True and classe != 'Toutes les classes' %}
+     <h3 style="display: inline-flex; margin-bottom:0px; margin-left:15px"> Palmarès: {{
+          data_register[0].nom_classe }}</h3>
+     <h3 style="display:flex; float:right; margin-bottom:0px; margin-right:15px"> Année: {{
+          data_register[0].annee_academique }}</h3>
+     <table id="collapse" style="width:100%; margin-top:10px">
+          <thead>
+               <tr>
+                    <td style="font-size:17px;font-weight:bold; text-align:center">Identifiant</td>
+                    <td style="font-size:17px;font-weight:bold; text-align:center">Nom</td>
+                    <td style="font-size:17px;font-weight:bold; text-align:center">Prénom</td>
+               </tr>
+          </thead>
+          <tbody>
+               {% for value in data_register %}
+               <tr>
+                    <td style="padding-left: 10px;">{{ value.identifiant }}</td>
+                    <td style="text-transform:uppercase;padding-left: 10px; ">{{ value.nom }}</td>
+                    <td style="padding-left: 10px;">{{ value.prenom }}</td>
+               </tr>
+               {% endfor %}
+          </tbody>
+     </table>
+
+     {% else %}
+     <table id="collapse" style="width:100%; margin-top:17px">
+          <thead>
+               <tr>
+                    <td style="font-size:17px;font-weight:bold; text-align:center">Cycle / Section</td>
+                    <td style="font-size:17px;font-weight:bold; text-align:center">Classe</td>
+                    <td style="font-size:17px;font-weight:bold; text-align:center">Effectifs</td>
+               </tr>
+          </thead>
+          <tbody>
+               {# Trier et grouper les données avec namespace #}
+               {% set ns_table = namespace(sortedData=data_register|sort(attribute='nom_classe'),
+               groupedPayments={}) %}
+
+               {% for item in ns_table.sortedData %}
+               {% set group_key = item.name ~ '-' ~ item.nom_classe %}
+               {% if group_key in ns_table.groupedPayments %}
+               {#% set ns_table.groupedPayments[group_key] = ns_table.groupedPayments[group_key] + [item] %#}
+               {% set _ = ns_table.groupedPayments.update({group_key: ns_table.groupedPayments[group_key] + [item]}) %}
+               {% else %}
+               {#% set ns_table.groupedPayments[group_key] = [item] %#}
+               {% set _ = ns_table.groupedPayments.update({group_key: [item]}) %}
+               {% endif %}
+               {% endfor %}
+
+               {% for key, value in ns_table.groupedPayments.items() %}
+               <tr>
+                    <td style="padding-left: 10px;">{{ value[0].name }}</td>
+                    <td style="padding-left: 10px;">{{ value[0].nom_classe }}</td>
+                    <td style="padding-left: 10px;">{{ value|length }}</td>
+               </tr>
+               {% endfor %}
+          </tbody>
+     </table>
+     {% endif %}
+
+     {% else %}
+     <h3 style="text-align: center; padding:15px; color:crimson">Aucune donnée ne correspond aux paramètres que vous
+          avez choisis.</h3>
+     {% endif %}
+
+</body>
+
+</html>

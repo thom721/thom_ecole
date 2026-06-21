@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+     <meta charset="UTF-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+     <style>
+          @page {
+               size: A4;
+               margin: 2cm;
+          }
+
+          body {
+               font-family: 'DejaVu Sans', Arial, sans-serif;
+               font-size: 12px;
+               line-height: 1.4;
+          }
+
+          .header {
+               text-align: center;
+               margin-bottom: 30px;
+               border-bottom: 2px solid #333;
+               padding-bottom: 20px;
+          }
+
+          .company-info {
+               float: left;
+               width: 50%;
+          }
+
+          .client-info {
+               float: right;
+               width: 40%;
+               background: #f5f5f5;
+               padding: 15px;
+               border-radius: 5px;
+          }
+
+          .clearfix::after {
+               content: "";
+               clear: both;
+               display: table;
+          }
+
+          .invoice-details {
+               margin: 30px 0;
+          }
+
+          .invoice-table {
+               width: 100%;
+               border-collapse: collapse;
+               margin: 20px 0;
+          }
+
+          .invoice-table th,
+          .invoice-table td {
+               border: 1px solid #ddd;
+               padding: 10px;
+               text-align: left;
+          }
+
+          .invoice-table th {
+               background-color: #f2f2f2;
+               font-weight: bold;
+          }
+
+          .invoice-table .total-row {
+               background-color: #f9f9f9;
+               font-weight: bold;
+          }
+
+          .totals {
+               float: right;
+               width: 300px;
+               margin-top: 20px;
+          }
+
+          .totals table {
+               width: 100%;
+          }
+
+          .totals td {
+               padding: 5px;
+               text-align: right;
+          }
+
+          .totals .amount {
+               font-weight: bold;
+          }
+
+          .footer {
+               margin-top: 50px;
+               padding-top: 20px;
+               border-top: 1px solid #ddd;
+               font-size: 10px;
+               color: #666;
+          }
+
+          .page-break {
+               page-break-before: always;
+          }
+
+          .barcode {
+               text-align: center;
+               margin: 20px 0;
+               font-family: 'Barcode', monospace;
+               font-size: 24px;
+          }
+     </style>
+</head>
+
+<body>
+     <div class="header">
+          <h1>data</h1> 
+     </div>
+
+     <div class="clearfix">
+          <div class="company-info">
+               <h3>VOTRE ENTREPRISE</h3>
+               <p>123 Avenue des Champs<br>
+                    75008 Paris, France<br>
+                    Tél: 01 23 45 67 89<br>
+                    Email: contact@entreprise.com<br>
+                    SIRET: 123 456 789 00010</p>
+          </div>
+
+          
+     </div>
+
+
+     <table class="invoice-table">
+          <thead>
+               <tr>
+                    <th width="40%">Description</th>
+                    <th width="15%">Quantité</th>
+                    <th width="15%">Prix unitaire</th>
+                    <th width="15%">TVA</th>
+                    <th width="15%">Total HT</th>
+               </tr>
+          </thead>
+         
+     </table>
+
+
+     <div class="footer">
+          <p>Conditions de paiement : Paiement à réception de data</p>
+          <p>Pénalités de retard : Au taux légal en vigueur</p>
+          <p>En cas de retard de paiement, indemnité forfaitaire pour frais de recouvrement de 40€</p>
+     </div>
+
+     <!-- Page supplémentaire pour les conditions générales -->
+     <div class="page-break"></div>
+     <div class="conditions">
+          <h2>CONDITIONS GÉNÉRALES DE VENTE</h2>
+          <ol>
+               <li><strong>Champ d'application</strong><br>
+                    Les présentes conditions s'appliquent à toutes les ventes de produits et services.</li>
+               <li><strong>Prix</strong><br>
+                    Les prix sont indiqués en euros hors taxes.</li>
+               <!-- Ajouter d'autres conditions -->
+          </ol>
+     </div>
+</body>
+
+</html>

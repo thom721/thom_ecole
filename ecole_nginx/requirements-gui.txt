@@ -1,0 +1,8 @@
+# Dépendances supplémentaires pour app_gui.py (lanceur natif Mac/Linux avec
+# fenêtre, voir gui/service_window.py). Volontairement séparé de
+# requirements.txt : l'image Docker de l'API (Dockerfile) n'a pas besoin d'un
+# toolkit GUI.
+#
+# Installation : pip install -r requirements.txt -r requirements-gui.txt
+
+PySide6==6.10.0

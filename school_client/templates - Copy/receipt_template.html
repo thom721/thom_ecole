@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+     <meta charset="utf-8" />
+     <style>
+          body {
+               margin: 0;
+               padding: 0;
+               font-family: Arial, sans-serif;
+               font-size: 12px;
+          }
+
+          .receipt-container {
+               display: flex;
+               flex-direction: row;
+               justify-content: space-between;
+          }
+
+          .receipt {
+               width: 32%;
+               padding: 10px;
+               border-right: 1px dashed #ccc;
+               box-sizing: border-box;
+          }
+
+          .receipt:last-child {
+               border-right: none;
+          }
+
+          .header {
+               text-align: center;
+               font-weight: bold;
+               margin-bottom: 10px;
+          }
+
+          table {
+               width: 100%;
+               border-collapse: collapse;
+               margin-top: 10px;
+          }
+
+          td,
+          th {
+               border: 1px solid #ddd;
+               padding: 5px;
+          }
+     </style>
+</head>
+
+<body>
+     <div class="receipt-container">
+          {% for copie in copies %}
+          <div class="receipt">
+               <div class="header">Reçu ({{ copie.type }})</div>
+               <p>Date : {{ copie.date }}</p>
+               <p>Identifiant : {{ copie.identifiant }}</p>
+               <p>Nom : {{ copie.nom }}</p>
+               <p>Classe : {{ copie.classe }}</p>
+               <p>Année académique : {{ copie.annee }}</p>
+               <p>Montant : {{ copie.montant }} USD</p>
+          </div>
+          {% endfor %}
+     </div>
+</body>
+
+</html>

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+     <style>
+          body {
+               font-family: "Times New Roman", Times;
+          }
+
+          @page {
+               margin-top: 30px;
+          }
+
+          table {
+               width: 100%;
+               border-collapse: collapse;
+          }
+
+          table,
+          th,
+          td {
+               border: 1px solid gray;
+               padding: 2px;
+          }
+
+          .school-logo {
+               width: 5rem;
+               height: 5rem;
+               border-radius: 50%;
+               object-fit: cover;
+          }
+
+          .page-break {
+               page-break-before: always;
+          }
+
+               .school_logo {
+          position: absolute;
+          top: 40px;
+          left: 7px;
+          width: 50px;
+          height: 50px;
+          }
+     </style>
+</head>
+
+<body>
+
+     {# En-tête réutilisable (Macro ou inclusion possible) #}
+
+     
+     {% if data_register %}
+
+     {# CAS 1: Identifiant activé et toutes les classes #}
+     {% if identifiant == True and classe == 'Toutes les classes' %}
+     {# Note: 'grouped_payments' doit être préparé en Python : { 'ClasseA': [etudiants], 'ClasseB': [...] } #}
+
+     {% for classe_id, items in grouped_payments.items() %}
+    
+     {# Répétition de l'en-tête pour la nouvelle page #}
+     <div class="bg-slate-600">
+          <div style="position: absolute; top: 0; margin: 0; border-radius: 50%;">
+               {% if info and info.logo_image_base64 %}
+               <img src="{{ info.logo_image_base64 }}" class="school_logo">
+               {% else %}
+               <p>Logo non disponible</p>
+               {% endif %}
+     
+          </div>
+          <h1 style="text-align:center; margin:0px">{{ info.nom if info and info.nom else 'School name' }}</h1>
+          <p style="text-align:center; margin:0px">Fondée le 26 Avril 1985</p>
+          <p style="text-align:center; margin:0px">{{ info.adresse if info and info.adresse else 'School Address' }}</p>
+          <p style="text-align:center; margin:0px">{{ info.email if info and info.email else 'School Email' }}</p>
+          <p style="text-align:center; margin:0px">{{ info.ligne1 if info and info.ligne1 else 'Phone 1' }} / {{
+               info.ligne2 if info and info.ligne2 else 'Phone 2' }}</p>
+     </div>
+     <hr />
+   
+ 
+
+     <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="display: inline-flex; margin-bottom:0px; margin-left:15px">
+               Palmarès: {{ items[0].nom_classe }}
+          </h3>
+          <h3 style="display:flex; float:right; margin-bottom:0px; margin-right:15px">
+               Année: {{ items[0].annee_academique }}
+          </h3>
+     </div>
+
+     <table style="width:100%; margin-top:10px">
+          <thead>
+               <tr>{% if identifiant == True %}
+                    <th>Identifiant</th>
+                    {% endif %}
+                    <th>Nom</th>
+                    <th>Prénom</th>
+               </tr>
+          </thead>
+          <tbody>
+               {% for item in items %}
+               <tr>
+                    {% if identifiant == True %}
+                    <td>{{ item.etudiant_identifiant }}</td>
+                    {% endif %}
+                    <td style="text-transform:uppercase">{{ item.nom }}</td>
+                    <td>{{ item.prenom }}</td>
+               </tr>
+               {% endfor %}
+          </tbody>
+     </table>
+     {% if not loop.last or not loop.first%}
+     <div class="page-break"></div>
+     {% endif %}
+     {% endfor %}
+
+     {# CAS 2: Une seule classe spécifique #}
+     {% elif identifiant == True and classe != 'Toutes les classes' %}
+     <div class="bg-slate-600">
+          <div style="position: absolute; top: 0; margin: 0; border-radius: 50%;">
+               {% if info and info.logo_image_base64 %}
+               <img src="{{ info.logo_image_base64 }}" class="school_logo">
+               {% else %}
+               <p>Logo non disponible</p>
+               {% endif %}
+     
+          </div>
+          <h1 style="text-align:center; margin:0px">{{ info.nom if info and info.nom else 'School name' }}</h1>
+          <p style="text-align:center; margin:0px">Fondée le 26 Avril 1985</p>
+          <p style="text-align:center; margin:0px">{{ info.adresse if info and info.adresse else 'School Address' }}</p>
+          <p style="text-align:center; margin:0px">{{ info.email if info and info.email else 'School Email' }}</p>
+          <p style="text-align:center; margin:0px">{{ info.ligne1 if info and info.ligne1 else 'Phone 1' }} / {{
+               info.ligne2 if info and info.ligne2 else 'Phone 2' }}</p>
+     </div>
+     <hr />
+     <h3 style="display: inline-flex; margin-bottom:0px; margin-left:15px">
+          <pre>Palmarès: {{ data_register[0].nom_classe }}              Année: {{ data_register[0].annee_academique }}</pre>
+     </h3>
+     <table style="width:100%; margin-top:10px">
+          <thead>
+               <tr>
+                    {% if identifiant == True %}
+                    <th>Identifiant</th>
+                    {% endif %}
+                    <th>Nom</th>
+                    <th>Prénom</th>
+               </tr>
+          </thead>
+          <tbody>
+               {% for item in data_register %}
+               <tr>
+                    {% if identifiant == True %}
+                    <td>{{ item.etudiant_identifiant }}</td>
+                    {% endif %}
+                    <td style="text-transform:uppercase">{{ item.nom }}</td>
+                    <td>{{ item.prenom }}</td>
+               </tr>
+               {% endfor %}
+          </tbody>
+     </table>
+
+     {# CAS 3: Récapitulatif par Cycle/Section (Sans identifiant) #}
+     {% else %}
+     <h3 style="text-align: center; padding:15px; color:crimson">
+          Aucune donnée ne correspond aux paramètres choisis.
+     </h3>
+     <!-- <table style="width:100%; margin-top:17px">
+          <thead>
+               <tr>
+                    <th>Cycle / Section</th>
+                    <th>Classe</th>
+                    <th>Effectifs</th>
+               </tr>
+          </thead>
+          <tbody>
+               {# 'grouped_summary' préparé en Python #}
+               {% for key, items in grouped_summary.items() %}
+               <tr>
+                    <td>{{ items[0] }}</td>
+                    <td>{{ items[0] }}</td>
+                    <td>{{ items | length }}</td>
+               </tr>
+               {% endfor %}
+          </tbody>
+     </table> -->
+     {% endif %}
+
+     {% else %}
+     <h3 style="text-align: center; padding:15px; color:crimson">
+          Aucune donnée ne correspond aux paramètres choisis.
+     </h3>
+     {% endif %}
+
+</body>
+
+</html>

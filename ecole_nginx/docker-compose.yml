@@ -1,0 +1,93 @@
+# Identifiants Docker volontairement codés en dur ici (pas de lecture du .env du
+# projet) : ce .env existant contient déjà DB_HOST=localhost / DB_PASSWORD=@#1900
+# pour l'installation Windows native, et Docker Compose charge automatiquement un
+# fichier nommé ".env" du même dossier — pour éviter toute collision/ambiguïté
+# entre les deux configurations, ce fichier reste autonome. Modifie les valeurs
+# ci-dessous directement si besoin.
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ecole360_root
+      MYSQL_DATABASE: lekol360
+    ports:
+      # 3307 côté hôte (pas 3306) : sur Mac/Linux, un MySQL natif tourne souvent déjà
+      # sur 3306 (ex. installé via Homebrew) — on évite le conflit de port plutôt que
+      # de toucher à ce service existant. Le réseau interne Docker (service "app",
+      # voir DB_HOST/DB_PORT ci-dessous) continue d'utiliser 3306 normalement, seul
+      # le port exposé à la machine hôte change.
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-pecole360_root"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_USER: root
+      DB_PASSWORD: ecole360_root
+      DB_NAME: lekol360
+      SECRET_KEY: change-moi-en-production
+      # Calculée sur la machine hôte par scripts/start.sh (voir app/Helper/license_check.py) :
+      # lue dans un conteneur, uuid.getnode() renverrait l'adresse MAC virtuelle du
+      # conteneur, pas celle de la machine, ce qui rendrait la licence instable.
+      HOST_MAC_ADDRESS: ${HOST_MAC_ADDRESS:-}
+      LICENSE_FILE: /data/license.json
+    volumes:
+      - license_data:/data
+    ports:
+      - "9001:9001"
+
+  # Génère une CA + certificat pour aplekol360.local (une seule fois, idempotent).
+  # Voir docker/certgen/generate-certs.sh. SERVER_IP est optionnel : renseigne
+  # l'IP LAN du serveur si des postes clients doivent s'y connecter via le réseau.
+  certgen:
+    image: alpine:3.20
+    environment:
+      SERVER_IP: ""
+    volumes:
+      - ./docker/certgen/generate-certs.sh:/generate-certs.sh:ro
+      - ssl_certs:/certs
+    entrypoint: ["/bin/sh", "/generate-certs.sh"]
+
+  # Reverse proxy HTTPS, équivalent simplifié de l'installation Windows native
+  # (Controllers/Main_run.py configure_nginx()) : sert https://aplekol360.local
+  # avec la CA générée par "certgen", et relaie vers l'API sur le port 9001 de la
+  # machine hôte (host.docker.internal) plutôt que vers le service "app" : en
+  # mode GUI natif (app_gui.py), l'API tourne nativement sur l'hôte, pas dans un
+  # conteneur "app" — ce service n'est même jamais démarré dans ce mode. En mode
+  # headless (scripts/start.sh), le conteneur "app" publie déjà son port 9001 sur
+  # l'hôte, donc host.docker.internal:9001 l'atteint tout aussi bien. Ne dépend
+  # donc plus que de "certgen", jamais de "app" — sinon `docker compose up -d
+  # nginx` tenterait aussi de démarrer "app", qui entrerait en conflit avec
+  # l'API native déjà sur le port 9001.
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    depends_on:
+      certgen:
+        condition: service_completed_successfully
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # nécessaire sur Linux ; déjà fourni nativement sur Mac/Windows
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ssl_certs:/certs:ro
+    ports:
+      - "80:80"
+      - "443:443"
+
+volumes:
+  mysql_data:
+  ssl_certs:
+  license_data:
