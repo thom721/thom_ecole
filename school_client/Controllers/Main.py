@@ -150,10 +150,8 @@ from Models.DB.async_db_manager import AsyncDBManager
 import requests
 import json
 
-# TEMPORAIRE — instance locale d'infini-software pour les tests de bout en
-# bout (voir docs/infini-software.md). À remettre vers le domaine de
-# production avant mise en production.
-INFINI_API_BASE_URL = "http://localhost:8000"
+# Domaine de production d'infini-software (voir docs/infini-software.md).
+INFINI_API_BASE_URL = "https://infini-sofware.cloud"
 
 
 class LicenceSyncWorker(QObject):
@@ -4260,7 +4258,7 @@ class Main(QMainWindow, Ui_MainWindow):
         if not mac:
             QMessageBox.warning(self, "Renouvellement", "Adresse MAC du serveur introuvable. Réessayez après actualisation de la page Abonnement.")
             return
-        QDesktopServices.openUrl(QUrl(f"http://localhost:5180/renouveler?mac={quote(mac)}"))
+        QDesktopServices.openUrl(QUrl(f"{INFINI_API_BASE_URL}/renouveler?mac={quote(mac)}"))
 
     def abonnement_page(self):
         self.overlay.start_loading("Chargement des données d'abonnement")

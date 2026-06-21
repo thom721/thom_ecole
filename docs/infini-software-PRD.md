@@ -50,7 +50,6 @@
 - **Pas de webhook de confirmation** : un utilisateur qui ferme la page après paiement sans cliquer sur « J'ai terminé » n'obtient pas sa clé automatiquement ; à revoir si le volume de support associé devient significatif.
 - **SQLite mono-fichier** (`infini.db`) : suffisant à l'échelle actuelle, migration vers Postgres/MySQL à prévoir si le nombre de clients ou de transactions concurrentes augmente.
 - **Identification par mac sans secret** : `verifier-mac` et la création de paiement n'exigent qu'une adresse MAC (non secrète par nature) — acceptable pour ce produit (le pire cas est qu'un tiers paie à la place du client, sans accès à des données sensibles), mais à reconsidérer si le modèle de données du `Client` s'enrichit de données plus sensibles à l'avenir.
-- **Lien de renouvellement codé en dur vers l'instance locale** (`http://localhost:5180/`) dans `school_client`, pour les tests de bout en bout — doit être remplacé par le domaine de production avant toute livraison réelle.
 - **Deux mécanismes de licence non synchronisés côté `ecole_nginx`** (historique `log_actives` vs. fichier d'essai local `license_check.py`) — un renouvellement réussi côté `infini-software` ne met pas à jour automatiquement le fichier local ; à connecter si l'incohérence entre les deux affichages (onglet Abonnement vs. fenêtre Gestion du serveur) devient gênante.
 
 ## 7. Mise à jour — backend, paiement & administration (livré)

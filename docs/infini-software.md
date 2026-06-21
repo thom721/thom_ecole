@@ -90,4 +90,4 @@ Login email/mot de passe (bcrypt + JWT 12h) → liste des clients, historique pa
 
 ## 8. Lien avec `ecole_nginx` / `school_client`
 
-Le mac est l'identifiant pivot entre les trois projets : `ecole_nginx` l'enregistre (`/api/save-data` au premier compte admin) et l'expose (`/api/v1/abonnement`), `school_client` le relaie sans le détecter localement, `infini-software` le vérifie avant tout paiement (`/api/licence/verifier-mac`) et l'utilise pour générer la clé. Le bouton Renouveler de `school_client` pointe actuellement sur l'instance locale (`http://localhost:5180/`) pour les tests de bout en bout — à reconfigurer vers `https://www.infini-software.cloud` avant mise en production.
+Le mac est l'identifiant pivot entre les trois projets : `ecole_nginx` l'enregistre (`/api/save-data` au premier compte admin) et l'expose (`/api/v1/abonnement`), `school_client` le relaie sans le détecter localement, `infini-software` le vérifie avant tout paiement (`/api/licence/verifier-mac`) et l'utilise pour générer la clé. Le bouton Renouveler de `school_client` (`INFINI_API_BASE_URL`, `Controllers/Main.py`) pointe vers le domaine de production `https://infini-sofware.cloud`.

@@ -40,7 +40,7 @@ jobs:
           --include-data-dir=Controllers=Controllers
           --include-data-dir=app=app
           --include-data-dir=app/alembic=app/alembic
-          --include-data-files=app/alembic.ini=app/alembic.ini
+          --include-data-files=app/alembic1.ini=app/alembic1.ini
           --include-data-files=app/alembic/versions/*.py=app/alembic/versions/
           --include-data-file=app/alembic/env.py=app/alembic/env.py
           --nofollow-import-to=app.alembic
