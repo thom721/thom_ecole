@@ -17,7 +17,8 @@
       "Bash(grep -iE \"secret|credential|private.?key|\\\\.pem$|\\\\.key$\")",
       "Bash(grep -iE \"\\\\.key$|server\\\\.key|ca\\\\.key|private\")",
       "Bash(git ls-tree *)",
-      "Bash(awk '$4 > 50000000 {print $4/1024/1024 \" MB  \" $5}')"
+      "Bash(awk '$4 > 50000000 {print $4/1024/1024 \" MB  \" $5}')",
+      "Bash(grep -i \"\\\\.zip$\")"
     ],
     "additionalDirectories": [
       "/Users/kikipllc/development/school/ecole_nginx/.git"
