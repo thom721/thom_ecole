@@ -1,0 +1,73 @@
+name: Build ecole_nginx (Linux/macOS)
+
+# Compile app_gui.py (mode GUI natif Mac/Linux, voir docs/ecole_nginx.md
+# section 8) — différent de app.py (Windows), pas de Controllers/Helper
+# Windows-only, pas de win32api/win32security. MySQL/nginx restent en Docker,
+# non bundlés dans l'exécutable (app_gui.py s'attend à trouver Docker installé
+# sur la machine cible).
+#
+# Non testé — première passe, à ajuster selon les erreurs réelles du run.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: ecole_nginx
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: |
+            ecole_nginx/requirements.txt
+            ecole_nginx/requirements-gui.txt
+
+      - name: Dépendances système Qt (Linux uniquement)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1 libegl1 libxkbcommon0 libxcb-cursor0
+
+      - name: Installer les dépendances Python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-gui.txt
+          pip install nuitka==2.6.9
+
+      - name: Build Nuitka
+        run: >
+          python -m nuitka app_gui.py
+          --standalone
+          --enable-plugin=pyside6
+          --include-package=jinja2 --include-package=uvicorn
+          --include-data-dir=app=app
+          --include-data-dir=app/alembic=app/alembic
+          --include-data-files=app/alembic1.ini=app/alembic1.ini
+          --include-data-files=app/alembic/versions/*.py=app/alembic/versions/
+          --include-data-file=app/alembic/env.py=app/alembic/env.py
+          --nofollow-import-to=app.alembic
+          --include-module=logging.config
+          --include-data-dir=gui=gui
+          --include-package-data=cryptography
+          --output-filename=ecole_nginx_server
+          --output-dir=build
+          --remove-output
+          --nofollow-import-to=tkinter,test
+          --assume-yes-for-downloads
+          --lto=no
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ecole-nginx-server-${{ matrix.os }}
+          path: ecole_nginx/build/app_gui.dist
+          if-no-files-found: error
