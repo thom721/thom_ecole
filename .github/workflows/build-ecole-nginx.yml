@@ -59,7 +59,8 @@ jobs:
           --remove-output
           --nofollow-import-to=tkinter,test
           --assume-yes-for-downloads
-          --lto=yes
+          --msvc=latest
+          --lto=no
 
       # GTK (requis par WeasyPrint) n'est pas encore packagé à côté de l'exe —
       # gtk_runtime/ existe dans le repo mais doit être copié/référencé
