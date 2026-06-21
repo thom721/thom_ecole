@@ -32,8 +32,7 @@ jobs:
       - name: Build Nuitka
         run: >
           python -m nuitka app.py
-          --standalone --onefile
-          --onefile-tempdir-spec="{CACHE_DIR}/Esystem/cache"
+          --standalone
           --enable-plugin=pyside6
           --nofollow-import-to=PyQt5 --nofollow-import-to=PyQt6 --nofollow-import-to=PySide2
           --include-package=jinja2 --include-package=uvicorn
@@ -66,8 +65,13 @@ jobs:
       # gtk_runtime/ existe dans le repo mais doit être copié/référencé
       # explicitement après le build. À traiter dans un second temps.
 
+      - name: Afficher le poids du dossier
+        run: |
+          $size = (Get-ChildItem -Recurse build\app.dist | Measure-Object -Property Length -Sum).Sum
+          Write-Host ("Poids du dossier app.dist : {0:N1} Mo" -f ($size / 1MB))
+
       - uses: actions/upload-artifact@v4
         with:
           name: ecole-nginx-server
-          path: ecole_nginx/build/ecole_nginx_server.exe
+          path: ecole_nginx/build/app.dist
           if-no-files-found: error

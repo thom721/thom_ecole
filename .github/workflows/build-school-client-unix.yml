@@ -1,0 +1,67 @@
+name: Build school_client (Linux/macOS)
+
+# app.py est déjà conçu pour tourner sur Mac/Linux (truststore, chemins
+# AppData/.config déjà adaptés dans get_mac_address()/utils/imports.py) —
+# pas besoin d'un entry point séparé comme app_gui.py pour ecole_nginx.
+#
+# Non testé — première passe, à ajuster selon les erreurs réelles du run.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: school_client
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: school_client/requirements.txt
+
+      - name: Dépendances système Qt (Linux uniquement)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1 libegl1 libxkbcommon0 libxcb-cursor0
+
+      - name: Installer les dépendances
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build Nuitka
+        run: >
+          python -m nuitka app.py
+          --standalone
+          --enable-plugin=pyside6
+          --include-qt-plugins=multimedia,platforms,imageformats
+          --include-data-dir=Models=Models
+          --include-data-dir=Views=Views
+          --include-data-dir=Controllers=Controllers
+          --include-data-dir=assets=assets
+          --include-data-file=Config.py=Config.py
+          --include-data-dir=Helper=Helper
+          --include-data-dir=utils=utils
+          --output-filename=school_client
+          --output-dir=build
+          --remove-output
+          --nofollow-import-to=tkinter,test,unittest,pydoc
+          --noinclude-qt-translation
+          --assume-yes-for-downloads
+          --lto=no
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: school-client-${{ matrix.os }}
+          path: school_client/build/app.dist
+          if-no-files-found: error
