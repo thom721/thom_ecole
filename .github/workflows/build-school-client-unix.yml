@@ -8,17 +8,19 @@ name: Build school_client (Linux/macOS)
 # Nuitka --standalone ne bundle jamais glibc/libm, le binaire reste lié à la
 # version de la machine de compilation — voir build-ecole-nginx-unix.yml pour
 # le détail (même raison, même fix).
+#
+# PAS manylinux_2_28 (glibc 2.28) : PySide6==6.10.0 ne publie aucun wheel
+# Linux en dessous de manylinux_2_34 (glibc 2.34) — vérifié sur PyPI. Ça
+# plafonne de facto la compatibilité à Debian 12+ / Ubuntu 22.04+, quel que
+# soit le conteneur choisi.
 on:
   workflow_dispatch: {}
 
 jobs:
   build-linux:
     runs-on: ubuntu-latest
-    # manylinux_2_28 (glibc 2.28, base AlmaLinux 8) au lieu de debian:bookworm :
-    # couvre Debian 10+ et Ubuntu 20.04+ au lieu de Debian 12 uniquement — même
-    # base que les wheels officiels PySide6 (qui ne publient rien en-dessous).
     container:
-      image: quay.io/pypa/manylinux_2_28_x86_64
+      image: debian:bookworm
     defaults:
       run:
         working-directory: school_client
@@ -26,21 +28,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Installer les dépendances système
+      - name: Installer Python et dépendances système
         run: |
-          dnf install -y epel-release
-          dnf install -y gcc gcc-c++ make patchelf ccache \
-            mesa-libGL mesa-libEGL libxkbcommon xcb-util-cursor
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            python3 python3-pip python3-venv python3-dev build-essential \
+            libgl1 libegl1 libxkbcommon0 libxcb-cursor0 patchelf ccache ca-certificates
 
       - name: Installer les dépendances Python
         run: |
-          /opt/python/cp311-cp311/bin/python3.11 -m pip install --upgrade pip
-          /opt/python/cp311-cp311/bin/python3.11 -m pip install -r requirements.txt
-          echo "/opt/python/cp311-cp311/bin" >> "$GITHUB_PATH"
+          python3 -m pip install --upgrade pip --break-system-packages
+          python3 -m pip install --break-system-packages -r requirements.txt
 
       - name: Build Nuitka
         run: >
-          python3.11 -m nuitka app.py
+          python3 -m nuitka app.py
           --standalone
           --enable-plugin=pyside6
           --include-qt-plugins=multimedia,platforms,imageformats
@@ -61,7 +63,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: school-client-linux-manylinux_2_28
+          name: school-client-linux-debian12
           path: school_client/build/app.dist
           if-no-files-found: error
 

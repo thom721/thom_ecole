@@ -18,7 +18,8 @@
       "Bash(grep -iE \"\\\\.key$|server\\\\.key|ca\\\\.key|private\")",
       "Bash(git ls-tree *)",
       "Bash(awk '$4 > 50000000 {print $4/1024/1024 \" MB  \" $5}')",
-      "Bash(grep -i \"\\\\.zip$\")"
+      "Bash(grep -i \"\\\\.zip$\")",
+      "Bash(curl -s https://pypi.org/pypi/PySide6/6.10.0/json)"
     ],
     "additionalDirectories": [
       "/Users/kikipllc/development/school/ecole_nginx/.git"
