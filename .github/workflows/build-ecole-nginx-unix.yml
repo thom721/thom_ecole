@@ -6,17 +6,70 @@ name: Build ecole_nginx (Linux/macOS)
 # non bundlés dans l'exécutable (app_gui.py s'attend à trouver Docker installé
 # sur la machine cible).
 #
-# Non testé — première passe, à ajuster selon les erreurs réelles du run.
+# Le job Linux tourne dans un conteneur Debian 12 "bookworm" (glibc 2.36) :
+# Nuitka --standalone ne bundle jamais glibc/libm, le binaire reste lié à la
+# version de la machine de compilation — ubuntu-latest (24.04, glibc 2.38+)
+# produirait un exécutable incompatible avec une Debian 12 cible. Compiler
+# dans un conteneur basé sur la même distro que la cible garantit la
+# compatibilité (et toute version égale ou plus récente de glibc).
 on:
   workflow_dispatch: {}
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+  build-linux:
+    runs-on: ubuntu-latest
+    container:
+      image: debian:bookworm
+    defaults:
+      run:
+        working-directory: ecole_nginx
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer Python et dépendances système
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            python3 python3-pip python3-venv python3-dev build-essential \
+            libgl1 libegl1 libxkbcommon0 libxcb-cursor0 patchelf ccache ca-certificates
+
+      - name: Installer les dépendances Python
+        run: |
+          python3 -m pip install --upgrade pip --break-system-packages
+          python3 -m pip install --break-system-packages -r requirements.txt -r requirements-gui.txt
+          python3 -m pip install --break-system-packages nuitka==2.6.9
+
+      - name: Build Nuitka
+        run: >
+          python3 -m nuitka app_gui.py
+          --standalone
+          --enable-plugin=pyside6
+          --include-package=jinja2 --include-package=uvicorn
+          --include-data-dir=app=app
+          --include-data-dir=app/alembic=app/alembic
+          --include-data-files=app/alembic1.ini=app/alembic1.ini
+          --include-data-files=app/alembic/versions/*.py=app/alembic/versions/
+          --include-data-file=app/alembic/env.py=app/alembic/env.py
+          --nofollow-import-to=app.alembic
+          --include-module=logging.config
+          --include-data-dir=gui=gui
+          --include-package-data=cryptography
+          --output-filename=ecole_nginx_server
+          --output-dir=build
+          --remove-output
+          --nofollow-import-to=tkinter,test
+          --assume-yes-for-downloads
+          --lto=no
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ecole-nginx-server-linux-debian12
+          path: ecole_nginx/build/app_gui.dist
+          if-no-files-found: error
+
+  build-macos:
+    runs-on: macos-latest
     defaults:
       run:
         working-directory: ecole_nginx
@@ -31,12 +84,6 @@ jobs:
           cache-dependency-path: |
             ecole_nginx/requirements.txt
             ecole_nginx/requirements-gui.txt
-
-      - name: Dépendances système Qt (Linux uniquement)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgl1 libegl1 libxkbcommon0 libxcb-cursor0
 
       - name: Installer les dépendances Python
         run: |
@@ -68,6 +115,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ecole-nginx-server-${{ matrix.os }}
+          name: ecole-nginx-server-macos
           path: ecole_nginx/build/app_gui.dist
           if-no-files-found: error

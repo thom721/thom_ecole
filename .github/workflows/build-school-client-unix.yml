@@ -4,17 +4,66 @@ name: Build school_client (Linux/macOS)
 # AppData/.config déjà adaptés dans get_mac_address()/utils/imports.py) —
 # pas besoin d'un entry point séparé comme app_gui.py pour ecole_nginx.
 #
-# Non testé — première passe, à ajuster selon les erreurs réelles du run.
+# Le job Linux tourne dans un conteneur Debian 12 "bookworm" (glibc 2.36) :
+# Nuitka --standalone ne bundle jamais glibc/libm, le binaire reste lié à la
+# version de la machine de compilation — voir build-ecole-nginx-unix.yml pour
+# le détail (même raison, même fix).
 on:
   workflow_dispatch: {}
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+  build-linux:
+    runs-on: ubuntu-latest
+    container:
+      image: debian:bookworm
+    defaults:
+      run:
+        working-directory: school_client
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer Python et dépendances système
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            python3 python3-pip python3-venv python3-dev build-essential \
+            libgl1 libegl1 libxkbcommon0 libxcb-cursor0 patchelf ccache ca-certificates
+
+      - name: Installer les dépendances Python
+        run: |
+          python3 -m pip install --upgrade pip --break-system-packages
+          python3 -m pip install --break-system-packages -r requirements.txt
+
+      - name: Build Nuitka
+        run: >
+          python3 -m nuitka app.py
+          --standalone
+          --enable-plugin=pyside6
+          --include-qt-plugins=multimedia,platforms,imageformats
+          --include-data-dir=Models=Models
+          --include-data-dir=Views=Views
+          --include-data-dir=Controllers=Controllers
+          --include-data-dir=assets=assets
+          --include-data-file=Config.py=Config.py
+          --include-data-dir=Helper=Helper
+          --include-data-dir=utils=utils
+          --output-filename=school_client
+          --output-dir=build
+          --remove-output
+          --nofollow-import-to=tkinter,test,unittest,pydoc
+          --noinclude-qt-translation
+          --assume-yes-for-downloads
+          --lto=no
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: school-client-linux-debian12
+          path: school_client/build/app.dist
+          if-no-files-found: error
+
+  build-macos:
+    runs-on: macos-latest
     defaults:
       run:
         working-directory: school_client
@@ -27,12 +76,6 @@ jobs:
           python-version: "3.11"
           cache: "pip"
           cache-dependency-path: school_client/requirements.txt
-
-      - name: Dépendances système Qt (Linux uniquement)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgl1 libegl1 libxkbcommon0 libxcb-cursor0
 
       - name: Installer les dépendances
         run: |
@@ -62,6 +105,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: school-client-${{ matrix.os }}
+          name: school-client-macos
           path: school_client/build/app.dist
           if-no-files-found: error
