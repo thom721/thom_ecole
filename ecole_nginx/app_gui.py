@@ -54,12 +54,47 @@ def docker_compose_available() -> bool:
         return False
 
 
+def wait_for_mysql_healthy(max_wait: float = 120.0, delay: float = 3.0) -> bool:
+    """`docker compose up -d` revient dès que le conteneur démarre, pas quand
+    MySQL accepte vraiment des connexions — au tout premier lancement (image
+    téléchargée, base initialisée pour la première fois), ça peut prendre
+    30 à 90s, largement plus que les 5 tentatives de app/database.py
+    (~15-30s). On attend ici le statut "healthy" du healthcheck déjà défini
+    dans docker-compose.yml avant de lancer l'API."""
+    waited = 0.0
+    while waited < max_wait:
+        try:
+            # -q renvoie l'id du conteneur, stable même si le nom du dossier
+            # (donc le nom du projet Docker Compose) change selon où l'exe a
+            # été extrait — contrairement à un nom de conteneur en dur.
+            container_id = subprocess.run(
+                ["docker", "compose", "ps", "-q", "mysql"],
+                cwd=PROJECT_DIR, capture_output=True, text=True, timeout=10,
+            ).stdout.strip()
+            if container_id:
+                status = subprocess.run(
+                    ["docker", "inspect", "--format", "{{.State.Health.Status}}", container_id],
+                    capture_output=True, text=True, timeout=10,
+                ).stdout.strip()
+                if status == "healthy":
+                    return True
+        except Exception:
+            pass
+        print("⏳ Attente de MySQL (Docker)...", end=" ", flush=True)
+        time.sleep(delay)
+        waited += delay
+    return False
+
+
 def start_required_docker_services() -> bool:
     try:
         subprocess.run(
             ["docker", "compose", "up", "-d", *DOCKER_SERVICES],
             cwd=PROJECT_DIR, check=True, capture_output=True, timeout=180,
         )
+        if not wait_for_mysql_healthy():
+            print("❌ MySQL n'est pas devenu disponible à temps (premier démarrage trop long ?).")
+            return False
         return True
     except subprocess.CalledProcessError as e:
         print(f"Erreur lors du démarrage des services Docker : {e.stderr.decode(errors='replace')}")
