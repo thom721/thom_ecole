@@ -19,7 +19,10 @@
       "Bash(git ls-tree *)",
       "Bash(awk '$4 > 50000000 {print $4/1024/1024 \" MB  \" $5}')",
       "Bash(grep -i \"\\\\.zip$\")",
-      "Bash(curl -s https://pypi.org/pypi/PySide6/6.10.0/json)"
+      "Bash(curl -s https://pypi.org/pypi/PySide6/6.10.0/json)",
+      "Bash(grep \"^app/.env$\\\\|^app/app.zip$\")",
+      "Bash(unzip -l app/app.zip)",
+      "Bash(grep -n \"\\\\${\\\\|env_file\" docker-compose.yml)"
     ],
     "additionalDirectories": [
       "/Users/kikipllc/development/school/ecole_nginx/.git"

@@ -37,7 +37,8 @@ jobs:
           --nofollow-import-to=PyQt5 --nofollow-import-to=PyQt6 --nofollow-import-to=PySide2
           --include-package=jinja2 --include-package=uvicorn
           --include-data-dir=Controllers=Controllers
-          --include-data-dir=app=app
+          --include-data-dir=app/templates=app/templates
+          --include-data-dir=app/static=app/static
           --include-data-dir=app/alembic=app/alembic
           --include-data-files=app/alembic1.ini=app/alembic1.ini
           --include-data-files=app/alembic/versions/*.py=app/alembic/versions/
