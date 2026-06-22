@@ -7,14 +7,11 @@ from app.Models.MRelations import AudienceType
 from app.services import event_service
 import shutil, uuid, os
 
-from app.Helper.get_real_path import get_app_root
-APP_ROOT = get_app_root()
-
+from app.Helper.persistent_storage import EVENTS_DIR
 
 router = APIRouter(prefix="/api/v1/events", tags=["Événements"])
-# PATH = os.path.join(APP_ROOT, "app", "static")
 
-UPLOAD_DIR = "static/uploads/events"
+UPLOAD_DIR = str(EVENTS_DIR)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.get("/", response_model=List[EventResponse])
@@ -56,10 +53,10 @@ def upload_image(event_id: int, file: UploadFile = File(...), db: Session = Depe
         raise HTTPException(status_code=404, detail="Événement introuvable")
     ext      = file.filename.split(".")[-1]
     filename = f"{uuid.uuid4()}.{ext}"
-    path     = f"{UPLOAD_DIR}/{filename}"
-    with open(path, "wb") as buffer:
+    disk_path = os.path.join(UPLOAD_DIR, filename)
+    with open(disk_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-    event.image_url = f"/{path}"
+    event.image_url = f"/static/uploads/events/{filename}"
     db.commit()
     return {"image_url": event.image_url}
  

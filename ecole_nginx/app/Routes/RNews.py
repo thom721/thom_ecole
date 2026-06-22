@@ -6,10 +6,11 @@ from app.Schemas.SCommunaute import NewsCreate, NewsUpdate, NewsResponse
 from app.Models.MRelations import AudienceType
 from app.services import news_service
 import shutil, uuid, os
+from app.Helper.persistent_storage import NEWS_DIR
 
 router = APIRouter(prefix="/api/v1/news", tags=["Actualités"])
 
-UPLOAD_DIR = "static/uploads/news"
+UPLOAD_DIR = str(NEWS_DIR)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.get("/", response_model=List[NewsResponse])
@@ -51,10 +52,10 @@ def upload_image(news_id: int, file: UploadFile = File(...), db: Session = Depen
         raise HTTPException(status_code=404, detail="Actualité introuvable")
     ext      = file.filename.split(".")[-1]
     filename = f"{uuid.uuid4()}.{ext}"
-    path     = f"{UPLOAD_DIR}/{filename}"
-    with open(path, "wb") as buffer:
+    disk_path = os.path.join(UPLOAD_DIR, filename)
+    with open(disk_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-    news.image_url = f"/{path}"
+    news.image_url = f"/static/uploads/news/{filename}"
     db.commit()
     return {"image_url": news.image_url}
  

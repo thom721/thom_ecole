@@ -44,6 +44,13 @@ services:
       # conteneur, pas celle de la machine, ce qui rendrait la licence instable.
       HOST_MAC_ADDRESS: ${HOST_MAC_ADDRESS:-}
       LICENSE_FILE: /data/license.json
+      # Sans ça, Path.home() (voir app/Helper/persistent_storage.py) résoudrait
+      # vers le HOME du conteneur, qui n'est PAS dans un volume monté : tout
+      # upload (logo, photos, documents...) serait perdu à chaque recréation
+      # du conteneur ("docker compose up --build", mise à jour d'image...).
+      # /data est déjà monté sur le volume "license_data", donc /data/static
+      # en hérite et persiste de la même façon.
+      STATIC_DATA_DIR: /data/static
     volumes:
       - license_data:/data
     ports:

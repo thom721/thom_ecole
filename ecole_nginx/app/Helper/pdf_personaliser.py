@@ -310,9 +310,9 @@ class PDFGenerator:
 
 
     def get_base64_logo():
-        # Chemin vers ton logo
-        logo_path = "C:/ecole_nginx/app/static/logo/school_logo.png"
-        
+        from app.Helper.persistent_storage import LOGO_DIR
+        logo_path = str(LOGO_DIR / "school_logo.png")
+
         if os.path.exists(logo_path):
             with open(logo_path, "rb") as image_file:
                 # Encodage en base64

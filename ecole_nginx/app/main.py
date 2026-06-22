@@ -330,8 +330,8 @@ def startup_event():
     finally:
         db.close()
  
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
-# print(os.path.abspath("app/static"))
+from app.Helper.persistent_storage import ensure_persistent_static
+app.mount("/static", StaticFiles(directory=str(ensure_persistent_static())), name="static")
 setup_weasyprint_dlls()
 
 try:

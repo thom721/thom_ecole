@@ -29,6 +29,9 @@ jobs:
           pip install -r requirements.txt -r requirements-gui.txt
           pip install nuitka==2.6.9 pywin32==310
 
+      - name: Compiler les migrations Alembic en .pyc (ne pas exposer le code source)
+        run: python scripts/compile_alembic_versions.py
+
       - name: Build Nuitka
         run: >
           python -m nuitka app.py
@@ -38,11 +41,10 @@ jobs:
           --include-package=jinja2 --include-package=uvicorn
           --include-data-dir=Controllers=Controllers
           --include-data-dir=app/templates=app/templates
-          --include-data-dir=app/static=app/static
           --include-data-dir=app/alembic=app/alembic
           --include-data-files=app/alembic1.ini=app/alembic1.ini
-          --include-data-files=app/alembic/versions/*.py=app/alembic/versions/
-          --include-data-file=app/alembic/env.py=app/alembic/env.py
+          --include-data-files=app/alembic/versions/*.pyc=app/alembic/versions/
+          --include-data-file=app/alembic/env.pyc=app/alembic/env.pyc
           --nofollow-import-to=app.alembic
           --include-module=logging.config
           --include-data-dir=Helper=Helper

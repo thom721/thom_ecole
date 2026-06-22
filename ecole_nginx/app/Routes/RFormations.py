@@ -7,10 +7,11 @@ from app.services import formation_service
 from app.dependencies.Dependencie import get_current_user, require_role
 from app.Models.MModels import User
 import shutil, uuid, os
+from app.Helper.persistent_storage import FORMATIONS_DIR
 
 router = APIRouter(prefix="/api/v1/formations", tags=["Formations"])
 
-UPLOAD_DIR = "static/uploads/formations"
+UPLOAD_DIR = str(FORMATIONS_DIR)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # ── Public ────────────────────────────────────────────────────────────────
@@ -75,9 +76,9 @@ def upload_image(
         raise HTTPException(status_code=404, detail="Formation introuvable")
     ext      = file.filename.split(".")[-1]
     filename = f"{uuid.uuid4()}.{ext}"
-    path     = f"{UPLOAD_DIR}/{filename}"
-    with open(path, "wb") as buffer:
+    disk_path = os.path.join(UPLOAD_DIR, filename)
+    with open(disk_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-    f.image_url = f"/{path}"
+    f.image_url = f"/static/uploads/formations/{filename}"
     db.commit()
     return {"image_url": f.image_url}

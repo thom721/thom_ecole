@@ -3,7 +3,8 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from app.config.Config import settings, BASE_URL
 from .template import build_email_template
-logo_path = "app/static/logo/school_logo.png" #static/logo/school_logo.png
+from app.Helper.persistent_storage import LOGO_DIR
+logo_path = str(LOGO_DIR / "school_logo.png")
 
 def send_reset_code_email(to_email: str, code: str):
     msg = MIMEMultipart("alternative")

@@ -8,8 +8,9 @@ import base64
 import os 
 from app.Models.MModels import User
 from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role,first_or_update_safe
-from sqlalchemy.orm import Session  
-UPLOAD_DIR = "app/static/logo"
+from sqlalchemy.orm import Session
+from app.Helper.persistent_storage import LOGO_DIR
+UPLOAD_DIR = str(LOGO_DIR)
 # from app.utils import generate_uuid  # si tu as une fonction utils pour UUID
 
 router = APIRouter(prefix="/api/v1", tags=["Profiles"])

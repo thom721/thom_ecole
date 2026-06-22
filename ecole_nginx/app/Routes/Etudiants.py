@@ -22,6 +22,7 @@ from datetime import date, datetime
 import base64, uuid, os  
 from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create
 from app.Helper.pdf_personaliser import PDFGenerator
+from app.Helper.persistent_storage import BASE_DIR as STATIC_BASE_DIR, PROFILE_DIR
 from app.Helper.context import UserContext,ActionContext
 import json
 from pydantic import Field
@@ -306,7 +307,7 @@ def store_etudiant(
     db: Session = Depends(get_db),
     current_user:User=Depends(get_current_user)
 ):
-    UPLOAD_DIR = "app/static/"
+    UPLOAD_DIR = str(STATIC_BASE_DIR)
           
     validate_exists(Niveau, Niveau.id, db, data.niveau_id) 
     validate_exists(Classe, Classe.id, db, data.classe_actuelle_id)
@@ -475,7 +476,7 @@ def store_etudiant(
     data: EtudiantSchema,
     db: Session = Depends(get_db)
 ):
-    UPLOAD_DIR = "app/static/"
+    UPLOAD_DIR = str(STATIC_BASE_DIR)
           
     validate_exists(Niveau, Niveau.id, db, data.niveau_id) 
     validate_exists(Classe, Classe.id, db, data.classe_actuelle_id)
@@ -1178,7 +1179,7 @@ def update_student_profile(
                 },
             )
         
-        UPLOAD_DIR = "app/static/profile"
+        UPLOAD_DIR = str(PROFILE_DIR)
         file_path = None 
         if data.photo_url and "base64" in data.photo_url:
             # ✅ Supprimer l'ancienne photo si elle existe
@@ -1263,7 +1264,7 @@ def update_student_profile(
         
         
         # UPLOAD_DIR = f"{PATH}/profile/student"
-        UPLOAD_DIR = "app/static/profile"
+        UPLOAD_DIR = str(PROFILE_DIR)
         file_path = None 
         if data.photo_url:             
             if data.photo_url and "base64" in data.photo_url:
