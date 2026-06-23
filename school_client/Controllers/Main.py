@@ -80,7 +80,8 @@ from PySide6.QtWidgets import QProgressDialog
 
 import logging
 from .Camera.CameraWorker import CameraWorker
-# from PySide6.QtCore import QUrl, QByteArray
+from PySide6.QtCore import QUrl
+from PySide6.QtGui import QDesktopServices
 from Helper.Token_manager import TokenManager
 from Helper.Ip_manager import Ip_manager
 import cv2
@@ -13281,14 +13282,16 @@ class Main(QMainWindow, Ui_MainWindow):
                     # 0
                     # )
                 except WindowsError:
-                    print("Solution 2: Méthode alternative si startfile échoue") 
+                    print("Solution 2: Méthode alternative si startfile échoue")
                     import subprocess
                     subprocess.Popen([temp_path], shell=True)
-             
+            else:
+                # Mac/Linux : équivalent cross-platform de os.startfile.
+                QDesktopServices.openUrl(QUrl.fromLocalFile(temp_path))
 
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Échec d'ouverture : {str(e)}")
-        finally: 
+        finally:
             pass
 
     def open_file_directly(self, file_data, file_type="pdf"):
@@ -13313,14 +13316,19 @@ class Main(QMainWindow, Ui_MainWindow):
                 QMessageBox.warning(self, "Erreur", "Le fichier est vide.")
                 return 
 
-            if sys.platform == "win32": 
+            if sys.platform == "win32":
                 try:
                     # os.startfile lancera Excel pour un .xlsx et Acrobat pour un .pdf
                     os.startfile(temp_path)
                 except WindowsError:
                     import subprocess
                     subprocess.Popen([temp_path], shell=True)
-                    
+            else:
+                # Mac/Linux : QDesktopServices.openUrl ouvre avec l'application
+                # par défaut de l'OS (Preview/Acrobat pour un PDF, Excel/Numbers
+                # pour un xlsx), équivalent cross-platform de os.startfile.
+                QDesktopServices.openUrl(QUrl.fromLocalFile(temp_path))
+
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Échec d'ouverture : {str(e)}")
 
