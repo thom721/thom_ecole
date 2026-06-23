@@ -252,12 +252,22 @@ async def generic_exception_handler(request: Request, exc: Exception):
     )
 
 def get_app_root():
-    if "NUITKA_ONEFILE_PARENT" in os.environ or '__compiled__' in globals(): 
+    if "NUITKA_ONEFILE_PARENT" in os.environ or '__compiled__' in globals():
         return os.path.dirname(os.path.abspath(sys.modules['__main__'].__file__))
     if getattr(sys, 'frozen', False):
         return os.path.dirname(os.path.abspath(sys.executable))
 
     return os.path.abspath(".")
+
+
+def is_compiled() -> bool:
+    return (
+        "NUITKA_ONEFILE_PARENT" in os.environ
+        or '__compiled__' in globals()
+        or getattr(sys, 'frozen', False)
+    )
+
+
 APP_ROOT = get_app_root()
 @app.on_event("startup")
 def startup_event():
@@ -291,6 +301,16 @@ def startup_event():
         inspector = inspect(engine)
         alembic_cfg = Config(ALEMBIC_INI)
         alembic_cfg.set_main_option("script_location", ALEMBIC_SCRIPTS)
+        # sourceless=true (app/alembic1.ini) n'a d'utilité QUE pour le build
+        # compilé (Nuitka), où seuls des .pyc propres sont expédiés, sans
+        # __pycache__ — voir scripts/compile_alembic_versions.py. En dev, les
+        # .py sources sont présents, donc inutile ; pire, l'activer ferait
+        # aussi scanner __pycache__/ (gitignoré, jamais nettoyé), où peuvent
+        # traîner d'anciens .pyc orphelins (révisions renommées au fil du
+        # dev, parfois compilés sous une autre version de Python) →
+        # "bad magic number" sur l'application des migrations.
+        if not is_compiled():
+            alembic_cfg.set_main_option("sourceless", "false")
 
         if not inspector.has_table("users"):
             # Base neuve (ex: Docker Mac/Linux) : on crée le schéma directement depuis

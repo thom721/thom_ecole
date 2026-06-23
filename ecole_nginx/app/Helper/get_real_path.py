@@ -36,12 +36,20 @@ def get_real_path(relative_path):
         return os.path.join(base_path, relative_path)
 
 def get_app_root():
-    if "NUITKA_ONEFILE_PARENT" in os.environ or '__compiled__' in globals(): 
+    if "NUITKA_ONEFILE_PARENT" in os.environ or '__compiled__' in globals():
         return os.path.dirname(os.path.abspath(sys.modules['__main__'].__file__))
     if getattr(sys, 'frozen', False):
         return os.path.dirname(os.path.abspath(sys.executable))
 
     return os.path.abspath(".")
+
+
+def is_compiled() -> bool:
+    return (
+        "NUITKA_ONEFILE_PARENT" in os.environ
+        or '__compiled__' in globals()
+        or getattr(sys, 'frozen', False)
+    )
 
 
 
