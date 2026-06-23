@@ -1,10 +1,12 @@
 name: Build ecole_nginx (Linux/macOS)
 
 # Compile app_gui.py (mode GUI natif Mac/Linux, voir docs/ecole_nginx.md
-# section 8) — différent de app.py (Windows), pas de Controllers/Helper
-# Windows-only, pas de win32api/win32security. MySQL/nginx restent en Docker,
-# non bundlés dans l'exécutable (app_gui.py s'attend à trouver Docker installé
-# sur la machine cible).
+# section 8) — différent de app.py (Windows), pas de Helper Windows-only, pas
+# de win32api/win32security. MySQL/nginx restent en Docker, non bundlés dans
+# l'exécutable (app_gui.py s'attend à trouver Docker installé sur la machine
+# cible). Seule exception pour Controllers/ : education.png, utilisé par
+# app/Routes/RAcademic.py (création du profil par défaut au premier compte),
+# pas par l'UI desktop Windows — donc nécessaire ici aussi.
 #
 # Le job Linux tourne dans un conteneur Debian 12 "bookworm" (glibc 2.36) :
 # Nuitka --standalone ne bundle jamais glibc/libm, le binaire reste lié à la
@@ -60,6 +62,7 @@ jobs:
           --enable-plugin=pyside6
           --include-package=jinja2 --include-package=uvicorn
           --include-data-dir=app/templates=app/templates
+          --include-data-file=Controllers/education.png=Controllers/education.png
           --include-data-dir=app/alembic=app/alembic
           --include-data-files=app/alembic1.ini=app/alembic1.ini
           --include-data-files=app/alembic/versions/*.pyc=app/alembic/versions/
@@ -117,6 +120,7 @@ jobs:
           --enable-plugin=pyside6
           --include-package=jinja2 --include-package=uvicorn
           --include-data-dir=app/templates=app/templates
+          --include-data-file=Controllers/education.png=Controllers/education.png
           --include-data-dir=app/alembic=app/alembic
           --include-data-files=app/alembic1.ini=app/alembic1.ini
           --include-data-files=app/alembic/versions/*.pyc=app/alembic/versions/

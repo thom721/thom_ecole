@@ -1,0 +1,26 @@
+# Le Nginx + certbot de la machine hôte (voir
+# deploy/nginx-infini-software.cloud.conf) restent en dehors de Docker et
+# continuent de proxy-passer vers 127.0.0.1:9004 — ce compose ne fait tourner
+# que le backend FastAPI, sans rien changer côté Nginx/TLS déjà en place.
+# Port 9004 (pas 9003) : 9003 est déjà pris par un autre projet sur ce
+# serveur (conteneur "post_api", sans rapport avec infini-software).
+services:
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      # /data est monté sur le volume "infini_db" ci-dessous : sans ça, la
+      # base SQLite (créée dans le conteneur) serait perdue à chaque
+      # recréation ("docker compose up --build", mise à jour d'image...).
+      INFINI_DB_PATH: /data/infini.db
+    volumes:
+      - infini_db:/data
+    ports:
+      # Bind sur localhost uniquement : le Nginx hôte fait déjà le proxy
+      # HTTPS public, le port 9004 n'a pas besoin d'être exposé à l'extérieur.
+      - "127.0.0.1:9004:9004"
+
+volumes:
+  infini_db:
