@@ -434,7 +434,7 @@ class PDFGenerator:
             try:
                 from weasyprint.text.fonts import FontConfiguration
                 font_config = FontConfiguration()
-                html = HTML(string=html_out, base_url=template_dir)
+                html = HTML(string=html_out, base_url=str(template_dir))
                 html.write_pdf(pdf_buffer, font_config=font_config)
 
             except Exception as pdf_error:
