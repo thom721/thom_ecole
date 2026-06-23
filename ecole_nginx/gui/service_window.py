@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 from app.Helper.license_check import (
     ensure_trial_license, is_license_valid, verify_and_save_activation_key, get_host_mac,
 )
+from gui.local_https_trust import ensure_local_https_trusted
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 DOCKER_SERVICES = {"mysql": "MySQL (Docker)", "nginx": "Nginx (Docker, HTTPS)"}
@@ -133,6 +134,12 @@ class ServiceControlWindow(QWidget):
         button = self.service_buttons[service]
         button.setEnabled(False)
         docker_service_toggle(service, start=checked)
+        if service == "nginx" and checked:
+            # Au tout premier démarrage de nginx (et lui seul, voir
+            # is_local_https_trusted) : installe la CA générée par "certgen"
+            # dans le magasin système, pour ne plus avoir à lancer
+            # scripts/setup-local-https.sh à la main à chaque installation.
+            ensure_local_https_trusted(PROJECT_DIR)
         self._refresh_service_status()
         button.setEnabled(True)
 
