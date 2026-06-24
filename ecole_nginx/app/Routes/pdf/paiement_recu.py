@@ -97,7 +97,19 @@ def generate_pdf_recu(
                 detail={"errors": str(e)}
             )
             
-        info_items = list(paiement.get('info_paiement', {}).items())
+        # info_paiement vient d'une colonne JSON MySQL : l'ordre des clés
+        # n'est PAS garanti d'être l'ordre chronologique d'insertion. Le web
+        # et le bureau trient tous deux par date avant d'afficher l'historique
+        # et d'en déduire l'index ("key") envoyé ici — on doit donc trier de
+        # la même façon ici pour indexer le bon paiement, sinon le reçu
+        # imprimé ne correspond pas à celui affiché.
+        def _sort_key(item):
+            try:
+                return datetime.strptime(item[0], '%d-%m-%Y %H:%M')
+            except (ValueError, TypeError):
+                return datetime.min
+
+        info_items = sorted(paiement.get('info_paiement', {}).items(), key=_sort_key)
 
         if 0 <= request.key < len(info_items):
             date_clef, paiement = info_items[request.key]

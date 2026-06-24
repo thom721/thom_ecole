@@ -46,9 +46,24 @@ function getNumFromLabel(label) {
   return m ? parseInt(m[1]) : null;
 }
 
+// "03-06-2026 07:57" → Date triable. info_paiement vient d'une colonne JSON
+// MySQL : l'ordre des clés n'est PAS garanti d'être l'ordre chronologique
+// d'insertion, d'où le besoin de trier explicitement plutôt que de se fier à
+// Object.entries(). Le backend (/print-recu) trie de la même façon pour que
+// l'index envoyé corresponde au même paiement que celui affiché ici.
+function parseDateKey(dateKey) {
+  const m = dateKey.match(/^(\d{2})-(\d{2})-(\d{4}) (\d{2}):(\d{2})/);
+  if (!m) return new Date(0);
+  const [, d, mo, y, h, mi] = m;
+  return new Date(`${y}-${mo}-${d}T${h}:${mi}:00`);
+}
+
 // ── Tableau enrichi des versements ───────────────────────────
 const versementsInfo = computed(() => {
-  return Object.entries(info_paiement.value).map(([dateKey, details], index) => {
+  const sortedEntries = Object.entries(info_paiement.value).sort(
+    (a, b) => parseDateKey(a[0]) - parseDateKey(b[0])
+  );
+  return sortedEntries.map(([dateKey, details], index) => {
     const versementKey = Object.keys(details).find((k) => k.startsWith("Versement_"));
     const versementNum = versementKey ? parseInt(versementKey.split("_")[1]) : index + 1;
     const versementLabel = `${ordinal(versementNum)} Versement`;
@@ -193,7 +208,9 @@ const hasVersementKey = (details, num) => {
 const returningKey = ref(null);
 
 const lastNonReturnedKey = computed(() => {
-  const keys = Object.keys(info_paiement.value);
+  const keys = Object.keys(info_paiement.value).sort(
+    (a, b) => parseDateKey(a) - parseDateKey(b)
+  );
   for (let i = keys.length - 1; i >= 0; i--) {
     const entry = info_paiement.value[keys[i]];
     if (entry?.status !== 'retourné') return keys[i];

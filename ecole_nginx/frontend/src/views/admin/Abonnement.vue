@@ -38,19 +38,20 @@
       <table v-else class="w-full">
         <thead>
           <tr class="bg-[#13161f]">
-            <th v-for="h in ['Ancienne clé', 'Nouvelle clé', 'Expiration', 'Activé le']" :key="h"
+            <th v-for="h in ['Activé le', 'Expire le', 'Statut']" :key="h"
                 class="px-4 py-2.5 text-left text-[11px] font-semibold text-[#7c83a0] uppercase tracking-wider">{{ h }}</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="historique.length === 0">
-            <td colspan="4" class="px-4 py-8 text-center text-[#7c83a0] text-sm">Aucune activation trouvée</td>
+            <td colspan="3" class="px-4 py-8 text-center text-[#7c83a0] text-sm">Aucune activation trouvée</td>
           </tr>
           <tr v-for="h in historique" :key="h.id" class="border-t border-white/[0.05] hover:bg-white/[0.03] transition-colors">
-            <td class="px-4 py-3 font-mono text-xs text-[#7c83a0]">{{ h.ancienne_cle || '—' }}</td>
-            <td class="px-4 py-3 font-mono text-[13px] text-[#e8eaf0]">{{ h.nouvelle_cle || '—' }}</td>
-            <td class="px-4 py-3 text-xs text-[#7c83a0]">{{ h.date_expiration || '—' }}</td>
             <td class="px-4 py-3 text-xs text-[#7c83a0]">{{ formatDate(h.date_activation) }}</td>
+            <td class="px-4 py-3 text-xs text-[#7c83a0]">{{ h.date_expiration || '—' }}</td>
+            <td class="px-4 py-3 text-xs font-semibold" :class="isEntryActif(h.date_expiration) ? 'text-emerald-400' : 'text-rose-400'">
+              {{ isEntryActif(h.date_expiration) ? 'Actif' : 'Expiré' }}
+            </td>
           </tr>
         </tbody>
       </table>
@@ -71,6 +72,16 @@ const loading = ref(false)
 const formatDate = (value) => {
   if (!value) return '—'
   try { return new Date(value).toLocaleString('fr-FR') } catch { return value }
+}
+
+const isEntryActif = (dateExpiration) => {
+  if (!dateExpiration) return false
+  const expiration = new Date(dateExpiration)
+  if (Number.isNaN(expiration.getTime())) return false
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  expiration.setHours(0, 0, 0, 0)
+  return expiration >= today
 }
 
 const fetchAbonnement = async () => {

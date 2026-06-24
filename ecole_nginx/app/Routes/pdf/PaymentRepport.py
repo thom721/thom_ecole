@@ -108,67 +108,81 @@ def extraire_donnees_par_intervalle_not_for_all(
                 data_student_info = paiements.get('details_etudiant', {})
                 data_mois = paiements.get('mois', {})
                 check_echeance = paiements.get('check_echeance', {})
-                # print(f"check_echeance  11    {check_echeance}")
                 info_paiement = paiements.get('info_paiement', {})
-                
+
+                # 1. On récupère proprement le nom de la classe cible
+                classe_info = data_student_info.get('classe')
+                aide_financiere = data_student_info.get('aide_financiere')
+
+                if isinstance(classe_info, list) and len(classe_info) > 0:
+                    classe_cible = classe_info[0]
+                else:
+                    classe_cible = classe_info
+
+                if classe_cible and classe_cible == resultat[value.id].get('classe_name'):
+                    check_echeance_final[aide_financiere] = check_echeance
+
+                etudiant_id = data_student_info.get('identifiant')
+                if resultat[value.id]['identifiant'] != etudiant_id:
+                    continue
+
+                # total_verse est CUMULATIF (RSavePaiement.py l'incrémente à
+                # chaque nouveau paiement). Un étudiant a un seul Paiement par
+                # année mais plusieurs entrées dans info_paiement (une par
+                # paiement effectué). Rejouer la répartition pour CHAQUE
+                # entrée et laisser la dernière itérée écraser les
+                # précédentes faisait dépendre le résultat de l'ordre du
+                # dict (non garanti) au lieu du montant réellement payé —
+                # c'est ce qui faisait apparaître des étudiants ayant
+                # presque tout payé comme n'ayant réglé que le 1er versement.
+                # On ne garde donc que le paiement non retourné au
+                # total_verse le plus élevé, et on applique la répartition
+                # une seule fois sur cette valeur.
+                total_verse_max = None
                 for date_str, donnees in info_paiement.items():
                     try:
-                        timestamp_cle = datetime.strptime(date_str, '%d-%m-%Y %H:%M')
+                        datetime.strptime(date_str, '%d-%m-%Y %H:%M')
                     except ValueError:
                         continue
-                    
-                    if request_versement == 'tous les versements':
+                    if donnees.get('status') == 'retourné':
                         continue
-                    # 1. On récupère proprement le nom de la classe cible
-                    classe_info = data_student_info.get('classe')
-                    aide_financiere = data_student_info.get('aide_financiere')
- 
-                    if isinstance(classe_info, list) and len(classe_info) > 0:
-                        classe_cible = classe_info[0]
-                    else:
-                        classe_cible = classe_info
- 
-                    if classe_cible and classe_cible == resultat[value.id].get('classe_name'):
-                        check_echeance_final[aide_financiere] = check_echeance
+                    total_verse_candidat = donnees.get('total_verse', 0)
+                    if total_verse_max is None or total_verse_candidat > total_verse_max:
+                        total_verse_max = total_verse_candidat
 
-                    if request_classe != 'tous les versements':
-                        etudiant_id = data_student_info.get('identifiant')
-                        
-                        if request_versement != 'tous les versements':
-                            if (resultat[value.id]['identifiant'] == etudiant_id):
-                                if donnees.get('status') != 'retourné':
-                                    total_verse_temp = donnees.get('total_verse', 0)
-                                    sorted_keys = sorted(check_echeance.keys(), key=versement_sort_key)
-                        
-                                    for key in sorted_keys:# check_echeance.items():
-                                        values = check_echeance[key] 
-                                        resultat[value.id]['entetesVersements'][key] = values
-                                    
-                                    # for key, values in check_echeance.items():
-                                    #     resultat[value.id]['entetesVersements'][key] = values
-                                        if check_echeance[key] <= total_verse_temp:
-                                            resultat[value.id]['paiements'][key] = True
-                                            
-                                            if key == request_versement:
-                                                resultat[value.id]['paiements']['total'] = values
-                                            
-                                            total_verse_temp -= values
-                                        elif total_verse_temp < 0:
-                                            resultat[value.id]['paiements'][key] = False
-                                        else:
-                                            resultat[value.id]['paiements'][key] = total_verse_temp
-                                            
-                                            if key == request_versement:
-                                                resultat[value.id]['paiements']['avance'] = total_verse_temp
-                                                resultat[value.id]['paiements']['balance'] = values - total_verse_temp
-                                            
-                                            total_verse_temp -= values
-    
+                if total_verse_max is None:
+                    continue
+
+                total_verse_temp = total_verse_max
+                sorted_keys = sorted(check_echeance.keys(), key=versement_sort_key)
+
+                for key in sorted_keys:
+                    values = check_echeance[key]
+                    resultat[value.id]['entetesVersements'][key] = values
+
+                    if values <= total_verse_temp:
+                        resultat[value.id]['paiements'][key] = True
+
+                        if key == request_versement:
+                            resultat[value.id]['paiements']['total'] = values
+
+                        total_verse_temp -= values
+                    elif total_verse_temp < 0:
+                        resultat[value.id]['paiements'][key] = False
+                    else:
+                        resultat[value.id]['paiements'][key] = total_verse_temp
+
+                        if key == request_versement:
+                            resultat[value.id]['paiements']['avance'] = total_verse_temp
+                            resultat[value.id]['paiements']['balance'] = values - total_verse_temp
+
+                        total_verse_temp -= values
+
     for id_etudiant, etudiant in resultat.items():
         nom_c = etudiant.get('nom_classe')
         aide = etudiant.get('aide_financiere')
         if not etudiant['entetesVersements']: #not etudiant['paiements'] or len(etudiant['paiements']) <= 1:
-             
+
             for key, values in check_echeance_final[aide].items():
             # if nom_c in check_echeance_final and aide in check_echeance_final[nom_c]:
                 # for key, values in check_echeance_final[nom_c][aide].items():
@@ -221,70 +235,69 @@ def extraire_donnees_par_intervalle(
             data_student_info = paiements.get('details_etudiant', {})
             data_mois = paiements.get('mois', {})
             check_echeance = paiements.get('check_echeance', {})
-
-            # id = data_student_info.get('identifiant')
-            # if id == "1-54000":
-            #     print(f"\n\n\n\n{check_echeance}\n\n\n\n\n\n")
-            # print(f"check_echeance  2    {check_echeance}      \n\n\n\n       {id}")
-            # resultat[value.id]['paiements']['check_echeances'] = check_echeance
-
-            # if value.nom_classe not in check_echeance_final:
-            #     check_echeance_final[value.nom_classe] = {}
-            #     [value.nom_classe][value.aide_financiere]
-            # check_echeance_final = check_echeance
-            
             info_paiement = paiements.get('info_paiement', {})
-            
+
+            etudiant_id = data_student_info.get('identifiant')
+            classe_info = data_student_info.get('classe')
+            aide_financiere = data_student_info.get('aide_financiere')
+            if isinstance(classe_info, list) and len(classe_info) > 0:
+                classe_cible = classe_info[0]
+            else:
+                classe_cible = classe_info
+
+            if classe_cible and classe_cible == resultat[value.id].get('classe_name'):
+                check_echeance_final[aide_financiere] = check_echeance
+
+            if resultat[value.id]['identifiant'] != etudiant_id:
+                continue
+
+            # total_verse est CUMULATIF (RSavePaiement.py l'incrémente à
+            # chaque nouveau paiement). Un étudiant a un seul Paiement par
+            # année mais plusieurs entrées dans info_paiement (une par
+            # paiement effectué). Rejouer la répartition pour CHAQUE entrée
+            # et laisser la dernière itérée écraser les précédentes faisait
+            # dépendre le résultat de l'ordre du dict (non garanti) au lieu
+            # du montant réellement payé — c'est ce qui faisait apparaître
+            # des étudiants ayant presque tout payé comme n'ayant réglé que
+            # le 1er versement. On ne garde donc que le paiement non
+            # retourné au total_verse le plus élevé, et on applique la
+            # répartition une seule fois sur cette valeur.
+            total_verse_max = None
             for date_str, donnees in info_paiement.items():
                 try:
-                    timestamp_cle = datetime.strptime(date_str, '%d-%m-%Y %H:%M')
+                    datetime.strptime(date_str, '%d-%m-%Y %H:%M')
                 except ValueError:
                     continue
-                
-                etudiant_id = data_student_info.get('identifiant')
+                if donnees.get('status') == 'retourné':
+                    continue
+                total_verse_candidat = donnees.get('total_verse', 0)
+                if total_verse_max is None or total_verse_candidat > total_verse_max:
+                    total_verse_max = total_verse_candidat
 
-                classe_info = data_student_info.get('classe')
-                aide_financiere = data_student_info.get('aide_financiere')
-                # print("\n\n\n\n")
-                # print(f"donnees  {donnees}")
-                # print("\n\n\n\n")
-                if isinstance(classe_info, list) and len(classe_info) > 0:
-                    classe_cible = classe_info[0]
+            if total_verse_max is None:
+                continue
+
+            total_verse_temp = total_verse_max
+            # Trier les échéances par leur numéro
+            sorted_keys = sorted(check_echeance.keys(), key=versement_sort_key)
+
+            for key in sorted_keys:
+                values = check_echeance[key]
+
+                resultat[value.id]['entetesVersements'][key] = values
+                resultat[value.id]['paiements']['check_echeances'][key] = values
+                if values <= total_verse_temp:
+                    resultat[value.id]['paiements'][key] = True
+                    resultat[value.id]['check_echeances'][key] = values
+                    total_verse_temp -= values
+
+                elif total_verse_temp > 0:
+                    # Paiement partiel (Avance)
+                    resultat[value.id]['paiements'][key] = total_verse_temp
+                    resultat[value.id]['paiements']['balance'] = values - total_verse_temp
+                    total_verse_temp = 0 # Plus d'argent disponible après une avance
                 else:
-                    classe_cible = classe_info
-
-                if classe_cible and classe_cible == resultat[value.id].get('classe_name'):
-                    check_echeance_final[aide_financiere] = check_echeance
-                
-                if resultat[value.id]['identifiant'] == etudiant_id:
-                    if donnees.get('status') != 'retourné':
-                        total_verse_temp = donnees.get('total_verse', 0)
-                        # Trier les échéances par leur numéro
-                        sorted_keys = sorted(check_echeance.keys(), key=versement_sort_key)
-                        
-                        for key in sorted_keys:# check_echeance.items():
-                            values = check_echeance[key]
-
-
-                            resultat[value.id]['entetesVersements'][key] = values
-                            resultat[value.id]['paiements']['check_echeances'][key] = values
-                            if check_echeance[key] <= total_verse_temp:
-                                resultat[value.id]['paiements'][key] = True
-                                resultat[value.id]['check_echeances'][key] = values
-                                total_verse_temp -= values
-
-                            elif total_verse_temp > 0:
-                                # Paiement partiel (Avance)
-                                resultat[value.id]['paiements'][key] = total_verse_temp
-                                resultat[value.id]['paiements']['balance'] = values - total_verse_temp
-                                total_verse_temp = 0 # Plus d'argent disponible après une avance
-                            # elif total_verse_temp < 0:
-                            #     resultat[value.id]['paiements'][key] = False
-                            else:
-                                resultat[value.id]['paiements'][key] = False
-                                # resultat[value.id]['paiements'][key] = total_verse_temp
-                                # resultat[value.id]['paiements']['balance'] = values - total_verse_temp
-                                # total_verse_temp -= values
+                    resultat[value.id]['paiements'][key] = False
     
     # Ajouter les versements manquants comme False
     for id_etudiant, etudiant in resultat.items():
@@ -298,7 +311,10 @@ def extraire_donnees_par_intervalle(
                     if key not in etudiant['paiements']:
                         etudiant['paiements'][key] = False
                         etudiant['entetesVersements'][key] = values
-    
+
+    for id_etudiant, etudiant in list(resultat.items())[:3]:
+        print(f"🔎 [extraire_donnees_par_intervalle] identifiant={etudiant['identifiant']!r} aide={etudiant['aide_financiere']!r} entetesVersements={etudiant['entetesVersements']!r} paiements={etudiant['paiements']!r}")
+
     return list(resultat.values())
 
 # ============================================================================
@@ -326,22 +342,25 @@ def print_payment_report(
         # Créer les datetime de début et fin de journée
         date_debut = request.date_debut #datetime.combine(request.date_debut, time.min)
         date_fin = request.date_fin#datetime.combine(request.date_fin, time.max)
+        print(f"🔎 [print-rapport-paiement] classe={request.classe!r} date_debut={request.date_debut!r} versement={request.versement!r}")
         # Récupérer l'année académique active
         annee = db.query(AnneeAcademique).filter(
             AnneeAcademique.id == date_debut
         ).first()
-        
+
         if not annee:
             raise HTTPException(
                 status_code=404,
                 detail="Aucune année académique active trouvée"
             )
-        
+        print(f"🔎 [print-rapport-paiement] annee résolue: id={annee.id!r} annee_academique={annee.annee_academique!r}")
+
         # Récupérer tous les paiements de l'année académique
         paiements_query = db.query(Paiement.paiement_details).filter(
             Paiement.annee_academique == annee.annee_academique
         ).all()
-        
+        print(f"🔎 [print-rapport-paiement] {len(paiements_query)} paiement(s) trouvé(s) pour annee_academique={annee.annee_academique!r}")
+
         # Parser les paiement_details
         payment_list = []
         for p in paiements_query:
@@ -424,16 +443,34 @@ def print_payment_report(
                 self.aide_financiere = row.aide_financiere
         
         students = [StudentData(row) for row in data_student]
-        
+        ids_students = {s.identifiant for s in students}
+        ids_payments = {p.get('paiement_details', {}).get('details_etudiant', {}).get('identifiant') for p in payment_list}
+        print(f"🔎 [print-rapport-paiement] {len(students)} étudiant(s) pour classe={request.classe!r} ; {len(payment_list)} paiement(s) ; intersection identifiants = {len(ids_students & ids_payments)}")
+        if not (ids_students & ids_payments):
+            print(f"🔎 [print-rapport-paiement] AUCUNE correspondance ! ids_students={sorted(ids_students)}")
+            print(f"🔎 [print-rapport-paiement] ids_payments (échantillon)={sorted(list(ids_payments))[:30]}")
+
+        # Normalise une seule fois : le frontend web envoie "tous les
+        # Versements" (V majuscule), l'app de bureau "tous les versements"
+        # (minuscule). payment_repport.html fait lui aussi une comparaison
+        # exacte à 'tous les versements' (minuscule) — en normalisant ici,
+        # la valeur transmise au template est toujours la forme canonique,
+        # sans avoir à modifier ce template Jinja2 par ailleurs complexe.
+        versement = (
+            'tous les versements'
+            if request.versement.lower() == 'tous les versements'
+            else request.versement
+        )
+
         # Extraire les données selon le type de versement
-        if request.versement != 'tous les versements':
+        if versement != 'tous les versements':
             data_payment = extraire_donnees_par_intervalle_not_for_all(
                 payment_list,
                 date_debut,
                 date_fin,
                 students,
                 request.classe,
-                request.versement
+                versement
             )
         else:
             data_payment = extraire_donnees_par_intervalle(
@@ -482,7 +519,7 @@ def print_payment_report(
             "data_payment":data_payment,
             "groupedPayments":grouped_results,
             "info":profile,
-            "versement":request.versement,
+            "versement":versement,
             "check_echeance_s":check_echeance_s,
             "debut":request.date_debut,#.strftime('%Y-%m-%d'),
             "fin":None, #request.date_fin.strftime('%Y-%m-%d'),
