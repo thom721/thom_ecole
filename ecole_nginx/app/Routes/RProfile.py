@@ -115,9 +115,16 @@ async def store_profile(data: ProfileCreate, db: Session = Depends(get_db),curre
             db_profile.ligne2 = data.ligne2
             db_profile.adresse = data.adresse
             if logo_path:
+                # data.logo_image_path EST déjà le data-URI base64 complet
+                # ("data:image/png;base64,...") envoyé par le web ET le
+                # bureau — aucun des deux clients ne renseigne jamais le
+                # champ séparé data.logo_image_base64 (toujours None), donc
+                # s'appuyer sur lui ici écrasait le logo affiché dans tous
+                # les PDF (qui lisent info.logo_image_base64) à chaque
+                # changement de logo, sur web comme sur bureau.
                 db_profile.logo_image_path = logo_path
-                db_profile.logo_image_base64=data.logo_image_base64
-            
+                db_profile.logo_image_base64 = data.logo_image_path
+
             db.commit()
             db.refresh(db_profile)
             final_data = db_profile
@@ -130,7 +137,7 @@ async def store_profile(data: ProfileCreate, db: Session = Depends(get_db),curre
                 ligne2=data.ligne2,
                 adresse=data.adresse,
                 logo_image_path=logo_path,
-                logo_image_base64=data.logo_image_base64
+                logo_image_base64=data.logo_image_path if logo_path else data.logo_image_base64
             )
             db.add(new_profile)
             db.commit()

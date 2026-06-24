@@ -63,14 +63,6 @@ app = FastAPI(   root_path="/app",
 # app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # app.add_middleware(SlowAPIMiddleware)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # À modifier en production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 async def rate_limit_middleware(request: Request, call_next):
     global _req_count
 
@@ -98,8 +90,25 @@ async def rate_limit_middleware(request: Request, call_next):
     return await call_next(request)
 
 app.middleware("http")(rate_limit_middleware)
- 
-def setup_weasyprint_dlls(): 
+
+# CORSMiddleware doit être enregistré APRES rate_limit_middleware pour en
+# devenir le wrapper le PLUS EXTERNE (Starlette empile les middlewares dans
+# l'ordre inverse de leur enregistrement : le dernier ajouté est le plus
+# externe). Sinon, le rate limiter intercepte et répond AVANT que
+# CORSMiddleware ne voie la requête — un 429 (ou tout retour anticipé) part
+# alors sans aucun header Access-Control-Allow-Origin, et le navigateur
+# bloque la requête réelle avec "No 'Access-Control-Allow-Origin' header"
+# même quand l'origine est par ailleurs autorisée (cas vécu sur
+# /auth/login : préflight OPTIONS rate-limité = aucun header CORS).
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # À modifier en production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+def setup_weasyprint_dlls():
     gtk_bin_path_str = get_real_path("gtk_runtime") 
 
     fonts_conf_path = Path(gtk_bin_path_str) / "etc" / "fonts" / "fonts.conf"
