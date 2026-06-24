@@ -30,7 +30,6 @@ jobs:
         run: >
           python -m nuitka app.py
           --standalone --enable-plugin=pyside6
-          --onefile-tempdir-spec="{CACHE_DIR}/ESysClient/cache"
           --include-qt-plugins=multimedia,platforms,imageformats
           --include-data-dir=Models=Models
           --include-data-dir=Views=Views
@@ -51,7 +50,6 @@ jobs:
           --windows-file-description="Logiciel de gestion scolaire"
           --windows-icon-from-ico=assets\icons\favicon.ico
           --windows-disable-console
-          --onefile
           --assume-yes-for-downloads
           --mingw64
           --lto=no
@@ -59,5 +57,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: school-client
-          path: school_client/build/school_client.exe
+          path: school_client/build/app.dist
           if-no-files-found: error
