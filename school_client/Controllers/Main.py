@@ -152,7 +152,7 @@ import requests
 import json
 
 # Domaine de production d'infini-software (voir docs/infini-software.md).
-INFINI_API_BASE_URL = "https://infini-sofware.cloud"
+INFINI_API_BASE_URL = "https://infini-software.cloud"
 
 
 class LicenceSyncWorker(QObject):
