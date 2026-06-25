@@ -29,6 +29,8 @@ import uuid
 import base64
 import hashlib
 import hmac
+import platform
+import subprocess
 from pathlib import Path
 from datetime import datetime, timedelta
 from cryptography.fernet import Fernet, InvalidToken
@@ -77,6 +79,13 @@ def get_host_mac() -> str:
     réseau — "Private Wi-Fi Address"). On détecte donc une seule fois puis on
     réutilise la même valeur via un fichier local, pour que la licence/le mac
     envoyé à infini-software ne changent jamais après la première détection.
+
+    Sur Windows, on utilise "getmac" plutôt que uuid.getnode() : il liste
+    toutes les interfaces (Ethernet, Wi-Fi, Bluetooth, adaptateurs virtuels
+    VPN/Hyper-V/VirtualBox...) avec leur statut, ce qui permet d'ignorer
+    celles marquées "Media disconnected" au lieu de prendre une interface
+    virtuelle/déconnectée au hasard (même correctif que
+    school_client/Controllers/Main.py get_mac_address()).
     """
     env_mac = os.getenv("HOST_MAC_ADDRESS")
     if env_mac:
@@ -90,7 +99,21 @@ def get_host_mac() -> str:
     except OSError:
         pass
 
-    mac = ':'.join(re.findall('..', '%012x' % uuid.getnode())).upper()
+    mac = None
+    if platform.system() == "Windows":
+        try:
+            result = subprocess.check_output("getmac /fo csv /nh", shell=True).decode()
+            for line in result.strip().splitlines():
+                parts = [p.strip().strip('"') for p in line.split(',')]
+                if len(parts) >= 2 and "disconnected" not in parts[1].lower():
+                    mac = parts[0].replace('-', ':').upper()
+                    break
+        except Exception:
+            mac = None
+
+    if mac is None:
+        mac = ':'.join(re.findall('..', '%012x' % uuid.getnode())).upper()
+
     try:
         os.makedirs(os.path.dirname(MAC_CACHE_FILE), exist_ok=True)
         Path(MAC_CACHE_FILE).write_text(mac)

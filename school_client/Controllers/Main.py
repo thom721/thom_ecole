@@ -3964,12 +3964,45 @@ class Main(QMainWindow, Ui_MainWindow):
             # en repli ci-dessous, donc on l'appelle directement sur Mac/Linux pour
             # éviter un "command not found" systématique dans les logs.
             return self.get_mac_address_user()
+
+        # Même cache que get_mac_address_user() : sans ça, "getmac" est relancé à
+        # chaque appel et une correction manuelle du fichier de cache (ou un futur
+        # changement d'interface réseau active) n'a aucun effet.
+        mac_cache_file = os.path.join(get_local_data_dir(), ".ecole_360", "machine_mac.txt")
+        try:
+            if os.path.exists(mac_cache_file):
+                cached = Path(mac_cache_file).read_text().strip()
+                if cached:
+                    return cached, getpass.getuser()
+        except OSError:
+            pass
+
         try:
             result = subprocess.check_output("getmac /fo csv /nh", shell=True).decode()
-            mac = result.split(',')[0].strip().strip('"').replace('-', ':')
-            return mac,self.get_mac_address_user()[1]
-        except:
+            # "getmac" liste TOUTES les interfaces (Ethernet, Wi-Fi, Bluetooth,
+            # adaptateurs virtuels VPN/Hyper-V/VirtualBox...), y compris celles
+            # déconnectées (colonne "Transport Name" = "Media disconnected").
+            # Prendre systématiquement la 1ère ligne, comme avant, pouvait donc
+            # renvoyer une interface déconnectée/virtuelle plutôt que la carte
+            # réseau physique réellement utilisée.
+            mac = None
+            for line in result.strip().splitlines():
+                parts = [p.strip().strip('"') for p in line.split(',')]
+                if len(parts) >= 2 and "disconnected" not in parts[1].lower():
+                    mac = parts[0].replace('-', ':')
+                    break
+            if mac is None:
+                return self.get_mac_address_user()
+        except Exception:
             return self.get_mac_address_user()
+
+        try:
+            os.makedirs(os.path.dirname(mac_cache_file), exist_ok=True)
+            Path(mac_cache_file).write_text(mac)
+        except OSError:
+            pass
+
+        return mac, getpass.getuser()
 
 
 
