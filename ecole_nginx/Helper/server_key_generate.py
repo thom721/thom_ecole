@@ -24,17 +24,53 @@ def get_mac_reliable():
     mac = ':'.join(re.findall('..', '%012x' % uuid.getnode())) 
     return mac
 
+# Même fichier que app.Helper.license_check.MAC_CACHE_FILE (API ecole_nginx) :
+# les deux tournent sur la même machine (le serveur), donc partager ce cache
+# garantit qu'ils rapportent toujours la même MAC.
+_MAC_CACHE_FILE = Path.home() / ".ecole_360" / "machine_mac.txt"
+
+
 def get_mac_address() -> str:
-    import subprocess
+    """Adresse MAC de CETTE machine (le serveur) — utilisée pour la clé
+    d'activation et le lien de renouvellement infini-software.
+
+    "getmac" liste TOUTES les interfaces (Ethernet, Wi-Fi, Bluetooth,
+    adaptateurs virtuels...), y compris déconnectées ("Transport Name" =
+    "Media disconnected"). Prendre systématiquement la 1ère ligne pouvait
+    donc renvoyer une interface déconnectée/virtuelle plutôt que la carte
+    physique active — et la relancer à chaque appel pouvait faire changer la
+    MAC rapportée d'une fois à l'autre. On filtre les lignes déconnectées et
+    on mémorise le résultat (même correctif que school_client/Controllers/
+    Main.py get_mac_address() et app.Helper.license_check.get_host_mac())."""
+    try:
+        if _MAC_CACHE_FILE.exists():
+            cached = _MAC_CACHE_FILE.read_text().strip()
+            if cached:
+                return cached
+    except OSError:
+        pass
+
+    mac = None
     try:
         result = subprocess.check_output("getmac /fo csv /nh", shell=True).decode()
-        mac = result.split(',')[0].strip().strip('"').replace('-', ':')
-        print(f"mac 1 {mac}")
-        return mac
-    except:
-        print(f"mac 2 get_mac_reliable(")
-        print(get_mac_reliable())
-        return get_mac_reliable()
+        for line in result.strip().splitlines():
+            parts = [p.strip().strip('"') for p in line.split(',')]
+            if len(parts) >= 2 and "disconnected" not in parts[1].lower():
+                mac = parts[0].replace('-', ':')
+                break
+    except Exception:
+        mac = None
+
+    if mac is None:
+        mac = get_mac_reliable()
+
+    try:
+        _MAC_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _MAC_CACHE_FILE.write_text(mac)
+    except OSError:
+        pass
+
+    return mac
         # return ':'.join(re.findall('..', '%012x' % uuid.getnode()))
 
 def generate_activation_key(mac_address, days_valid=30):

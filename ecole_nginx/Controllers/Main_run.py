@@ -219,26 +219,38 @@ class Main_run:
         return ip in socket.gethostbyname_ex(socket.gethostname())[2]
 
     def genere_ssl_key(self, ip_address, update_client=False):
-        """Générer les certificats SSL - Version Corrigée et Validée"""
+        """Générer/renouveler le certificat serveur (et la CA, si absente) pour
+        aplekol360.local.
+
+        Écrit dans %USERPROFILE%/AppData/Local/.ecole_360/.ssl_nginx, le
+        dossier que configure_nginx() lit déjà pour peupler nginx/certs — donc
+        avec les noms attendus par configure_nginx (ca.pem, server.key,
+        server.crt), pas besoin d'étape de copie séparée.
+
+        Volontairement PAS appelée automatiquement à l'installation ni au
+        lancement (install_and_config() ne l'appelle pas) : la CA doit être
+        générée une seule fois puis réutilisée à l'identique sur toutes les
+        installations Windows/Mac/Linux, jamais régénérée au hasard à chaque
+        install — donc déclenchement manuel uniquement, quand on a
+        explicitement besoin de (re)créer la CA et/ou renouveler le
+        certificat serveur."""
         try:
-            firstPath = r"C:\Program Files\ecole-serve"
-            _conf_path = os.path.join(firstPath, "certspath")
-            
+            user_profile = os.getenv("USERPROFILE") or os.getenv("HOME")
+            _conf_path = os.path.join(user_profile, "AppData", "Local", ".ecole_360", ".ssl_nginx")
+
             # 1. S'ASSURER QUE LE RÉPERTOIRE EXISTE
             os.makedirs(_conf_path, exist_ok=True)
             self.set_full_permissions(_conf_path) # Assurez-vous que cette méthode existe
-            
-            # 2. Chemins des fichiers
-            key_path = os.path.join(_conf_path, 'aplekol360.local-key.pem')
-            cert_path = os.path.join(_conf_path, 'aplekol360.local.pem')
-            server_key = os.path.join(_conf_path, 'server.key')
-            server_crt = os.path.join(_conf_path, 'server.crt')
+
+            # 2. Chemins des fichiers (noms attendus par configure_nginx())
+            key_path = os.path.join(_conf_path, 'server.key')
+            cert_path = os.path.join(_conf_path, 'server.crt')
             ca_key = os.path.join(_conf_path, 'ca.key')
             ca_cert = os.path.join(_conf_path, 'ca.pem')
             csr_path = os.path.join(_conf_path, 'aplekol360.local.csr')
             san_file = os.path.join(_conf_path, 'aplekol360.local_san.cnf')
             ca_conf = os.path.join(_conf_path, 'ca.cnf')
-            
+
             print(f"🔐 Génération SSL pour: {ip_address}")
 
             # 3. Créer le fichier ca.cnf (CORRECTION : CN différent du serveur)
@@ -259,7 +271,9 @@ class Main_run:
             with open(ca_conf, 'w') as f:
                 f.write(ca_config_content)
             
-            # 4. Générer la CA
+            # 4. Générer la CA — une seule fois : si ca.key/ca.pem existent déjà
+            # (CA partagée déjà en place), on les réutilise pour signer le
+            # nouveau certificat serveur, sans jamais régénérer la CA elle-même.
             if not os.path.exists(ca_key) or not os.path.exists(ca_cert):
                 subprocess.run(['openssl', 'genrsa', '-out', ca_key, '2048'], check=True)
                 subprocess.run([
@@ -298,20 +312,23 @@ class Main_run:
                 '-config', san_file
             ], check=True)
             
-            # 8. Signature (CORRECTION : Utilisation de v3_req pour inclure les SAN)
+            # 8. Signature — 825 jours max (limite Apple/macOS pour les
+            # certificats serveur ; ne s'applique PAS à la CA elle-même,
+            # signée pour 10 ans ci-dessus, qui n'est jamais présentée
+            # directement lors d'un handshake TLS).
             subprocess.run([
                 'openssl', 'x509', '-req', '-in', csr_path, '-CA', ca_cert, '-CAkey', ca_key,
-                '-CAcreateserial', '-out', cert_path, '-days', '3650',
+                '-CAcreateserial', '-out', cert_path, '-days', '825',
                 '-sha256', '-extfile', san_file, '-extensions', 'v3_req'
             ], check=True)
-            
-            
+
+
             # 10. Magasin Windows
             if update_client:
                 subprocess.run(['certutil', '-addstore', '-f', 'Root', ca_cert], check=True)
 
             # 11. VÉRIFICATION FINALE (Le test qui échouait avant)
-            result = subprocess.run(['openssl', 'verify', '-CAfile', ca_cert, server_crt], 
+            result = subprocess.run(['openssl', 'verify', '-CAfile', ca_cert, cert_path],
                                     capture_output=True, text=True)
             
             if "OK" in result.stdout:
@@ -2946,9 +2963,13 @@ class ServiceControlWindow(QWidget):
                 }
         """)
         
-        url_copy = base_url  
+        url_copy = base_url
+        # Même lien pour le bouton "Active online" et le texte d'alerte
+        # ci-dessous — avec la MAC de CETTE machine (le serveur), pas celle
+        # d'un client, puisque c'est le serveur qui doit être réactivé.
+        renew_url = f"https://infini-software.cloud/renouveler?mac={get_mac_address()}"
         self.btn_verify.clicked.connect(lambda: self.verifier_cle(url_copy))
-        self.btn_verify_online.clicked.connect(lambda: self.verify_online(url_copy))
+        self.btn_verify_online.clicked.connect(lambda: self.verify_online(renew_url))
          
         self.fram_activate_h =  QFrame()
         self.layout_h_active = QHBoxLayout(self.fram_activate_h)
@@ -2971,7 +2992,7 @@ class ServiceControlWindow(QWidget):
         # Texte avec lien HTML intégré
         info_text = QLabel(
             'Pour continuer à utiliser toutes les fonctionnalités,<br>' # <br> force le retour à la ligne
-            'veuillez <a href="https://infini-software.cloud/" style="color: #D32F2F;">'
+            f'veuillez <a href="{renew_url}" style="color: #D32F2F;">'
             'cliquer ici pour payer et récupérer votre clé d\'activation</a>.'
         )
 
@@ -3020,7 +3041,8 @@ class ServiceControlWindow(QWidget):
             QMessageBox.critical(self, "Erreur", f"Clé invalide ou expirée. {mac}")
     
     def verify_online(self, url):
-        pass
+        import webbrowser
+        webbrowser.open(url)
 
     def get_service_status(self, service_name):
         """Vérifie si un service est en cours d'exécution."""
@@ -4281,9 +4303,8 @@ class CopyOnFocusLineEdit:
         clipboard.setText(self.lineEdit.text(), QClipboard.Mode.Clipboard)
  
 import ctypes
-import datetime
 from PySide6.QtWidgets import QMessageBox
-import os, subprocess, ctypes, datetime
+import os, subprocess, ctypes
 from PySide6.QtCore import QThread, Signal, Qt
 from PySide6.QtWidgets import QMessageBox, QProgressDialog
 
@@ -4306,7 +4327,7 @@ class WireGuardWindowsManager:
         log_file = os.path.join(self.config_dir, "manager.log")
         os.makedirs(self.config_dir, exist_ok=True)
         with open(log_file, "a") as f:
-            f.write(f"[{datetime.datetime.now()}] {message}\n")
+            f.write(f"[{datetime.now()}] {message}\n")
 
     def is_installed(self):
         return os.path.exists(self.wg_exe) and os.path.exists(self.ui_exe)

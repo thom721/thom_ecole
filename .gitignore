@@ -3,6 +3,9 @@
 **/.env
 !**/.env.example
 
+# CA/certificats SSL générés localement (clés privées : ca.key, server.key)
+/.ssl_nginx/
+
 # Python
 __pycache__/
 *.pyc
