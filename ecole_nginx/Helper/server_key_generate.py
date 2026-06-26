@@ -42,34 +42,44 @@ def get_mac_address() -> str:
     MAC rapportée d'une fois à l'autre. On filtre les lignes déconnectées et
     on mémorise le résultat (même correctif que school_client/Controllers/
     Main.py get_mac_address() et app.Helper.license_check.get_host_mac())."""
+    print(f"[get_mac_address] cache file = {_MAC_CACHE_FILE}")
     try:
         if _MAC_CACHE_FILE.exists():
             cached = _MAC_CACHE_FILE.read_text().strip()
+            print(f"[get_mac_address] cache trouvé, contenu = {cached!r}")
             if cached:
                 return cached
-    except OSError:
-        pass
+        else:
+            print("[get_mac_address] pas de cache, détection via getmac")
+    except OSError as e:
+        print(f"[get_mac_address] erreur lecture cache: {e}")
 
     mac = None
     try:
         result = subprocess.check_output("getmac /fo csv /nh", shell=True).decode()
+        print(f"[get_mac_address] sortie brute getmac:\n{result}")
         for line in result.strip().splitlines():
             parts = [p.strip().strip('"') for p in line.split(',')]
+            print(f"[get_mac_address] ligne parsée: {parts}")
             if len(parts) >= 2 and "disconnected" not in parts[1].lower():
                 mac = parts[0].replace('-', ':')
+                print(f"[get_mac_address] ligne retenue -> mac = {mac}")
                 break
-    except Exception:
+    except Exception as e:
+        print(f"[get_mac_address] getmac a échoué: {e}")
         mac = None
 
     if mac is None:
         mac = get_mac_reliable()
+        print(f"[get_mac_address] repli sur get_mac_reliable() -> {mac}")
 
     try:
         _MAC_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
         _MAC_CACHE_FILE.write_text(mac)
-    except OSError:
-        pass
+    except OSError as e:
+        print(f"[get_mac_address] erreur écriture cache: {e}")
 
+    print(f"[get_mac_address] valeur finale retournée = {mac}")
     return mac
         # return ':'.join(re.findall('..', '%012x' % uuid.getnode()))
 
@@ -140,10 +150,11 @@ def show_activation_key():
 
 
 def delete_key():
-    """Supprime le server_ip (déconnexion)"""
+    """Supprime la licence enregistrée localement (déconnexion / reset)."""
     settings = QSettings("MonAppServer", "Licence")
     settings.remove("activation_key")
     settings.remove("expiration_date")
+    settings.remove("days_valid")
 
 
 
