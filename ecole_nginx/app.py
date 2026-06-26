@@ -194,8 +194,13 @@ if __name__ == "__main__":
     # disable_quick_edit()
     # kill_port_owner('9001')
     if sys.platform == "win32":
-        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+        # line_buffering=True : sans ça, c'est la mise en mémoire tampon par
+        # blocs (par défaut) qui s'applique — les print() s'accumulent et ne
+        # s'affichent que quand le buffer se remplit, donnant l'impression
+        # que la console est figée pendant plusieurs minutes alors que l'app
+        # tourne normalement (confirmé : le site restait accessible).
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace', line_buffering=True)
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace', line_buffering=True)
     try: 
         start_time = time.time()    
         

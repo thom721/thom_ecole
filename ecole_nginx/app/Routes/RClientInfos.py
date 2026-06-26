@@ -92,6 +92,26 @@ def appliquer_licence(
 
     dernier_log = db.query(LogActive).order_by(desc(LogActive.created_at)).first()
 
+    # Stockage local de licence (fichier chiffré Mac/Linux, ou registre
+    # Windows via QSettings — deux modules séparés, voir docs/ecole_nginx.md)
+    # AVANT le commit en base : si cette étape échoue, /api/v1/abonnement
+    # (qui lit log_actives) ne doit PAS se mettre à dire "Actif" alors que la
+    # licence locale n'a en réalité pas été enregistrée — sinon
+    # LicenceSyncWorker (school_client), qui ne redéclenche cet appel que si
+    # la clé d'infini-software diffère de log_actives.new_key, ne retenterait
+    # plus jamais l'écriture locale après cet échec.
+    if sys.platform == "win32":
+        from Helper.server_key_generate import apply_remote_licence
+    else:
+        from app.Helper.license_check import apply_remote_licence
+    try:
+        apply_remote_licence(data.new_key, data.expiration_date, data.days_valid)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Échec de l'enregistrement local de la licence : {e}",
+        )
+
     new_log = LogActive(
         last_key=dernier_log.new_key if dernier_log else None,
         new_key=data.new_key,
@@ -100,14 +120,6 @@ def appliquer_licence(
     )
     db.add(new_log)
     db.commit()
-
-    # Stockage local de licence : fichier chiffré (Mac/Linux) ou registre
-    # Windows (QSettings) — deux modules séparés, voir docs/ecole_nginx.md.
-    if sys.platform == "win32":
-        from Helper.server_key_generate import apply_remote_licence
-    else:
-        from app.Helper.license_check import apply_remote_licence
-    apply_remote_licence(data.new_key, data.expiration_date, data.days_valid)
 
     return {"success": True}
 

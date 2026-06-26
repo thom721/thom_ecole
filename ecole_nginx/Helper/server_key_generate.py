@@ -494,24 +494,21 @@ def lock_registry_key():
 
 # Exemple : Générer une clé à partir d'une phrase secrète ou de l'adresse MAC
 def generate_fernet_key(secret: str) -> bytes:
-    """Génère une clé Fernet à partir d'un secret (ex: MAC address)."""
-    try:
-        digest = hashlib.sha256(secret.encode()).digest()
-        return base64.urlsafe_b64encode(digest)
-    except Exception as e:
-        print("Erreur  :", e)
-        import traceback
-        traceback.print_exc()
+    """Génère une clé Fernet à partir d'un secret (ex: MAC address).
+
+    Ne capture plus l'exception ici : un appelant (apply_remote_licence...)
+    qui recevait silencieusement None en cas d'échec écrivait quand même
+    cette valeur dans le registre via settings.setValue(), masquant l'échec
+    réel au lieu de le faire remonter."""
+    digest = hashlib.sha256(secret.encode()).digest()
+    return base64.urlsafe_b64encode(digest)
 
 # Fonction de chiffrement
 def encrypt_value(value: str, key: bytes) -> str:
-    try:
-        f = Fernet(key)
-        return f.encrypt(value.encode()).decode()
-    except Exception as e:
-        print("Erreur encrypt_value :", e)
-        import traceback
-        traceback.print_exc() 
+    """Ne capture plus l'exception ici, pour la même raison que
+    generate_fernet_key()."""
+    f = Fernet(key)
+    return f.encrypt(value.encode()).decode()
 
 
 def decrypt_value(encrypted_value: str, key: bytes) -> str:
