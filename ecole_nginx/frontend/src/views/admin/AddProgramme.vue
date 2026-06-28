@@ -33,10 +33,13 @@ onMounted(async () => {
       const p = response.data.data;
       await fechNiveauData(p.niveau_id);
       programmeCours.value = [{
-        id: p.id, cours_id: p.cours_id, niveau_id: p.niveau_id,
+        // Bug corrigé : le backend renvoie `Cours_id` (majuscule), pas
+        // `cours_id` — l'ancien code laissait ce champ undefined en édition.
+        id: p.id, cours_id: p.Cours_id, niveau_id: p.niveau_id,
         professeur_id: p.profId, faculte_id: p.faculte_id,
         annee_academique: p.annee_academique_id, coefficients: p.coefficients,
-        jours: p.jours, heure: p.heure, class: p.class, session: p.session,
+        jours: p.jours, heure: p.heure, class: p.class_, session: p.session,
+        note_de_passage: p.note_de_passage,
       }];
     } catch (e) { console.error("Erreur chargement programme:", e); }
   } else {
@@ -48,6 +51,7 @@ const addEmptyRow = () => {
   programmeCours.value.push({
     id: "", cours_id: "", niveau_id: "", professeur_id: "", faculte_id: "",
     annee_academique: "", coefficients: "", jours: "", heure: "", class: "", session: "",
+    note_de_passage: "",
   });
 };
 
@@ -184,13 +188,39 @@ const jours = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
                 <input v-model="programme.coefficients" type="number" placeholder="1" class="prog-input" />
               </div>
 
-              <!-- Faculté (conditionnel) -->
-              <div v-if="choseNiveau.name === 'Universitaire' || choseNiveau.name === 'Professionel'" class="flex flex-col gap-1.5">
+              <!-- Faculté (conditionnel) — bug corrigé : le niveau réel
+                   s'appelle "Technique" (cf. seeds), pas "Professionel" ;
+                   l'ancienne condition n'affichait donc jamais ce champ. -->
+              <div v-if="choseNiveau.name === 'Universitaire' || choseNiveau.name === 'Technique'" class="flex flex-col gap-1.5">
                 <label class="prog-label">Faculté / Option</label>
                 <select v-model="programme.faculte_id" class="prog-select">
                   <option value="" disabled>Choisir Option</option>
                   <option v-for="f in faculte" :key="f.id" :value="f.id">{{ f.nom }}</option>
                 </select>
+              </div>
+
+              <!-- Session (conditionnel, obligatoire pour Universitaire côté
+                   serveur — RProgramme.py:337 — absent du formulaire jusqu'ici). -->
+              <div v-if="choseNiveau.name === 'Universitaire'" class="flex flex-col gap-1.5">
+                <label class="prog-label">Session</label>
+                <select v-model="programme.session" class="prog-select">
+                  <option value="" disabled>Choisir</option>
+                  <option value="1ère">1ère</option>
+                  <option value="2ème">2ème</option>
+                </select>
+                <p v-if="errors[`programmeCoursObject.${index}.session`]" class="prog-error">
+                  {{ errors[`programmeCoursObject.${index}.session`][0] }}
+                </p>
+              </div>
+
+              <!-- Note de passage (conditionnelle, obligatoire pour
+                   Universitaire côté serveur — absente du formulaire jusqu'ici). -->
+              <div v-if="choseNiveau.name === 'Universitaire'" class="flex flex-col gap-1.5">
+                <label class="prog-label">Note de passage</label>
+                <input v-model="programme.note_de_passage" type="number" placeholder="60" class="prog-input" />
+                <p v-if="errors[`programmeCoursObject.${index}.note_de_passage`]" class="prog-error">
+                  {{ errors[`programmeCoursObject.${index}.note_de_passage`][0] }}
+                </p>
               </div>
 
               <!-- Classe -->

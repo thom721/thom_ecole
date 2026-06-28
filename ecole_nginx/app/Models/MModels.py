@@ -287,6 +287,7 @@ class User(Base, ObservableMixin):
     log_actives = relationship("LogActive", back_populates="user")
     order_items = relationship("OrderItem", back_populates="user")
     ventes = relationship("Vente", back_populates="user")
+    payrolls = relationship("Payroll", back_populates="user")
 
     
     # other_transaction = relationship("OtherTransaction", back_populates="user")

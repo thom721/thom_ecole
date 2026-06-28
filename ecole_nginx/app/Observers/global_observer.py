@@ -10,10 +10,11 @@ import uuid
 from fastapi.encoders import jsonable_encoder
 from app.Models.MSystems import Log
 from app.Helper.context import (
-    ActionContext, 
-    AdminAuthorization, 
+    ActionContext,
+    AdminAuthorization,
     UserContext,
-    PaiementContext
+    PaiementContext,
+    ReasonContext
 )
 
 
@@ -151,20 +152,22 @@ class GlobalModelObserver:
                 user_id=user_id,
                 authorization_id=auth_id,
                 paiement_key=paiement_key,
+                reason=ReasonContext.get_reason(),
                 model_type=f"{model.__class__.__module__}.{model.__class__.__name__}",
                 model_id=model.id,
                 old_values=jsonable_encoder(old_sanitized) if old_sanitized else None,
                 new_values=jsonable_encoder(new_sanitized) if new_sanitized else None,
                 ip_address=self.request_ip
             )
-            
+
             self.db.add(log_entry)
             self.db.commit()
-            
+
             # Nettoyer le contexte
             AdminAuthorization.clear()
             ActionContext.clear()
             PaiementContext.clear()
+            ReasonContext.clear()
 
         # from fastapi.encoders import jsonable_encoder
 

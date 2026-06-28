@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from time import time
-from app.Routes import Etudiants, RAcademic,RCours,RProgramme,dashboard,RCoursEtudiant,RParamExam,RAnneAcademique,RClasses,RInscription,RPaiement,RPaiementParam,RClientInfos,RProfile,RAuth,RRolePermission,RVente,RLog,RNotes,RSavePaiement,Initialisation,Returns,RTransaction,RPromus,REvents,RNews,RCategory,RPresences,RFormations,RPageSections
+from app.Routes import Etudiants, RAcademic,RCours,RProgramme,dashboard,RCoursEtudiant,RParamExam,RAnneAcademique,RClasses,RInscription,RPaiement,RPaiementParam,RClientInfos,RProfile,RAuth,RRolePermission,RVente,RLog,RNotes,RSavePaiement,Initialisation,Returns,RTransaction,RPromus,REvents,RNews,RCategory,RPresences,RFormations,RPageSections,RProduit,RCategorieProduit,RPayroll
 
 from app.Routes.pdf import BulletinPrint, paiement_recu,GlobalRepport,PaymentRepport,Register_report,VenteRecu,RegisterRepport,PedagogicRepport,MasBulletinPrint,PedaRepport,RPRepport,RExcelExport
 from fastapi.responses import JSONResponse
@@ -383,6 +383,9 @@ app.include_router(RClasses.router)
 app.include_router(RInscription.router)
 app.include_router(RPaiement.router)
 app.include_router(RVente.router)
+app.include_router(RProduit.router)
+app.include_router(RCategorieProduit.router)
+app.include_router(RPayroll.router)
 app.include_router(RPaiementParam.router)
 app.include_router(RSavePaiement.router_paie)
 app.include_router(RParamExam.router)

@@ -1,21 +1,22 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, UUID4
+from pydantic import BaseModel, UUID4, Field
 from typing import Optional
 import json
 import uuid
-from datetime import datetime 
+from datetime import datetime
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.Models.MFinancials import Paiement
 from app.Models.MSystems import Log
 from app.Models.MModels import User  # Vos modèles SQLAlchemy
-from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role,DualAuthChecker,require_role
-from app.Helper.context import ActionContext,UserContext,AdminAuthorization
+from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role,DualAuthChecker
+from app.Helper.context import ActionContext,UserContext,AdminAuthorization,ReasonContext
 
 
 class DeletePaiementRequest(BaseModel):
     id: str  # ou str selon votre type de PK
     index: str
+    raison: str = Field(..., min_length=20, max_length=150, description="Motif du retour (20 à 150 caractères)")
  
 def parse_json(field):
     """Utilitaire pour gérer les champs qui peuvent être str ou dict"""
@@ -92,7 +93,7 @@ def parse_json(field):
 
 #     return True, "Succès"
 
-def supprimer_dernier_paiement(paiement_details: dict, cle_soumise: str, data, data_month_field: dict, current_user):
+def supprimer_dernier_paiement(paiement_details: dict, cle_soumise: str, data, data_month_field: dict, current_user, raison: str, authorized_by: Optional[str] = None):
     info_paiement = paiement_details.get('info_paiement', {})
 
     if not info_paiement:
@@ -160,14 +161,19 @@ def supprimer_dernier_paiement(paiement_details: dict, cle_soumise: str, data, d
         "status_paiement": {
             "etat": "retourné",
             "date": now.isoformat(),
-            "motif": "raison du remboursement",   # ← à remplacer par un paramètre réel
+            "motif": raison,
             "last_status": old_status
         },
         "return_by_id": str(current_user.id),
         "return_by": current_user.name,
         "date_created": derniere_cle,
         "date_retour": now.strftime("%d %b %Y -- %H:%M:%S"),
-        "commentaire": "raison du remboursement"  # ← à remplacer par un paramètre réel
+        "commentaire": raison,
+        # Renseigné uniquement si un admin/Comptable a dû approuver l'action
+        # pour un rôle qui n'a pas lui-même la permission (PIN ou autorisation-
+        # access classique) — distinct de return_by, qui reste toujours
+        # l'auteur réel de la demande.
+        "authorized_by": authorized_by,
     })
 
     return True, "Succès"
@@ -178,7 +184,11 @@ router_return = APIRouter(prefix="/api/v1", tags=["Paiements"])
 async def delete_last_paiement(
     req: DeletePaiementRequest,
     db: Session = Depends(get_db),
-    _role: User = Depends(require_role(['admin', 'Comptable'])),
+    # Pas de require_role ici : DualAuthChecker est le seul garde-fou — un
+    # rôle sans la permission "Supprimer paiement" reçoit un 202 et peut
+    # obtenir l'approbation d'un admin/Comptable via /auth/autorisation-
+    # access-pin, plutôt qu'être bloqué avant même d'avoir une chance de
+    # demander cette approbation.
     auth_data: dict = Depends(DualAuthChecker("Supprimer paiement")),
 ):
     # 1. Vérifier si le paiement existe
@@ -191,28 +201,32 @@ async def delete_last_paiement(
     current_admin = auth_data["admin_id"]
 
     UserContext.set_user_id(current_user)
-    AdminAuthorization.set_admin_id(current_admin)  
-     
+    AdminAuthorization.set_admin_id(current_admin)
+    ReasonContext.set_reason(req.raison)
+
     user = db.query(User).filter(User.id == current_user).first()
+    admin_user = db.query(User).filter(User.id == current_admin).first() if current_admin else None
     ActionContext.set_action('retourné')
     try:
         # Décoder les champs JSON
         data_payment = parse_json(data.paiement_details)
         data_month_field = parse_json(data.mois)
-        
+
         # Injection de la db dans l'objet pour la fonction utilitaire (similaire à Laravel)
-        data.db = db 
+        data.db = db
 
         if req.index:
             print(req.index)
             # Appel de la logique de suppression
             # Note: En Python, les dict sont passés par référence, donc modifiés in-place
             success, message = supprimer_dernier_paiement(
-                data_payment['paiement_details'], 
-                req.index, 
-                data, 
-                data_month_field, 
-                user
+                data_payment['paiement_details'],
+                req.index,
+                data,
+                data_month_field,
+                user,
+                req.raison,
+                admin_user.name if admin_user else None,
             )
 
             if not success:

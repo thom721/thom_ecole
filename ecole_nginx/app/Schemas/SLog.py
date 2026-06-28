@@ -39,11 +39,12 @@ class LogBase(BaseModel):
     old_values: Optional[str] = None
     new_values: Optional[str] = None
     paiement_key: Optional[str] = None
+    reason: Optional[str] = None
     ip_address: Optional[str] = None
     user_agent: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-    
+
     class Config:
         from_attributes = True
 
@@ -69,6 +70,7 @@ class LogResource(BaseModel):
     # model: Optional[str] = None
     model_type: Optional[str] = None
     model_id: Optional[str] = None
+    reason: Optional[str] = None
     # date: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     model_config = {"from_attributes": True}

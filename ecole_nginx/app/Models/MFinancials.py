@@ -250,6 +250,68 @@ class LoanRepayment(Base):
     # Relations
     loan = relationship("Loan", back_populates="repayments")
 
+class Payroll(Base, ObservableMixin):
+    """Versements de salaire ponctuels à un Professeur/Personnel — aucune
+    notion de salaire de base : chaque ligne est saisie à la main pour une
+    période (mois/année) donnée, comme demandé explicitement (pas de
+    référence bureau/web, fonctionnalité absente des deux)."""
+    __tablename__ = "payrolls"
+    __table_args__ = {
+        'mysql_collate': 'utf8mb4_unicode_ci',
+        'mysql_charset': 'utf8mb4',
+         'mysql_engine':'InnoDB'
+    }
+
+    id = Column(CHAR(36), primary_key=True, default=generate_uuid)
+    user_id = Column(CHAR(36), ForeignKey("users.id"), nullable=False)
+    montant = Column(Numeric(10, 2), nullable=False)
+    mois = Column(String(20), nullable=False)
+    annee = Column(String(4), nullable=False)
+    methode_paiement = Column(String(20), nullable=False, default="Espèce")
+    statut = Column(String(20), nullable=False, default="En attente")
+    date_versement = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relations
+    user = relationship("User", back_populates="payrolls")
+
+class CategorieProduit(Base, ObservableMixin):
+    """Catégories de produits gérées par l'utilisateur — distinctes de
+    `categories` (app/Models/MRelations.py:Category), qui sert au domaine
+    Communauté (news/events) et n'a aucun rapport avec les produits."""
+    __tablename__ = "categories_produits"
+    __table_args__ = {
+        'mysql_collate': 'utf8mb4_unicode_ci',
+        'mysql_charset': 'utf8mb4',
+         'mysql_engine':'InnoDB'
+    }
+
+    id = Column(CHAR(36), primary_key=True, default=generate_uuid)
+    nom = Column(String(100), nullable=False, unique=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class Produit(Base, ObservableMixin):
+    __tablename__ = "produits"
+    __table_args__ = {
+        'mysql_collate': 'utf8mb4_unicode_ci',
+        'mysql_charset': 'utf8mb4',
+         'mysql_engine':'InnoDB'
+    }
+
+    id = Column(CHAR(36), primary_key=True, default=generate_uuid)
+    nom = Column(String(255), nullable=False)
+    category = Column(String(100), nullable=False)
+    prix = Column(Numeric(8, 2), nullable=False)
+    quantite_stock = Column(Numeric(10, 2), nullable=False, default=0)
+    description = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relations
+    order_items = relationship("OrderItem", back_populates="produit")
+
 class Vente(Base, ObservableMixin):
     __tablename__ = "ventes"
     __table_args__ = {
@@ -292,13 +354,15 @@ class OrderItem(Base):
     total = Column(Numeric(8, 2), nullable=False)
     user_id = Column(CHAR(36), ForeignKey("users.id"), nullable=False)
     vente_id = Column(CHAR(36), ForeignKey("ventes.id"), nullable=False)
+    produit_id = Column(CHAR(36), ForeignKey("produits.id"), nullable=True)
     status = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Relations
     user = relationship("User", back_populates="order_items")
     vente = relationship("Vente", back_populates="order_items")
+    produit = relationship("Produit", back_populates="order_items")
 
 class ParamExam(Base):
     __tablename__ = "params_exams"

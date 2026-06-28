@@ -1,16 +1,17 @@
-from fastapi import APIRouter, Depends, Query,status,HTTPException
+from fastapi import APIRouter, Depends, Query,status,HTTPException,Header
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_,String,func, extract
 from app.database import get_db
 from app.Models.MModels import Etudiant, User,Professeur
-from app.Models.MFinancials import Vente,Depense,Loan, OrderItem,LoanRepayment
+from app.Models.MFinancials import Vente,Depense,Loan, OrderItem,LoanRepayment,Produit
 from app.Models.MSystems import Personnel
 from app.Schemas.SVente import * 
 import random 
-from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role,first_or_update_safe,DualAuthChecker
-from app.Helper.context import UserContext,ActionContext
+from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role,first_or_update_safe,DualAuthChecker,verify_dual_auth
+from app.Helper.context import UserContext,ActionContext,ReasonContext,AdminAuthorization
  
-from datetime import date, datetime  
+from datetime import date, datetime
+from decimal import Decimal
 
 router = APIRouter(prefix="/api/v1", tags=["Vente"])
 
@@ -69,6 +70,27 @@ def index_ventes(
         }
     }
 
+def decrement_produit_stock(db: Session, produit_id: str | None, quantite: float):
+    """Décrémente le stock du produit vendu. Lève une 422 si le stock est
+    insuffisant, pour éviter de survendre un produit enregistré."""
+    if not produit_id:
+        return
+    produit = db.query(Produit).filter(Produit.id == produit_id).first()
+    if not produit:
+        raise HTTPException(status_code=404, detail="Produit introuvable")
+    # quantite_stock est Numeric (Decimal côté Python) : on convertit via
+    # str() plutôt que de mélanger Decimal et float (lève TypeError sinon),
+    # même convention que repay_loan() plus bas dans ce fichier.
+    quantite_dec = Decimal(str(quantite))
+    if produit.quantite_stock < quantite_dec:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Stock insuffisant pour {produit.nom} (disponible: {produit.quantite_stock})",
+        )
+    produit.quantite_stock -= quantite_dec
+    db.add(produit)
+
+
 # fonction pour générer un order_itemId unique
 def generate_unique_order_item_id(db: Session):
     while True:
@@ -91,14 +113,20 @@ def show_order_items(vente: str, db: Session = Depends(get_db), current_user:Use
             "total": item.total,
             "status": item.status,
             "vente_id": item.vente_id,
-            "user_id": item.user_id
+            "user_id": item.user_id,
+            "produit_id": item.produit_id
         }
         for item in items
     ]}
     # 'id','order_itemId','nom','quantite','total','utilisateur','date'
 
 @router.post("/vente")
-def store_vente(data: VenteSchemaPost, db: Session = Depends(get_db), current_user:User= Depends(get_current_user)): 
+def store_vente(
+    data: VenteSchemaPost,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    x_approval_token: str | None = Header(None),
+):
     UserContext.set_user_id(current_user.id)
     try:
         user = db.query(User).filter(User.id == str(data.user_id)).first()
@@ -116,8 +144,8 @@ def store_vente(data: VenteSchemaPost, db: Session = Depends(get_db), current_us
             if not vente:
                 raise HTTPException(status_code=404, detail="Vente not found")
             # ActionPersonalisation.setPersoAction('update')
-            if not user_has_permission(current_user, "Modifier paiement",db):
-                raise HTTPException(status_code=403, detail="Unauthorized to update payment")
+            auth_data = verify_dual_auth("Modifier paiement", x_approval_token, db, current_user)
+            AdminAuthorization.set_admin_id(auth_data["admin_id"])
 
             for item_data in data.items:
                 status_value = item_data.status or 1
@@ -135,6 +163,7 @@ def store_vente(data: VenteSchemaPost, db: Session = Depends(get_db), current_us
                         quantite += item_data.quantite
                 else:
                     # nouvel item
+                    decrement_produit_stock(db, item_data.produit_id, item_data.quantite)
                     order_item = OrderItem(
                         nom=item_data.nom,
                         category=item_data.category,
@@ -143,7 +172,8 @@ def store_vente(data: VenteSchemaPost, db: Session = Depends(get_db), current_us
                         quantite=item_data.quantite,
                         total=item_data.total,
                         vente_id=vente.id,
-                        user_id=current_user.id
+                        user_id=current_user.id,
+                        produit_id=item_data.produit_id
                     )
                     db.add(order_item)
                     Gtotal += item_data.total
@@ -175,6 +205,7 @@ def store_vente(data: VenteSchemaPost, db: Session = Depends(get_db), current_us
             db.refresh(vente)
 
             for item_data in data.items:
+                decrement_produit_stock(db, item_data.produit_id, item_data.quantite)
                 order_item = OrderItem(
                     nom=item_data.nom,
                     category=item_data.category,
@@ -183,7 +214,8 @@ def store_vente(data: VenteSchemaPost, db: Session = Depends(get_db), current_us
                     quantite=item_data.quantite,
                     total=item_data.total,
                     vente_id=vente.id,
-                    user_id=current_user.id
+                    user_id=current_user.id,
+                    produit_id=item_data.produit_id
                 )
                 db.add(order_item)
                 Gtotal += item_data.total
@@ -204,8 +236,9 @@ def store_vente(data: VenteSchemaPost, db: Session = Depends(get_db), current_us
 
 @router.delete("/order_item")
 def destroy_order_item(
-    order_item_id: int = Query(..., alias="vente"),
-    vente_id: int = Query(...),
+    order_item_id: str = Query(..., alias="vente"),
+    vente_id: str = Query(...),
+    raison: str = Query(..., min_length=20, max_length=150),
     db: Session = Depends(get_db),
     # current_user:User= Depends(get_current_user)
     auth_data: dict = Depends(DualAuthChecker("Supprimer paiement")),
@@ -217,6 +250,8 @@ def destroy_order_item(
     #     raise HTTPException(status_code=403, detail="Unauthorized to delete payment")
 
     UserContext.set_user_id(current_user)
+    AdminAuthorization.set_admin_id(current_admin)
+    ReasonContext.set_reason(raison)
     try:
         order_item = db.query(OrderItem).filter(OrderItem.id == order_item_id).first()
         if not order_item:
@@ -355,7 +390,7 @@ def store_loan(data: LoanCreateSchema, db: Session = Depends(get_db),current_use
             interest_rate=data.interest_rate,
             monthly_payment=data.monthly_payment,
             remaining_balance=data.amount,
-            status="pending"
+            status=data.status or "pending"
         )
         db.add(loan)
         db.commit()
@@ -475,14 +510,15 @@ def index_depense(
 def store_depense(
     data: DepenseSchemaPost,
     db: Session = Depends(get_db),
-    current_user:User= Depends(get_current_user)
-): 
+    current_user: User = Depends(get_current_user),
+    x_approval_token: str | None = Header(None),
+):
     user_id = current_user.id
     UserContext.set_user_id(user_id)
-    # 🔹 Si update, vérifier autorisation admin
+    # 🔹 Si update, vérifier autorisation admin (PIN si le rôle courant n'a pas la permission)
     if data.id:
-        if not user_has_permission(current_user, "Modifier paiement",db):
-            raise HTTPException(status_code=202, detail="Unauthorized to update payment")
+        auth_data = verify_dual_auth("Modifier paiement", x_approval_token, db, current_user)
+        AdminAuthorization.set_admin_id(auth_data["admin_id"])
 
     try:
         if data.id:
@@ -527,6 +563,7 @@ def store_depense(
 @router.get("/delete-depense")
 def delete_depense(
     id_depense: str = Query(...),
+    raison: str = Query(..., min_length=20, max_length=150),
     db: Session = Depends(get_db),
     # current_user:User= Depends(get_current_user)
     auth_data: dict = Depends(DualAuthChecker("Supprimer paiement")),
@@ -535,10 +572,15 @@ def delete_depense(
     current_user = auth_data["user_id"]
     current_admin = auth_data["admin_id"]
     UserContext.set_user_id(current_user)
+    AdminAuthorization.set_admin_id(current_admin)
+    ReasonContext.set_reason(raison)
 
-    # 🔹 Vérifier autorisation admin
-    if not user_has_permission(current_user,"Supprimer paiement",db):
-        raise HTTPException(status_code=403, detail="Unauthorized to delete payment")
+    # Le contrôle d'autorisation réel est déjà fait par DualAuthChecker
+    # ci-dessus (qui exige le bon admin via X-Approval-Token si le rôle
+    # courant n'a pas la permission). Le re-contrôle qui suivait ici passait
+    # current_user (une string id, pas un objet User) à user_has_permission,
+    # qui fait toujours `user.id` en interne — ça levait systématiquement une
+    # AttributeError et faisait 500 sur CHAQUE appel, même autorisé.
 
     # 🔹 Action personnalisation
     # ActionPersonalisation.setPersoAction('delete')  # à implémenter si nécessaire

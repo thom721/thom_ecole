@@ -1734,6 +1734,76 @@ def require_role(allowed_roles: List[str]):
 
 ---
 
+#### S5 - Autorisation par PIN (double approbation)
+**Priorité**: Critique
+**Statut**: Implémenté (backend `ecole_nginx` + client `flutter_version`), Vue.js web non câblé
+
+**Description**: Permet à un rôle n'ayant pas une permission donnée d'effectuer
+quand même l'action (retour de paiement, suppression de vente/dépense/
+transaction, modification de vente/dépense/transaction), à condition qu'un
+admin ou un Comptable fournisse son PIN à 6 chiffres en guise d'approbation.
+L'objectif : un Caissier seul, sans admin disponible, peut quand même
+exécuter une action sensible si un admin/Comptable distant lui communique
+verbalement son PIN, sans avoir besoin de se connecter lui-même.
+
+**Mécanisme (`app/dependencies/Dependencie.py:227-281`, `verify_dual_auth`/
+`DualAuthChecker`)**:
+1. Si l'utilisateur connecté a déjà la permission requise → l'action passe
+   directement (`{"user_id": current_user.id, "admin_id": None}`).
+2. Sinon → la route renvoie **HTTP 202** avec les en-têtes
+   `X-Authorization-Required` / `X-Require-Admin-Auth`.
+3. Le client demande alors un PIN à l'utilisateur, l'échange contre un
+   `approval_token` (JWT de courte durée — 1 minute, `type=approval_grant`)
+   via `POST /auth/autorisation-access-pin`, puis rejoue la requête initiale
+   avec l'en-tête `X-Approval-Token`.
+4. La route valide le token, vérifie que l'admin/Comptable identifié a bien
+   la permission, puis exécute l'action en enregistrant **les deux
+   identités** : `UserContext` (qui a agi) et `AdminAuthorization` (qui a
+   approuvé) — `Log.authorization_id` distingue les deux.
+
+**Données**:
+- `User.code_pin` : hash bcrypt du PIN (même format que `User.password`,
+  compatibilité `$2y$`/`$2b$` via `CryptAndDecript`/`AuthorizationService`).
+  Réservé aux rôles `admin`/`Comptable` (`PATCH /user/pin`,
+  `RAcademic.py:1474`).
+- `Log.reason` : motif obligatoire (20 à 150 caractères) saisi par
+  l'utilisateur pour tout retour/suppression — propagé via `ReasonContext`
+  (`app/Helper/context.py`) jusqu'à `global_observer.py log_activity()`.
+- `Log.authorization_id` : pré-existant, maintenant alimenté de bout en
+  bout — l'admin/Comptable qui a fourni le PIN, distinct de l'auteur réel
+  de l'action.
+
+**Contrainte de sécurité explicite — unicité des PIN sans divulgation** :
+chaque PIN doit identifier un seul admin/Comptable sans ambiguïté (la
+recherche d'approbateur s'arrête au premier dont le PIN correspond). À la
+création/modification d'un PIN, le serveur vérifie qu'aucun autre
+admin/Comptable n'utilise déjà ce PIN — mais **ne révèle jamais** que le
+refus est dû à une collision : le message renvoyé est volontairement
+identique à celui d'un PIN simplement invalide (`"Code PIN incorrect,
+choisissez-en un autre."`). Révéler la vraie raison permettrait à un tiers
+de déduire qu'un PIN donné est déjà pris par quelqu'un d'autre
+(énumération) — interdit explicitement par le donneur d'ordre.
+
+**Actions couvertes** :
+- Retour de paiement (`POST /delete-paiement`, `Returns.py`) — accessible à
+  tous les rôles, plus seulement admin/Comptable.
+- Suppression d'une ligne de vente (`DELETE /order_item`, `RVente.py`).
+- Suppression d'une dépense (`GET /delete-depense`, `RVente.py`).
+- Suppression d'une "autre transaction" (`DELETE /transactions/{id}`,
+  `RTransaction.py`).
+- Modification d'une vente / dépense (branche update de `POST /vente` et
+  `POST /depense`, `RVente.py`) et d'une "autre transaction"
+  (`PATCH /edit-other-transaction/{id}`, `RTransaction.py`).
+
+**Côté client `flutter_version`** : `lib/core/dual_auth.dart` centralise le
+flux (`runWithPinApproval()`, `showReasonDialog()`) ; câblé sur les écrans
+Paiement, Vente (y compris le nouveau panneau d'édition ouvert au clic sur
+une ligne), Dépense et Transaction. **Le frontend web Vue.js
+(`ecole_nginx/frontend`) n'a aucune intégration de ce flux** — à faire si le
+web doit un jour exposer ces mêmes actions à des rôles non-admin.
+
+---
+
 ### 4.4 Performances
 
 #### P1 - Temps de réponse
@@ -1998,6 +2068,21 @@ C:\Program Files\ecole-serve\
 - **Langues**: Interface française uniquement
 - **Internationalization**: Devise GDES hardcodée (modifiable code)
 
+### 8.4 Bugs résolus récemment (journal)
+- **`PATCH /user/pin` plantait systématiquement** (`RAcademic.py:1474`,
+  `set_user_pin`) : `Exception("User non authentifié lors du log")` levée
+  par `global_observer.py log_activity()` (ligne 118) à chaque
+  enregistrement/modification de PIN. Cause : la route ne posait jamais
+  `UserContext.set_user_id(current_user.id)` avant `db.commit()`, alors que
+  `log_activity()` l'exige pour toute mutation suivie par l'observer
+  (sauf pendant `ActionContext == "Connect Autorisation"`). Corrigé en
+  ajoutant cet appel en tête de la fonction, comme dans toutes les autres
+  routes de mutation. **Rappel opérationnel** : `app_gui.py` exécute l'API
+  dans un thread uvicorn embarqué sans `--reload` — toute modification de
+  code backend exige de quitter complètement l'app (menu barre système →
+  "Quitter") puis de la relancer pour être prise en compte ; il n'existe
+  pas de bouton "redémarrer l'API" dans `gui/service_window.py`.
+
 ---
 
 ## 9. Dépendances
@@ -2134,6 +2219,7 @@ C:\Program Files\ecole-serve\
 | Version | Date | Auteur | Changements |
 |---------|------|--------|-------------|
 | 1.0 | 2026-05-15 | Analyse Claude | Création initiale du PRD |
+| 1.1 | 2026-06-28 | Claude (session) | Ajout S5 (autorisation par PIN / double approbation, §4.3) ; journal de bug §8.4 (`PATCH /user/pin` corrigé) |
 
 ---
 

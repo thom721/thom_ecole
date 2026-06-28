@@ -1,30 +1,66 @@
 <script setup>
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import axios from "axios";
 import AdminLayout from '@/layouts/AdminLayout.vue';
 import Swal from "sweetalert2";
+import { useSchoolStore } from '@/stores/schoolStore';
+import { storeToRefs } from 'pinia';
 
 defineOptions({ layout: AdminLayout });
 
 const url = import.meta.env.VITE_APP_BASE_URL;
 
-const props = defineProps({
-  niveau: Object,
-});
+const schoolStore = useSchoolStore();
+const { niveau } = storeToRefs(schoolStore);
 
-const choseNiveau = ref({});
-const courses = ref([
-  { cours_nom: "", note_de_passage: "", type_matiere: "" },
-]);
+onMounted(() => { schoolStore.fetchAllDependencies(); });
+
+const courses = ref([]);
 const errors = ref({});
 const isSubmitting = ref(false);
+const isEditing = ref(false);
+
+// Bug corrigé : `niveau_id` (obligatoire — RCours.py:148) et `coefficients`
+// (obligatoire hors niveau Universitaire — RCours.py:158) étaient absents du
+// formulaire ; toute soumission échouait donc avec une 422 "Niveau invalide".
+const emptyCours = () => ({ cours_nom: "", note_de_passage: "", coefficients: "", niveau_id: "", type_matiere: "" });
 
 const addCours = () => {
-  courses.value.push({ cours_nom: "", note_de_passage: "", type_matiere: "" });
+  courses.value.push(emptyCours());
 };
 
 const removeCours = (index) => {
   if (courses.value.length > 1) courses.value.splice(index, 1);
+};
+
+// Bug corrigé : l'édition n'existait pas (toujours un formulaire de création
+// vide), contrairement à AddProgramme.vue — ajout du support `?id=` en
+// chargeant le cours existant via GET /cours/{id}.
+onMounted(async () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const id = urlParams.get("id");
+  if (id) {
+    isEditing.value = true;
+    try {
+      const response = await axios.get(`${url}/cours/${id}`);
+      const c = response.data.data;
+      courses.value = [{
+        id: c.id, cours_nom: c.cours_nom, niveau_id: c.niveau_id,
+        type_matiere: c.type_matiere, note_de_passage: c.note_de_passage,
+        coefficients: c.coefficients,
+      }];
+    } catch (e) {
+      console.error("Erreur chargement cours:", e);
+      courses.value = [emptyCours()];
+    }
+  } else {
+    courses.value = [emptyCours()];
+  }
+});
+
+const isUniversitaire = (niveauId) => {
+  const n = niveau.value?.find((x) => x.id === niveauId);
+  return n?.name === "Universitaire";
 };
 
 const submitCours = async () => {
@@ -33,8 +69,8 @@ const submitCours = async () => {
   try {
     const response = await axios.post(`${url}/cours`, { CoursesObject: courses.value });
     if (response.status === 200 || response.status === 201) {
-      Swal.fire("Succès", "Les cours ont été enregistrés", "success");
-      courses.value = [{ cours_nom: "", note_de_passage: "", type_matiere: "" }];
+      Swal.fire("Succès", isEditing.value ? "Le cours a été modifié" : "Les cours ont été enregistrés", "success");
+      if (!isEditing.value) courses.value = [emptyCours()];
     }
   } catch (error) {
     if (error.response?.status === 422) errors.value = error.response.data.errors;
@@ -42,13 +78,6 @@ const submitCours = async () => {
   } finally {
     isSubmitting.value = false;
   }
-};
-
-const fechNiveau = async (id) => {
-  try {
-    const res = await axios.get(`${url}/niveau-with-class/${id}`);
-    choseNiveau.value = res.data.niveau;
-  } catch (error) { console.error(error); }
 };
 </script>
 
@@ -61,18 +90,21 @@ const fechNiveau = async (id) => {
 
       <!-- ── Header ── -->
       <div class="mb-6">
-        <h1 class="text-[22px] font-bold text-[#e8eaf0] tracking-tight">Ajouter des Matières</h1>
-        <p class="text-[13px] text-[#7c83a0] mt-0.5">Vous pouvez ajouter plusieurs lignes pour enregistrer plusieurs cours à la fois.</p>
+        <h1 class="text-[22px] font-bold text-[#e8eaf0] tracking-tight">{{ isEditing ? 'Modifier un cours' : 'Ajouter des Matières' }}</h1>
+        <p class="text-[13px] text-[#7c83a0] mt-0.5">
+          {{ isEditing ? 'Modifiez les informations du cours.' : 'Vous pouvez ajouter plusieurs lignes pour enregistrer plusieurs cours à la fois.' }}
+        </p>
       </div>
 
       <!-- ── Formulaire ── -->
       <div class="bg-[#161b26] rounded-2xl border border-white/[0.07] overflow-hidden">
 
         <!-- En-tête des colonnes -->
-        <div class="hidden md:grid md:grid-cols-[1fr_1fr_1fr_44px] gap-4 px-5 py-3 bg-[#0d1117]/60 border-b border-white/[0.05]">
+        <div class="hidden md:grid md:grid-cols-[1fr_1fr_1fr_1fr_44px] gap-4 px-5 py-3 bg-[#0d1117]/60 border-b border-white/[0.05]">
           <span class="text-[10px] font-semibold uppercase tracking-wider text-[#3d4d62]">Nom Cours / Matière</span>
+          <span class="text-[10px] font-semibold uppercase tracking-wider text-[#3d4d62]">Niveau</span>
           <span class="text-[10px] font-semibold uppercase tracking-wider text-[#3d4d62]">Type de matière</span>
-          <span class="text-[10px] font-semibold uppercase tracking-wider text-[#3d4d62]">Note de passage</span>
+          <span class="text-[10px] font-semibold uppercase tracking-wider text-[#3d4d62]">Note de passage / Coefficients</span>
           <span></span>
         </div>
 
@@ -81,7 +113,7 @@ const fechNiveau = async (id) => {
           <div
             v-for="(cours, index) in courses"
             :key="index"
-            class="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_44px] gap-3 px-5 py-4 transition-colors hover:bg-white/[0.01]"
+            class="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_44px] gap-3 px-5 py-4 transition-colors hover:bg-white/[0.01]"
             :class="{ 'border-t border-white/[0.05]': index > 0 }"
           >
             <!-- Nom -->
@@ -101,6 +133,23 @@ const fechNiveau = async (id) => {
               </p>
             </div>
 
+            <!-- Niveau -->
+            <div class="flex flex-col gap-1.5">
+              <label class="md:hidden text-[10px] font-semibold uppercase tracking-wider text-[#7c83a0]">Niveau</label>
+              <select
+                :id="'niveau_'+index"
+                v-model="cours.niveau_id"
+                class="course-select"
+                :class="{ 'border-red-500/40': errors[`CoursesObject.${index}.niveau_id`] }"
+              >
+                <option value="" disabled>Sélectionnez un niveau</option>
+                <option v-for="n in niveau" :key="n.id" :value="n.id">{{ n.name }}</option>
+              </select>
+              <p v-if="errors[`CoursesObject.${index}.niveau_id`]" class="text-[11px] text-red-400 flex items-center gap-1">
+                {{ errors[`CoursesObject.${index}.niveau_id`][0] }}
+              </p>
+            </div>
+
             <!-- Type -->
             <div class="flex flex-col gap-1.5">
               <label class="md:hidden text-[10px] font-semibold uppercase tracking-wider text-[#7c83a0]">Type de matière</label>
@@ -111,8 +160,10 @@ const fechNiveau = async (id) => {
               </select>
             </div>
 
-            <!-- Note de passage -->
-            <div class="flex flex-col gap-1.5">
+            <!-- Note de passage (Universitaire) ou Coefficients (autres niveaux) —
+                 bug corrigé : `coefficients` n'existait pas dans le formulaire
+                 alors qu'il est requis hors niveau Universitaire (RCours.py:158). -->
+            <div v-if="isUniversitaire(cours.niveau_id)" class="flex flex-col gap-1.5">
               <label class="md:hidden text-[10px] font-semibold uppercase tracking-wider text-[#7c83a0]">Note de passage</label>
               <input
                 :id="'note_'+index"
@@ -125,6 +176,21 @@ const fechNiveau = async (id) => {
               <p v-if="errors[`CoursesObject.${index}.note_de_passage`]" class="text-[11px] text-red-400 flex items-center gap-1">
                 <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" class="w-3 h-3 shrink-0"><path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z"/></svg>
                 {{ errors[`CoursesObject.${index}.note_de_passage`][0] }}
+              </p>
+            </div>
+            <div v-else class="flex flex-col gap-1.5">
+              <label class="md:hidden text-[10px] font-semibold uppercase tracking-wider text-[#7c83a0]">Coefficients</label>
+              <input
+                :id="'coef_'+index"
+                v-model="cours.coefficients"
+                type="text"
+                placeholder="Ex: 2"
+                class="course-input"
+                :class="{ 'border-red-500/40': errors[`CoursesObject.${index}.coefficients`] }"
+              />
+              <p v-if="errors[`CoursesObject.${index}.coefficients`]" class="text-[11px] text-red-400 flex items-center gap-1">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" class="w-3 h-3 shrink-0"><path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z"/></svg>
+                {{ errors[`CoursesObject.${index}.coefficients`][0] }}
               </p>
             </div>
 
@@ -149,6 +215,7 @@ const fechNiveau = async (id) => {
 
             <!-- Ajouter ligne -->
             <button
+              v-if="!isEditing"
               type="button"
               @click="addCours"
               class="flex items-center gap-2 text-[13px] font-medium text-[#7aaeff] hover:text-[#4f8ef7] transition-colors group"
@@ -163,7 +230,7 @@ const fechNiveau = async (id) => {
 
             <!-- Compteur + Enregistrer -->
             <div class="flex items-center gap-3">
-              <span class="text-[12px] text-[#7c83a0]">
+              <span v-if="!isEditing" class="text-[12px] text-[#7c83a0]">
                 {{ courses.length }} matière{{ courses.length > 1 ? 's' : '' }}
               </span>
               <button
@@ -178,7 +245,7 @@ const fechNiveau = async (id) => {
                 <svg v-else fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" class="w-3.5 h-3.5">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
                 </svg>
-                <span>{{ isSubmitting ? 'Enregistrement…' : 'Enregistrer tout' }}</span>
+                <span>{{ isSubmitting ? 'Enregistrement…' : (isEditing ? 'Modifier' : 'Enregistrer tout') }}</span>
               </button>
             </div>
 

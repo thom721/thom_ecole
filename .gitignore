@@ -34,3 +34,7 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Artefacts d'extraction/build accidentels (zip macOS, cache Vite)
+**/__MACOSX/
+**/.vite/

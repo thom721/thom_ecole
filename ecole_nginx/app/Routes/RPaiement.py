@@ -402,6 +402,7 @@ def fetch_data_for_student_with_payment_params(
             )
             .where(ClasseEtudiant.etudiant_id == etudiant_id)
             .where(Etudiant.id == etudiant_id)
+            .order_by(AnneeAcademique.date_debut.asc())
         )
     else:
         query = (
@@ -437,10 +438,11 @@ def fetch_data_for_student_with_payment_params(
             )
             .where(EtudiantFaculte.etudiant_id == etudiant_id)
             .where(Etudiant.id == etudiant_id)
+            .order_by(AnneeAcademique.date_debut.asc())
         )
 
     results = db.execute(query).fetchall()
-    
+
     if not results:
         raise HTTPException(status_code=404, detail="Étudiant non trouvé")
 

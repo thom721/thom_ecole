@@ -79,7 +79,23 @@ class AdminAuthSchema(BaseModel):
     email: EmailStr
     password: str
     permission:str|list
- 
+
+
+class PinAuthSchema(BaseModel):
+    pin: str
+    permission: str | list
+
+
+def _build_approval_token(admin: User) -> str:
+    """Token JWT court (1 min) consommé par DualAuthChecker via l'en-tête
+    X-Approval-Token — partagé par /auth/autorisation-access (email+mdp) et
+    /auth/autorisation-access-pin (PIN), seules les deux façons d'obtenir
+    cette approbation."""
+    return AuthorizationService.create_access_token(
+        data={"sub": str(admin.id), "type": "approval_grant"},
+        expires_delta=timedelta(minutes=1)
+    )
+
 
 @router.post("/auth/check-permission", response_model=AuthResponse)
 def check_user_permission(
@@ -497,14 +513,54 @@ def approve_action(
     
     if not user_has_permission(admin, admin_credentials.permission, service):
         raise HTTPException(status_code=422, detail="Identifiant n’a pas la permission requise pour cette action.")
-    
+
     # On génère un token qui contient l'ID de l'admin et un scope spécial
-    approval_token = AuthorizationService.create_access_token(
-        data={"sub": str(admin.id), "type": "approval_grant"},
-        expires_delta=timedelta(minutes=1)
-    )
+    approval_token = _build_approval_token(admin)
     AdminAuthorization.set_admin_id(admin.id)
     return {"approval_token": approval_token,"message":'Autorisation confirmée. Vous pouvez poursuivre l’opération en toute sécurité.'}
+
+
+@router.post("/auth/autorisation-access-pin")
+def approve_action_with_pin(
+    data: PinAuthSchema,
+    service: Session = Depends(get_db)
+):
+    """Équivalent de /auth/autorisation-access mais via un PIN à 6 chiffres
+    au lieu d'email+mot de passe — pensé pour qu'un rôle sans la permission
+    requise (ex: Caissier) puisse faire approuver une action en place par un
+    admin/Comptable physiquement présent, sans lui faire retaper son mot de
+    passe complet. Seuls les utilisateurs ayant les rôles admin/Comptable ET
+    un PIN défini (RAcademic.py:/user/pin) sont candidats."""
+    candidates = (
+        service.query(User)
+        .join(ModelHasRole, ModelHasRole.model_id == User.id)
+        .join(Role, Role.id == ModelHasRole.role_id)
+        .filter(
+            ModelHasRole.model_type == "App\\Models\\User",
+            Role.name.in_(['admin', 'Comptable']),
+            User.code_pin.isnot(None),
+        )
+        .distinct()
+        .all()
+    )
+
+    admin = next(
+        (c for c in candidates if AuthorizationService.verify_password(data.pin, c.code_pin)),
+        None,
+    )
+    if not admin:
+        raise HTTPException(status_code=422, detail="PIN invalide ou non autorisé.")
+
+    if not user_has_permission(admin, data.permission, service):
+        raise HTTPException(status_code=422, detail="Ce PIN n'a pas la permission requise pour cette action.")
+
+    approval_token = _build_approval_token(admin)
+    AdminAuthorization.set_admin_id(admin.id)
+    return {
+        "approval_token": approval_token,
+        "admin_name": admin.name,
+        "message": f"Autorisation confirmée par {admin.name}.",
+    }
 
 
 @router.get("/verify-token")

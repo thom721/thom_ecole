@@ -1,0 +1,115 @@
+name: Build flutter_version (Windows/macOS/Linux)
+
+# Déclenchement manuel, comme les autres pipelines de ce repo (school_client,
+# ecole_nginx) — déclencheur automatique (tag, push sur main...) à ajouter une
+# fois validé.
+#
+# Contrairement à school_client (Nuitka, qui doit cibler la même glibc que la
+# machine de compilation — voir build-school-client-unix.yml), Flutter compile
+# nativement pour chaque OS via son propre toolchain (MSVC/Xcode/CMake+Ninja) :
+# un seul fichier avec un job par plateforme suffit, pas besoin de séparer
+# Windows et Unix comme pour les pipelines Python.
+#
+# Risque connu, non vérifié ici : `camera_macos` (pubspec.yaml, utilisé par
+# lib/screens/etudiant/badge_screen.dart pour la capture caméra USB) est un
+# plugin macOS/iOS uniquement. `flutter build windows`/`flutter build linux`
+# devraient résoudre le package sans erreur (le code Dart de l'app reste
+# cross-platform, seule l'implémentation native diffère par plateforme), mais
+# ça n'a pas été testé de bout en bout sur ces deux OS avant l'ajout de ce
+# pipeline — à surveiller au premier run.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: flutter_version
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Installer les dépendances
+        run: flutter pub get
+
+      - name: Activer le support desktop Windows
+        run: flutter config --enable-windows-desktop
+
+      - name: Build Windows (Release)
+        run: flutter build windows --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lekol360-windows
+          path: flutter_version/build/windows/x64/runner/Release
+          if-no-files-found: error
+
+  build-macos:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: flutter_version
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Installer les dépendances
+        run: flutter pub get
+
+      - name: Activer le support desktop macOS
+        run: flutter config --enable-macos-desktop
+
+      - name: Build macOS (Release)
+        run: flutter build macos --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lekol360-macos
+          path: flutter_version/build/macos/Build/Products/Release/Lekol360.app
+          if-no-files-found: error
+
+  build-linux:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: flutter_version
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer les dépendances système (build desktop GTK)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Installer les dépendances
+        run: flutter pub get
+
+      - name: Activer le support desktop Linux
+        run: flutter config --enable-linux-desktop
+
+      - name: Build Linux (Release)
+        run: flutter build linux --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lekol360-linux
+          path: flutter_version/build/linux/x64/release/bundle
+          if-no-files-found: error

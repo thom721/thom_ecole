@@ -12,7 +12,7 @@ from pydantic import BaseModel, EmailStr, Field,computed_field , model_validator
 from typing import List
 from sqlalchemy.orm import joinedload
 from app.Models.MModels import User
-from app.Helper.context import UserContext,ActionContext,AdminAuthorization
+from app.Helper.context import UserContext,ActionContext,AdminAuthorization,ReasonContext
 
 class UserSimple(BaseModel):
     id: str
@@ -59,10 +59,11 @@ class TransactionCreate(TransactionBase):
 class TransactionResponse(BaseModel):
     id: str
     description: str
+    description_supplementaire: Optional[str] = None
     montant: float
     user_id: str
-    created_at: datetime 
-    user: Optional[UserSimple] 
+    created_at: datetime
+    user: Optional[UserSimple]
     etudiant: Optional[EtudiantSimple]
     class Config:
         from_attributes = True
@@ -107,9 +108,9 @@ def read_all_transactions(
     offset = (current_page - 1) * per_page
     
  
-    query = service.query(OtherTransaction).options(joinedload(OtherTransaction.user))
+    query = service.query(OtherTransaction).options(joinedload(OtherTransaction.user)).filter(OtherTransaction.delete_at.is_(None))
 
- 
+
     if search_date:
         query = query.filter(cast(OtherTransaction.created_at, Date) == search_date)
  
@@ -136,17 +137,27 @@ def read_all_transactions(
     }
 @router_transac.get("/other-transactions", response_model=PaginatedResponse)
 def read_all_transactions(
-    page: int = Query(1, ge=1), 
+    page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=100),
+    q: Optional[str] = Query(None, description="Recherche dans la description"),
     service: Session = Depends(get_db),current_user:User= Depends(get_current_user)
 ):
     offset = (page - 1) * per_page
-    
-    total_count = service.query(func.count(OtherTransaction.id)).scalar()
-    
+
+    base_query = service.query(OtherTransaction).filter(OtherTransaction.delete_at.is_(None))
+    if q:
+        base_query = base_query.filter(
+            or_(
+                OtherTransaction.description.ilike(f"%{q}%"),
+                OtherTransaction.description_supplementaire.ilike(f"%{q}%"),
+            )
+        )
+
+    total_count = base_query.with_entities(func.count(OtherTransaction.id)).scalar()
+
     # 2. On récupère les transactions ET les utilisateurs liés
     transactions = (
-        service.query(OtherTransaction)
+        base_query
         .options(joinedload(OtherTransaction.user),joinedload(OtherTransaction.etudiant))
         .order_by(OtherTransaction.created_at.desc())
         .offset(offset)
@@ -171,8 +182,11 @@ def get_one_transaction(
     service: Session = Depends(get_db),current_user:User= Depends(get_current_user)
 ):
     # On cherche la transaction par son ID
-    db_trans = service.query(OtherTransaction).filter(OtherTransaction.id == trans_id).first()
-    
+    db_trans = service.query(OtherTransaction).filter(
+        OtherTransaction.id == trans_id,
+        OtherTransaction.delete_at.is_(None),
+    ).first()
+
     if not db_trans:
         raise HTTPException(status_code=404, detail="Transaction introuvable")
         
@@ -224,15 +238,15 @@ def update_transaction(
         raise HTTPException(status_code=404, detail="Transaction non trouvée")
 
     # 2. Vérification de sécurité (optionnel : seulement si l'admin ou le créateur peut modifier)
-    if db_trans.user_id != current_user.id:
+    if db_trans.user_id != current_user and not current_admin:
         raise HTTPException(status_code=403, detail="Pas autorisé à modifier cette transaction")
 
     # 3. Mise à jour des champs
     db_trans.description = transaction_update.description
     db_trans.montant = transaction_update.montant
-    db_trans.identifiant=transaction_update.identifiant,
-    db_trans.description_supplementaire=transaction_update.description_supplementaire,
-    
+    db_trans.identifiant = transaction_update.identifiant
+    db_trans.description_supplementaire = transaction_update.description_supplementaire
+
     try:
         service.commit()
         service.refresh(db_trans)
@@ -243,7 +257,8 @@ def update_transaction(
 # --- DELETE ---
 @router_transac.delete("/transactions/{trans_id}")
 def delete_transaction(
-    trans_id: str, 
+    trans_id: str,
+    raison: str = Query(..., min_length=20, max_length=150),
     service: Session = Depends(get_db),
     auth_data: dict = Depends(DualAuthChecker("Supprimer transaction")),
     # current_user: Session = Depends(get_current_user)
@@ -253,12 +268,16 @@ def delete_transaction(
 
     UserContext.set_user_id(current_user)
     AdminAuthorization.set_admin_id(current_admin)
+    ReasonContext.set_reason(raison)
 
-
-    # if not user_has_permission(current_user, 'Supprimer transaction',service):
-    #     raise HTTPException(status_code=201, detail="Vous n\'avez pas les permissions requise.")
-    
-    deleted = None # service.delete(trans_id)
-    if not deleted:
+    db_trans = service.query(OtherTransaction).filter(
+        OtherTransaction.id == trans_id,
+        OtherTransaction.delete_at.is_(None),
+    ).first()
+    if not db_trans:
         raise HTTPException(status_code=404, detail="Transaction non trouvée")
+
+    db_trans.delete_at = datetime.utcnow()
+    db_trans.delete_by = current_admin or current_user
+    service.commit()
     return {"status": "success", "message": "Transaction supprimée"}

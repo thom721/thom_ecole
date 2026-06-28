@@ -12,6 +12,7 @@ from app.Schemas.SLog import *
 import math
 import logging
 from app.Models.MModels import User
+import json
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["Logs"])
@@ -160,11 +161,12 @@ async def index(
                         "user": log.user.name if log.user else None,
                         'authorization_id' : log.admin.name if log.user else None,
                         'model_type' : log.model_type,
-                        'model_id'   : log.model_id, 
-                        # "date": log.created_at 
+                        'model_id'   : log.model_id,
+                        "reason": log.reason,
+                        "updated_at": log.updated_at,
                     })
                     for log in results
-                ], 
+                ],
             meta=PaginationMeta(
                 current_page=page,
                 per_page=per_page,
@@ -261,7 +263,15 @@ async def log_show(
             )
         
         return LogShowResponse(
-            data=LogBase.model_validate(log)
+            data=LogBase.model_validate({
+                **log.__dict__,
+                # old_values/new_values sont des colonnes JSON (dict côté
+                # SQLAlchemy) mais LogBase les déclare en str — sérialiser
+                # explicitement pour éviter l'échec de validation Pydantic.
+                "old_values": json.dumps(log.old_values, ensure_ascii=False) if log.old_values is not None else None,
+                "new_values": json.dumps(log.new_values, ensure_ascii=False) if log.new_values is not None else None,
+                "date": log.updated_at,
+            })
         )
         
     except HTTPException:

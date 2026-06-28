@@ -32,7 +32,8 @@ from app.Helper.rAuto import *
 from app.Helper.context import UserContext,ActionContext
 
 import bcrypt
-from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create
+from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role
+from app.services.ServiceAuth import AuthorizationService
 import logging
 
 # Configuration du logger
@@ -922,29 +923,34 @@ async def store_personnel(
                     
                     # URL de connexion (à adapter)
                     url = "https://votre-domaine.com/login"
-                    
-                    if request.first:
-                        pass
-                    else:
-                        # Vérifier la connexion internet avant d'envoyer l'email
-                        if Config.check_internet_connection():
-                            logger.warning("Pas de connexion internet. Email non envoyé.")
-                            
-                            profile = db.query(Profile).first()
-                            school_name = profile.nom if profile else "Notre École"
 
-                            send_activation_email(request.email, request.prenom, request.nom, request.email, temp_password,platform=school_name, role="personnel")
-                                # On continue quand même, l'email n'est pas critique
-                    
                     db.commit()
-                    
+
                 except Exception as e:
-                    logger.error(f"Erreur lors de la 3création: {str(e)}")
+                    logger.error(f"Erreur lors de la création: {str(e)}")
                     db.rollback()
                     raise HTTPException(
                         status_code=422,
                         detail={"errors": str(e)}
                     )
+
+                # Envoi de l'email d'activation : volontairement hors de la
+                # transaction ci-dessus. Le personnel est déjà enregistré
+                # (commit fait) ; un échec SMTP ne doit pas faire perdre la
+                # création (l'email n'est pas critique).
+                if not request.first:
+                    try:
+                        if not Config.check_internet_connection():
+                            logger.warning("Pas de connexion internet. Email non envoyé.")
+                        else:
+                            profile = db.query(Profile).first()
+                            school_name = profile.nom if profile else "Notre École"
+                            send_activation_email(
+                                request.email, request.prenom, request.nom, request.email,
+                                temp_password, platform=school_name, role="personnel"
+                            )
+                    except Exception as email_error:
+                        logger.error(f"Échec d'envoi de l'email d'activation pour {request.email}: {email_error}")
             
             return PersonnelResponseMsg(message="Operation reussie")
             
@@ -1449,7 +1455,63 @@ async def update_student_profile(
         # traceback.print_exc()
         # logger.error(f"Erreur transaction: {str(e)}")
         raise HTTPException(404, "Utilisateur introuvable")
-    
+
+
+class SetPinRequest(BaseModel):
+    pin: str = Field(..., pattern=r'^\d{6}$', description="Code PIN à 6 chiffres")
+
+
+@router_personnel.get("/user/pin-status")
+async def get_pin_status(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Indique si l'utilisateur courant a déjà défini un PIN — ne renvoie
+    jamais le hash, seulement un booléen (utilisé par "Mon compte")."""
+    return {"has_pin": bool(current_user.code_pin)}
+
+
+@router_personnel.patch("/user/pin", response_model=PersonnelResponseMsg)
+async def set_user_pin(
+    data: SetPinRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Définit/modifie le PIN d'autorisation — réservé aux rôles admin/
+    Comptable, seuls habilités à approuver un retour ou une suppression
+    pour le compte d'un autre utilisateur (cf. /auth/autorisation-access-pin)."""
+    UserContext.set_user_id(current_user.id)
+    if not user_has_role(current_user, ['admin', 'Comptable'], db):
+        raise HTTPException(
+            status_code=403,
+            detail="Seuls les rôles admin ou Comptable peuvent définir un PIN d'autorisation.",
+        )
+
+    # Chaque PIN doit identifier un seul admin/Comptable sans ambiguïté
+    # (/auth/autorisation-access-pin s'arrête au premier qui correspond) —
+    # on vérifie donc l'unicité ici, mais sans jamais révéler qu'il s'agit
+    # d'une collision (juste "code pin incorrect") pour ne pas laisser un
+    # tiers déduire qu'un PIN donné est déjà pris par quelqu'un d'autre.
+    others = (
+        db.query(User)
+        .join(ModelHasRole, ModelHasRole.model_id == User.id)
+        .join(Role, Role.id == ModelHasRole.role_id)
+        .filter(
+            ModelHasRole.model_type == "App\\Models\\User",
+            Role.name.in_(['admin', 'Comptable']),
+            User.code_pin.isnot(None),
+            User.id != current_user.id,
+        )
+        .distinct()
+        .all()
+    )
+    if any(AuthorizationService.verify_password(data.pin, o.code_pin) for o in others):
+        raise HTTPException(status_code=422, detail="Code PIN incorrect, choisissez-en un autre.")
+
+    current_user.code_pin = CryptAndDecript.hash_password(data.pin)
+    db.commit()
+    return PersonnelResponseMsg(message="PIN enregistré avec succès")
+
 
 def check_connect():
     import socket

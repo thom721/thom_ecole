@@ -103,6 +103,7 @@ class Log(Base):
     new_values = Column(JSON)
     ip_address = Column(String(45))
     paiement_key = Column(String(255))
+    reason = Column(String(255))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

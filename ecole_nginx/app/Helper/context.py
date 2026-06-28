@@ -10,6 +10,7 @@ current_user_id: ContextVar[Optional[str]] = ContextVar('current_user_id', defau
 current_admin_id: ContextVar[Optional[str]] = ContextVar('current_admin_id', default=None)
 custom_action: ContextVar[Optional[str]] = ContextVar('custom_action', default=None)
 last_paiement_key: ContextVar[Optional[str]] = ContextVar('last_paiement_key', default=None)
+action_reason: ContextVar[Optional[str]] = ContextVar('action_reason', default=None)
 
 
 class ActionContext:
@@ -75,6 +76,29 @@ class UserContext:
     def clear():
         """Nettoyer l'utilisateur courant"""
         current_user_id.set(None)
+
+
+class ReasonContext:
+    """
+    Helper pour la raison saisie par l'utilisateur lors d'un retour de
+    paiement ou d'une suppression de vente/dépense/transaction — reprise
+    par global_observer.py dans le Log (colonne `reason`).
+    """
+
+    @staticmethod
+    def set_reason(reason: str):
+        """Définir la raison pour le prochain log"""
+        action_reason.set(reason)
+
+    @staticmethod
+    def get_reason() -> Optional[str]:
+        """Récupérer la raison"""
+        return action_reason.get()
+
+    @staticmethod
+    def clear():
+        """Nettoyer la raison"""
+        action_reason.set(None)
 
 
 class PaiementContext:

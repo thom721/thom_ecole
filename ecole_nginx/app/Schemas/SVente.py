@@ -38,7 +38,7 @@ class VenteSchema(BaseModel):
     id: str
     order_itemId: str
     nom: str
-    quantite: int
+    quantite: float
     total: float
     utilisateur: str
     date: str
@@ -53,7 +53,7 @@ class VenteSchema(BaseModel):
             id=vente.id,
             order_itemId=str(vente.order_itemId),
             nom=f"{vente.etudiant.nom} {vente.etudiant.prenom}",
-            quantite=sum(int(item.quantite) for item in vente.order_items),
+            quantite=sum(float(item.quantite) for item in vente.order_items),
             total=sum(item.total for item in vente.order_items),
             utilisateur=vente.user.name,
             date=vente.created_at.strftime("%Y-%m-%d %H:%M"),
@@ -161,8 +161,8 @@ class LoanCreateSchema(BaseModel):
     amount: float = Field(..., gt=0)  # numeric|min:1
     term_months: int =  Field(...,gt=0)  # integer|min:1
     interest_rate: float = Field(..., ge=0) #= 0  # facultatif, défaut 0
-    monthly_payment: float = Field(..., ge=0)  # tu dois calculer ou passer côté client
-#     loan.monthly_payment = data.amount * (1 + data.interest_rate/100) / data.term_months
+    monthly_payment: float = Field(..., ge=0)  # saisi manuellement (QLineEdit côté bureau, jamais calculé automatiquement)
+    status: Optional[str] = "pending"  # reflète loans_status (QComboBox côté bureau, Main.py:1110-1111)
 
 # from pydantic import BaseModel, , confloat
 # from typing import Optional
@@ -182,9 +182,10 @@ class OrderItemSchema(BaseModel):
     status: Optional[int]  = None#= Field(1, ge=0, le=2)
     category: str = Field(..., max_length=100)
     prix: float = Field(..., gt=0)
-    quantite: int = Field(..., gt=0)
+    quantite: float = Field(..., gt=0)
     total: float = Field(..., gt=0)
-    
+    produit_id: Optional[str] = None
+
     @model_validator(mode="before")
     def check_etudiant_id(cls, values):
         if not values.get("status") and not values.get("etudiant_id"):
