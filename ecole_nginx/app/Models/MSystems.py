@@ -217,6 +217,9 @@ class Profile(Base):
 
     logo_image_base64 = Column(LONGTEXT)
     school_url = Column(String(255))
+    # Si True : un paiement pour l'année N est refusé tant que tous les
+    # versements de l'année N-1 ne sont pas soldés.
+    is_receive_arriere = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

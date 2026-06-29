@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'numbered_pager.dart';
 
-/// Conteneur de tableau sombre — reprend DataTable.vue (ecole_nginx/frontend) :
-/// fond #171b26, bordure white/[0.07], rayon 2xl (16px), padding 24px, plus
-/// la pagination numérotée (Pagination.vue) collée en bas à droite.
+/// Conteneur de tableau — reprend DataTable.vue (ecole_nginx/frontend) :
+/// fond cardBg (blanc en thème clair, #161b26 en sombre), bordure borderSubtle,
+/// rayon 2xl (16px), padding 24px, plus la pagination numérotée (Pagination.vue).
 class DataTableCard extends StatelessWidget {
   const DataTableCard({
     super.key,
@@ -24,7 +24,7 @@ class DataTableCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.sidebarBg,
+        color: AppColors.cardBg,
         border: Border.all(color: AppColors.borderSubtle),
         borderRadius: BorderRadius.circular(16),
       ),

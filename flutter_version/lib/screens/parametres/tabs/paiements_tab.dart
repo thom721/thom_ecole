@@ -71,20 +71,47 @@ class PaiementsTab extends StatelessWidget {
     if (error != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
   }
 
-  void _showDetail(BuildContext context, ParametrePaiementRecord pp) {
+  Future<void> _showDetail(BuildContext context, ParametrePaiementRecord pp) async {
+    final full = await context.read<ParametresState>().fetchPaiementParam(pp.id);
+    if (!context.mounted) return;
+    final record = full ?? pp;
+
+    // Trier les versements par index (deuxième segment de la clé <echeance>_<index>_<uuid>)
+    final entries = record.montantPar.entries.toList()
+      ..sort((a, b) {
+        final ia = int.tryParse(a.key.split('_').elementAtOrNull(1) ?? '') ?? 0;
+        final ib = int.tryParse(b.key.split('_').elementAtOrNull(1) ?? '') ?? 0;
+        return ia.compareTo(ib);
+      });
+    final versementRows = entries.map((e) {
+      final parts = e.key.split('_');
+      final label = _capitalize(parts.first);
+      final index = parts.elementAtOrNull(1) ?? '';
+      return (record.echeance == 'mois' ? label : '$label $index', '${e.value} ${record.devise}');
+    }).toList();
+
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Détails — Paramètre Paiement'),
-        content: ParamDetailTable(rows: [
-          ('Cycle', pp.niveauName),
-          ('Classe', pp.nomClasse),
-          ('Année', pp.anneeAc),
-          ('Payer par', pp.echeance),
-          ('Devise', pp.devise),
-          if (pp.montant != null) ('Montant', '${pp.montant}'),
-          if (pp.nbEcheance != null) ("Nb d'échéances", '${pp.nbEcheance}'),
-        ]),
+        content: SizedBox(
+          width: 500,
+          child: SingleChildScrollView(
+            child: ParamDetailTable(rows: [
+              ('Cycle', record.niveauName),
+              ('Classe', record.nomClasse),
+              ('Année', record.anneeAc),
+              ('Payer par', record.echeance),
+              ('Devise', record.devise),
+              if (record.montant != null) ('Montant mensuel', '${record.montant} ${record.devise}'),
+              if (record.nbEcheance != null && record.echeance != 'mois')
+                ("Nb d'échéances", '${record.nbEcheance}'),
+              ...versementRows,
+              if (record.accessoires.isNotEmpty)
+                ...record.accessoires.map((a) => (a.typeDaccessoire, '${a.prix} ${record.devise}')),
+            ]),
+          ),
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Fermer')),
         ],
@@ -136,7 +163,15 @@ class PaiementsTab extends StatelessWidget {
                             fontFamily: 'monospace')),
                     TextSpan(text: pp.devise, style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
                   ]))
-                : const BadgePill(label: 'Versements', colorKey: 'emerald'),
+                : Text.rich(TextSpan(children: [
+                    TextSpan(
+                        text: '${pp.nbEcheance ?? '?'} ',
+                        style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w700,
+                            fontFamily: 'monospace')),
+                    TextSpan(text: pp.echeance, style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                  ])),
           ),
           DataCell(BadgePill(label: pp.niveauName, colorKey: 'purple')),
           DataCell(
@@ -392,7 +427,7 @@ class _PaiementParamFormDialogState extends State<_PaiementParamFormDialog> {
 
     return ParamDialogShell(
       title: 'Paramètres de Paiement',
-      width: 720,
+      width: 820,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

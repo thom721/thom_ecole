@@ -43,6 +43,7 @@ class ProfileState extends ChangeNotifier {
     required String ligne2,
     required String adresse,
     String? logoImageDataUri,
+    bool isReceiveArriere = false,
   }) async {
     isSubmitting = true;
     notifyListeners();
@@ -56,6 +57,7 @@ class ProfileState extends ChangeNotifier {
         'adresse': adresse,
         'logo_image_path': logoImageDataUri,
         'logo_image_base64': logoImageDataUri,
+        'is_receive_arriere': isReceiveArriere,
       });
       await load();
       return null;

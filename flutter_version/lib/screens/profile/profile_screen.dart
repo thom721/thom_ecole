@@ -41,6 +41,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _newLogoDataUri;
   String? _existingLogoBase64;
   String? _error;
+  bool _isReceiveArriere = false;
   bool _loadedOnce = false;
 
   // Équivalent de "Mon profil" (adProfile.vue) — Prénom/Nom/Email/Username.
@@ -122,6 +123,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _ligne2Controller.text = p.ligne2;
         _adresseController.text = p.adresse;
         _existingLogoBase64 = p.logoImageBase64;
+        _isReceiveArriere = p.isReceiveArriere;
         _loadedOnce = true;
       });
     } else if (mounted) {
@@ -273,6 +275,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ligne2: _ligne2Controller.text.trim(),
       adresse: _adresseController.text.trim(),
       logoImageDataUri: _newLogoDataUri,
+      isReceiveArriere: _isReceiveArriere,
     );
     if (!mounted) return;
     if (error != null) {
@@ -513,6 +516,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 12),
                   field('Adresse', _adresseController),
+                  const SizedBox(height: 12),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                      'Vérifier les arriérés de l\'année précédente',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                    ),
+                    subtitle: Text(
+                      'Si activé, un paiement pour l\'année en cours est refusé tant que tous les versements de l\'année précédente ne sont pas soldés.',
+                      style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
+                    ),
+                    value: _isReceiveArriere,
+                    onChanged: (v) => setState(() => _isReceiveArriere = v),
+                  ),
                   const SizedBox(height: 20),
                   Text(
                     'LOGO',

@@ -15,6 +15,7 @@ class SchoolProfile {
     required this.ligne2,
     required this.adresse,
     required this.logoImageBase64,
+    required this.isReceiveArriere,
   });
 
   factory SchoolProfile.fromJson(Map<String, dynamic> json) {
@@ -26,6 +27,7 @@ class SchoolProfile {
       ligne2: json['ligne2']?.toString() ?? '',
       adresse: json['adresse']?.toString() ?? '',
       logoImageBase64: json['logo_image_base64']?.toString(),
+      isReceiveArriere: json['is_receive_arriere'] == true,
     );
   }
 
@@ -36,4 +38,5 @@ class SchoolProfile {
   final String ligne2;
   final String adresse;
   final String? logoImageBase64;
+  final bool isReceiveArriere;
 }

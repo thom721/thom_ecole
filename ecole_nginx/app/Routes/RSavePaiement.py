@@ -11,7 +11,7 @@ from app.Models.MModels import Etudiant,Niveau,Classe,AnneeAcademique,Faculte,Us
 from app.Models.MRelations import ClasseEtudiant
 from app.Models.MFinancials import ParametrePaiement, Paiement,PaiementStatut
 from collections import OrderedDict
-from app.Models.MSystems import Log
+from app.Models.MSystems import Log, Profile
 import uuid as uuid_lib
 from app.database import get_db
 from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role,first_or_update_safe
@@ -225,6 +225,167 @@ def supprimer_dernier_paiement(
         return False, str(e)
 
 # ============================================================================
+# VÉRIFICATION DES ARRIÉRÉS
+# ============================================================================
+
+def _check_arrears_previous_year(
+    etudiant_id: str, current_annee_id: str, db: Session
+) -> tuple:
+    """
+    Vérifie si l'étudiant a des versements non soldés pour l'année académique
+    qui précède immédiatement l'année courante.
+
+    Cas ignorés (→ False, None) :
+      - Première année à l'établissement (≤ 1 inscription enregistrée)
+      - Pas inscrit l'année précédente (gap year, nouveau cycle, etc.)
+      - Aucune année précédente dans la base
+
+    Retourne (has_arrears: bool, message: str | None).
+    """
+    # 1. Première année à l'établissement ?
+    n_inscriptions = (
+        db.query(ClasseEtudiant)
+        .filter(ClasseEtudiant.etudiant_id == etudiant_id)
+        .count()
+    )
+    if n_inscriptions <= 1:
+        return False, None
+
+    # 2. Récupérer l'année courante (besoin de date_debut pour ordonner)
+    current_annee = (
+        db.query(AnneeAcademique)
+        .filter(AnneeAcademique.id == current_annee_id)
+        .first()
+    )
+    if not current_annee:
+        return False, None
+
+    # 3. Année académique immédiatement précédente (la plus récente avant N)
+    prev_annee = (
+        db.query(AnneeAcademique)
+        .filter(AnneeAcademique.date_debut < current_annee.date_debut)
+        .order_by(AnneeAcademique.date_debut.desc())
+        .first()
+    )
+    if not prev_annee:
+        return False, None
+
+    # 4. L'étudiant était-il inscrit l'année précédente ?
+    prev_enrollment = (
+        db.query(ClasseEtudiant)
+        .filter(
+            ClasseEtudiant.etudiant_id == etudiant_id,
+            ClasseEtudiant.annee_academique_id == prev_annee.id,
+        )
+        .first()
+    )
+    if not prev_enrollment:
+        # Pas inscrit l'an passé (gap, nouveau cycle) → pas d'arriéré à vérifier
+        return False, None
+
+    # 5. Paiement de l'année précédente
+    prev_paiement = (
+        db.query(Paiement)
+        .filter(
+            Paiement.etudiant_id == etudiant_id,
+            Paiement.annee_academique == prev_annee.annee_academique,
+        )
+        .first()
+    )
+    if not prev_paiement:
+        return True, (
+            f"L'étudiant n'a aucun paiement enregistré pour l'année "
+            f"{prev_annee.annee_academique}. Régularisez la situation avant "
+            f"d'accepter un paiement pour l'année en cours."
+        )
+
+    # 6. Vérification principale via paiement_details → info_paiement
+    pd_data = (
+        json.loads(prev_paiement.paiement_details)
+        if isinstance(prev_paiement.paiement_details, str)
+        else prev_paiement.paiement_details
+    )
+    inner = pd_data.get("paiement_details", {})
+    info_paiement = inner.get("info_paiement", {})
+
+    if info_paiement:
+        valid = [
+            (k, v)
+            for k, v in info_paiement.items()
+            if v.get("status") != "retourné"
+        ]
+        if valid:
+            try:
+                valid.sort(
+                    key=lambda x: datetime.strptime(
+                        x[0].replace("/", "-"), "%d-%m-%Y %H:%M"
+                    )
+                )
+            except ValueError:
+                pass
+            _, last = valid[-1]
+            total_verse = int(last.get("total_verse") or 0)
+            total_annuel = int(last.get("total_annuel") or 0)
+
+            if last.get("status") == "Acquitté" or (
+                total_annuel > 0 and total_verse >= total_annuel
+            ):
+                return False, None  # Entièrement soldé
+
+            devise = inner.get("devise", "")
+            reste = max(0, total_annuel - total_verse)
+            return True, (
+                f"L'étudiant a un solde impayé de {reste} {devise} "
+                f"pour l'année {prev_annee.annee_academique}. "
+                f"Régularisez avant d'accepter un paiement pour l'année en cours."
+            )
+
+    # 7. Secours : comparer nombre de versements attendus vs payés
+    mois_data = (
+        json.loads(prev_paiement.mois)
+        if isinstance(prev_paiement.mois, str)
+        else prev_paiement.mois
+    )
+    paid_keys = mois_data.get("mois", {})
+
+    prev_param = (
+        db.query(ParametrePaiement)
+        .filter(
+            ParametrePaiement.niveau_id == prev_enrollment.niveau_id,
+            ParametrePaiement.classe == prev_enrollment.classes_id,
+            ParametrePaiement.anneeAcademique == prev_annee.id,
+        )
+        .first()
+    )
+    if not prev_param:
+        if not paid_keys:
+            return True, (
+                f"Impossible de vérifier les versements de l'année "
+                f"{prev_annee.annee_academique}. Contactez l'administration."
+            )
+        return False, None
+
+    montant_par = (
+        json.loads(prev_param.montant_par)
+        if isinstance(prev_param.montant_par, str)
+        else prev_param.montant_par
+    )
+    expected = montant_par.get(prev_param.echeance, {})
+    n_expected = len(expected)
+    n_paid = len(paid_keys)
+
+    if n_paid >= n_expected:
+        return False, None
+
+    return True, (
+        f"L'étudiant a des arriérés non soldés pour l'année "
+        f"{prev_annee.annee_academique} "
+        f"({n_paid}/{n_expected} versement(s) acquitté(s)). "
+        f"Régularisez avant d'accepter un paiement pour l'année en cours."
+    )
+
+
+# ============================================================================
 # ROUTER
 # ============================================================================
 router_paie = APIRouter(prefix="/api/v1", tags=["Paiements"])
@@ -283,14 +444,18 @@ async def payment_save_info(
                 detail="Année académique introuvable"
             )
         
-        # Vérifier les paiements antérieurs
-        data_to_check = db.query(ClasseEtudiant).outerjoin(
-            Paiement, ClasseEtudiant.etudiant_id == Paiement.etudiant_id
-        ).filter(
-            ClasseEtudiant.etudiant_id == request.etudiant_id,
-            ClasseEtudiant.annee_academique_id != annee_id
-        ).all()
-        
+        # Contrôle des arriérés — uniquement pour un nouveau paiement (pas une
+        # modification d'un versement existant) et seulement si l'établissement
+        # a activé la politique is_receive_arriere dans son profil.
+        if not request.index_paiement:
+            profile = db.query(Profile).first()
+            if profile and profile.is_receive_arriere:
+                has_arrears, arrears_msg = _check_arrears_previous_year(
+                    request.etudiant_id, annee_id, db
+                )
+                if has_arrears:
+                    raise HTTPException(status_code=422, detail=arrears_msg)
+
         # Récupérer les paramètres de paiement
         data_pay = db.query(ParametrePaiement).filter(
             ParametrePaiement.niveau_id == request.niveau_id,

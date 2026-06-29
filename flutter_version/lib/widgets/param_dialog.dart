@@ -5,7 +5,7 @@ import '../theme/app_theme.dart';
 /// équivalent de StyleModal.vue (ecole_nginx/frontend/src/components), même
 /// fond panelBg, mêmes coins arrondis, même croix de fermeture rouge.
 class ParamDialogShell extends StatelessWidget {
-  const ParamDialogShell({super.key, required this.title, required this.child, this.width = 540});
+  const ParamDialogShell({super.key, required this.title, required this.child, this.width = 640});
 
   final String title;
   final Widget child;
@@ -17,7 +17,7 @@ class ParamDialogShell extends StatelessWidget {
       backgroundColor: AppColors.panelBg,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: width, maxHeight: 720),
+        constraints: BoxConstraints(maxWidth: width, maxHeight: 900),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: SingleChildScrollView(

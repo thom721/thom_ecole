@@ -114,6 +114,7 @@ async def store_profile(data: ProfileCreate, db: Session = Depends(get_db),curre
             db_profile.ligne1 = data.ligne1
             db_profile.ligne2 = data.ligne2
             db_profile.adresse = data.adresse
+            db_profile.is_receive_arriere = bool(getattr(data, 'is_receive_arriere', False))
             if logo_path:
                 # data.logo_image_path EST déjà le data-URI base64 complet
                 # ("data:image/png;base64,...") envoyé par le web ET le
@@ -137,7 +138,8 @@ async def store_profile(data: ProfileCreate, db: Session = Depends(get_db),curre
                 ligne2=data.ligne2,
                 adresse=data.adresse,
                 logo_image_path=logo_path,
-                logo_image_base64=data.logo_image_path if logo_path else data.logo_image_base64
+                logo_image_base64=data.logo_image_path if logo_path else data.logo_image_base64,
+                is_receive_arriere=bool(getattr(data, 'is_receive_arriere', False)),
             )
             db.add(new_profile)
             db.commit()
