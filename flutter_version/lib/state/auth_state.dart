@@ -17,6 +17,10 @@ class AuthState extends ChangeNotifier {
   AppUser? user;
   List<String> roles = [];
   List<String> permissions = [];
+  /// null → onglets déterminés par roleNavItems (ancien comportement ou
+  /// admin avec accessible_tabs non configuré). Liste → onglets restreints
+  /// au sous-ensemble retourné par le serveur (tab_ids dans la réponse login).
+  List<String>? _accessibleTabs;
   bool isLoading = false;
   String? errorMessage;
 
@@ -101,6 +105,10 @@ class AuthState extends ChangeNotifier {
   bool get isBaseUser => roles.length == 1 && roles.contains('user');
 
   Set<String> get visibleNavItems {
+    // Quand le serveur envoie tab_ids (liste non-null), on l'utilise directement.
+    // Quand tab_ids est null (au moins un rôle = accès total), on retombe sur
+    // la map statique pour la rétrocompatibilité.
+    if (_accessibleTabs != null) return _accessibleTabs!.toSet();
     final items = <String>{};
     for (final role in roles) {
       items.addAll(roleNavItems[role] ?? const []);
@@ -154,6 +162,8 @@ class AuthState extends ChangeNotifier {
       permissions = ((data['permissions'] as List?) ?? const [])
           .map((e) => e.toString())
           .toList();
+      final tabIds = data['tab_ids'] as List?;
+      _accessibleTabs = tabIds?.map((e) => e.toString()).toList();
 
       await _tokenStorage.saveToken(data['token']?.toString() ?? '');
       await _tokenStorage.saveUserEmail(email);
@@ -216,6 +226,8 @@ class AuthState extends ChangeNotifier {
       permissions = ((data['permissions'] as List?) ?? const [])
           .map((e) => e.toString())
           .toList();
+      final tabIdsChange = data['tab_ids'] as List?;
+      _accessibleTabs = tabIdsChange?.map((e) => e.toString()).toList();
 
       await _tokenStorage.saveToken(data['token']?.toString() ?? '');
       return true;
@@ -242,6 +254,7 @@ class AuthState extends ChangeNotifier {
     user = null;
     roles = [];
     permissions = [];
+    _accessibleTabs = null;
     await _tokenStorage.clear();
     notifyListeners();
   }

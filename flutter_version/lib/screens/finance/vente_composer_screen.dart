@@ -78,9 +78,21 @@ class _VenteComposerScreenState extends State<VenteComposerScreen> {
     if (!mounted) return;
     if (error != null) {
       setState(() => _error = error);
-    } else {
-      Navigator.of(context).pop(true);
+      return;
     }
+    // Impression automatique du reçu de vente
+    final venteState = context.read<VenteState>();
+    final venteId = venteState.lastVenteId;
+    if (venteId != null) {
+      final printError = await venteState.printRecu(venteId);
+      if (!mounted) return;
+      if (printError != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Vente enregistrée. Reçu : $printError')),
+        );
+      }
+    }
+    if (mounted) Navigator.of(context).pop(true);
   }
 
   @override

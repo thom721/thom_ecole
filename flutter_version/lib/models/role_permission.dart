@@ -4,11 +4,16 @@
 /// school_client ne permet QUE d'assigner des rôles/permissions déjà
 /// existants (seedés en base) à un utilisateur — pas d'en créer/supprimer.
 class RoleRecord {
-  RoleRecord({required this.id, required this.name});
-  factory RoleRecord.fromJson(Map<String, dynamic> json) =>
-      RoleRecord(id: json['id']?.toString() ?? '', name: json['name']?.toString() ?? '');
+  RoleRecord({required this.id, required this.name, this.accessibleTabs});
+  factory RoleRecord.fromJson(Map<String, dynamic> json) => RoleRecord(
+    id: json['id']?.toString() ?? '',
+    name: json['name']?.toString() ?? '',
+    accessibleTabs: (json['accessible_tabs'] as List?)?.map((e) => e.toString()).toList(),
+  );
   final String id;
   final String name;
+  /// null → accès à tous les onglets. Liste → onglets autorisés.
+  final List<String>? accessibleTabs;
 }
 
 class PermissionRecord {

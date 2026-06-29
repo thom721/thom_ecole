@@ -241,6 +241,8 @@ class VenteState extends ChangeNotifier {
       // voir _defaultValidateStatus) : DualAuthChecker doit donc être
       // détecté ici, sur la réponse, pas dans le catch ci-dessous.
       if (response.statusCode == 202) return kApprovalRequiredError;
+      final data = response.data as Map<String, dynamic>?;
+      _lastVenteId = data?['id']?.toString();
       clearCart();
       await load(page: 1);
       return null;
@@ -284,6 +286,8 @@ class VenteState extends ChangeNotifier {
   }
 
   String? printingId;
+  String? _lastVenteId;
+  String? get lastVenteId => _lastVenteId;
 
   /// Équivalent de imprimer_vente() → GET v1/print-recu-vente/{id}
   /// (VenteRecu.py), ouvert avec le lecteur PDF par défaut du système (motif

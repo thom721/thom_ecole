@@ -12,6 +12,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/section_header.dart';
 import 'tabs/permission_assignment_tab.dart';
 import 'tabs/role_assignment_tab.dart';
+import 'tabs/tab_config_tab.dart';
 
 /// Équivalent de profile()/save_profile()/choisir_image_profile()
 /// (school_client, Controllers/Main.py:6285-6346, 6799-6846), plus
@@ -27,7 +28,7 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-enum _ProfileSection { ecole, compte, roles, permissions }
+enum _ProfileSection { ecole, compte, roles, permissions, vues }
 
 class _ProfileScreenState extends State<ProfileScreen> {
   _ProfileSection _section = _ProfileSection.ecole;
@@ -312,6 +313,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _ProfileSection.compte => _buildCompteSection(),
                 _ProfileSection.roles => RoleAssignmentTab(),
                 _ProfileSection.permissions => PermissionAssignmentTab(),
+                _ProfileSection.vues => TabConfigTab(),
               },
             ),
           ),
@@ -401,6 +403,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _ProfileSection.permissions,
               'Permissions',
               Icons.lock_outline,
+            ),
+          if (canSeeRoles)
+            pill(
+              _ProfileSection.vues,
+              'Vues',
+              Icons.visibility_outlined,
             ),
         ],
       ),

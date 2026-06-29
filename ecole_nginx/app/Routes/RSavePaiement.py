@@ -313,12 +313,15 @@ async def payment_save_info(
             Etudiant.id == request.etudiant_id
         ).scalar() or 'Aucune'
         
-        # Trier les versements
+        # Trier les versements (clé format "Type_numéro", e.g. "Scolarité_1")
+        def _versement_sort_key(item):
+            try:
+                return int(item[0].split('_')[1])
+            except (IndexError, ValueError):
+                return 0
+
         versements_sorted = OrderedDict(
-            sorted(
-                versements.items(),
-                key=lambda x: int(x[0].split('_')[1])
-            )
+            sorted(versements.items(), key=_versement_sort_key)
         )
         
         # Calculer les montants selon le type de bourse
@@ -920,7 +923,10 @@ async def payment_save_info(
             'annee_id':payment.annee_academique,
         }
         if payment.mois and payment.annee_academique:
-            process_paiement_statut(db, payment.mois, payment.annee_academique, request.etudiant_id)
+            try:
+                process_paiement_statut(db, payment.mois, payment.annee_academique, request.etudiant_id)
+            except Exception as ps_err:
+                logger.warning(f"process_paiement_statut non-bloquant (paiement déjà sauvegardé): {ps_err}")
         return PaymentSaveInfoResponse(
             route='print-recu',
             id=payment.id,
@@ -935,8 +941,93 @@ async def payment_save_info(
         db.rollback()
         logger.error(f"Erreur dans payment_save_info: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail={"errors": str(e)})
-
+    
 def process_paiement_statut(db: Session, mois, annee_academique_field, etudiant_id):
+    """
+    Traite et enregistre le statut de paiement d'un étudiant.
+    
+    Args:
+        db: Session SQLAlchemy
+        data: Données du paiement (doit avoir etudiant_id, annee_id, mois)
+        annee_academique_field: Optionnel, si le champ s'appelle autrement
+    
+    Returns:
+        PaiementStatut mis à jour ou créé
+    """
+    
+    # 1. Récupère l'année académique
+    # annee_value = getattr(data, annee_academique_field or "annee_id")
+    annee = db.query(AnneeAcademique).filter(
+        AnneeAcademique.annee_academique == annee_academique_field
+    ).first()
+
+    if not annee:
+        raise HTTPException(status_code=404, detail="Année académique introuvable")
+
+    # 2. Récupère tous les mois de l'année
+    tous_les_mois = get_mois_entre(annee.date_debut, annee.date_fin)
+
+    # 3. Analyse les versements acquittés
+    versements_acquittes = set()
+    mois_data = mois.get("mois", mois)  # use inner dict if nested, else use as-is
+
+    for key in mois_data.keys():
+        parts = key.split("_")
+        if len(parts) < 2:
+            continue
+        numero = int(parts[1])
+        suffix = "er" if numero == 1 else "ème"
+        label = f"{numero}{suffix} Versement"
+        versements_acquittes.add(label)
+    # for key in mois.keys():
+      
+    #     print("mois keys:",mois, list(mois.keys()))
+    #     numero = int(key.split("_")[1])
+    #     suffix = "er" if numero == 1 else "ème"
+    #     label = f"{numero}{suffix} Versement"
+    #     versements_acquittes.add(label)
+
+    # 4. Calcule les mois accessibles selon les versements
+    versement_mois = {
+        "1er Versement": 3,
+        "2ème Versement": 3,
+        "3ème Versement": 2,
+        "4ème Versement": 2,
+    }
+
+    total_mois_accessibles = sum(
+        nb_mois
+        for versement, nb_mois in versement_mois.items()
+        if versement in versements_acquittes
+    )
+
+    mois_accessibles = tous_les_mois[:total_mois_accessibles]
+    mois_bloques = tous_les_mois[total_mois_accessibles:]
+
+    # 5. Enregistre ou met à jour dans PaiementStatut
+    statut = db.query(PaiementStatut).filter(
+        PaiementStatut.etudiant_id == etudiant_id,
+        PaiementStatut.annee_id == annee.id
+    ).first()
+
+    if statut:
+        anciens_mois = statut.mois_accessibles or []
+        statut.mois_accessibles = list(dict.fromkeys(anciens_mois + mois_accessibles))
+        statut.mois_bloques = [m for m in tous_les_mois if m not in statut.mois_accessibles]
+        statut.updated_at = datetime.utcnow()
+    else:
+        statut = PaiementStatut(
+            etudiant_id=etudiant_id,
+            annee_id=annee.id,
+            mois_accessibles=mois_accessibles,
+            mois_bloques=mois_bloques,
+        )
+        db.add(statut)
+
+    db.commit()
+    db.refresh(statut)
+
+def process_paiement_statut1(db: Session, mois, annee_academique_field, etudiant_id):
     """
     Traite et enregistre le statut de paiement d'un étudiant.
     

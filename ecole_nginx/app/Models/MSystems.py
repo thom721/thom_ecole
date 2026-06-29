@@ -56,10 +56,11 @@ class Role(Base):
         'mysql_collate': 'utf8mb4_unicode_ci',
         'mysql_charset': 'utf8mb4',
          'mysql_engine':'InnoDB'
-    }    
+    }
     id = Column(String(36), primary_key=True, default=generate_uuid)
     name = Column(String(255), unique=True, nullable=False)
     guard_name = Column(String(255), nullable=False)
+    accessible_tabs = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

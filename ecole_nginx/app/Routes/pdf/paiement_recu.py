@@ -113,10 +113,11 @@ def generate_pdf_recu(
 
         if 0 <= request.key < len(info_items):
             date_clef, paiement = info_items[request.key]
-            # print("Clé (date) à l'index", keys, ":", date_clef)
-            # print("Infos du paiement:", paiement)
         else:
-            print("Index hors limites")
+            raise HTTPException(
+                status_code=422,
+                detail={"errors": f"Index {request.key} hors limites — ce paiement a {len(info_items)} entrée(s)."}
+            )
                 # Récupérer les informations du profil
         info = db.query(Profile).first()
 

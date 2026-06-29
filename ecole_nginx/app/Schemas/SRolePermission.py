@@ -35,10 +35,11 @@ class RoleBase(BaseModel):
 
 class RoleResponse(RoleBase):
     id: str
+    accessible_tabs: Optional[List[str]] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     permissions: List[PermissionResponse] = []
-    
+
     class Config:
         from_attributes = True
 

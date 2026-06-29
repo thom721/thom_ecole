@@ -109,13 +109,29 @@ class _PaiementFormScreenState extends State<PaiementFormScreen> {
     setState(() => _submitting = false);
     if (error != null) {
       setState(() => _submitError = error);
-    } else {
-      _montantController.clear();
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Paiement enregistré.')));
-      }
+      return;
+    }
+    _montantController.clear();
+    // Impression automatique du reçu après enregistrement réussi
+    final state = context.read<PaiementState>();
+    final receiptId = state.lastReceiptId;
+    final receiptKey = state.lastReceiptKey;
+    if (receiptId != null && receiptKey != null) {
+      final printError = await state.printRecu(receiptId, receiptKey.toString());
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            printError != null
+                ? 'Paiement enregistré. Reçu : $printError'
+                : 'Paiement enregistré. Reçu imprimé.',
+          ),
+        ),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Paiement enregistré.')));
     }
   }
 

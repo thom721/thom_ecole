@@ -162,15 +162,30 @@ def user_data_generate(user,db: Session = Depends(get_db),success=""):
             .join(ModelHasRole, ModelHasRole.role_id == Role.id)\
             .filter(ModelHasRole.model_id == user.id)\
             .all()
-        
+
         roles = [r[0] for r in roles_query]
-    
-    # 6. Créer le token
+
+    # 6. Calculer les onglets accessibles
+    role_objects = db.query(Role).join(ModelHasRole, ModelHasRole.role_id == Role.id).filter(
+        ModelHasRole.model_id == user.id
+    ).all()
+    tab_ids = None
+    for r in role_objects:
+        if r.accessible_tabs is None:
+            tab_ids = None
+            break
+        if tab_ids is None:
+            tab_ids = set(r.accessible_tabs)
+        else:
+            tab_ids |= set(r.accessible_tabs)
+    tab_ids_list = list(tab_ids) if tab_ids is not None else None
+
+    # 7. Créer le token
     access_token = AuthorizationService.create_access_token(
         data={"sub": user.id, "email": user.email}
     )
-    
-    # 7. Préparer la réponse
+
+    # 8. Préparer la réponse
     user_response = {
         "id": user.id,
         "email": user.email,
@@ -182,17 +197,18 @@ def user_data_generate(user,db: Session = Depends(get_db),success=""):
         "status": getattr(user, 'status', True),
         "success":True
     }
-    
+
     if hasattr(user, 'heart_autos') and len(user.heart_autos) > 0:
         user_response["heart_auto"] = user.heart_autos[0]
     else:
         user_response["heart_auto"] = None
-    
+
     return {
         "token": access_token,
         "user": user_response,
         "permissions": permissions,
         "roles": roles,
+        "tab_ids": tab_ids_list,
         "status": 200,
         "success":True
     }
@@ -252,13 +268,30 @@ def login(request: Request,
                 .join(ModelHasRole, ModelHasRole.role_id == Role.id)\
                 .filter(ModelHasRole.model_id == user.id)\
                 .all()
-            
+
             roles = [r[0] for r in roles_query]
-        
+
+        # 6. Calculer les onglets accessibles (union des accessible_tabs de
+        # tous les rôles de l'utilisateur). Si un seul rôle a accessible_tabs=null
+        # → null (accès total). accessible_tabs=null en DB = tous les onglets.
+        role_objects = db.query(Role).join(ModelHasRole, ModelHasRole.role_id == Role.id).filter(
+            ModelHasRole.model_id == user.id
+        ).all()
+        tab_ids = None
+        for r in role_objects:
+            if r.accessible_tabs is None:
+                tab_ids = None
+                break
+            if tab_ids is None:
+                tab_ids = set(r.accessible_tabs)
+            else:
+                tab_ids |= set(r.accessible_tabs)
+        tab_ids_list = list(tab_ids) if tab_ids is not None else None
+
         access_token = AuthorizationService.create_access_token(
             data={"sub": user.id, "email": user.email}
         )
-        
+
         # 7. Préparer la réponse
         user_response = {
             "id": user.id,
@@ -270,7 +303,7 @@ def login(request: Request,
             "client_infos":user.client_infos or "",
             "status": getattr(user, 'status', True),
         }
-        
+
         # 8. Ajouter heart_auto si disponible
         if hasattr(user, 'heart_autos'):
             user_response["heart_auto"] = user.heart_autos[0] if user.heart_autos else None
@@ -280,6 +313,7 @@ def login(request: Request,
             "user": user_response,
             "permissions": permissions,
             "roles": roles,
+            "tab_ids": tab_ids_list,
             "status": 200
         }
     except Exception as e:

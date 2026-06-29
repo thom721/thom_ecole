@@ -162,6 +162,36 @@ class RolePermissionState extends ChangeNotifier {
     }
   }
 
+  bool isUpdatingTabs = false;
+
+  /// Met à jour les onglets accessibles pour un rôle.
+  /// [tabIds] = null → accès à tous les onglets (reset).
+  Future<String?> updateRoleTabs(String roleId, List<String>? tabIds) async {
+    isUpdatingTabs = true;
+    notifyListeners();
+    try {
+      await _apiClient.dio.patch(
+        'roles/$roleId/tabs',
+        data: {'accessible_tabs': tabIds},
+      );
+      // Mettre à jour le cache local
+      final idx = roles.indexWhere((r) => r.id == roleId);
+      if (idx != -1) {
+        roles[idx] = RoleRecord(
+          id: roles[idx].id,
+          name: roles[idx].name,
+          accessibleTabs: tabIds,
+        );
+      }
+      return null;
+    } catch (e) {
+      return _extractError(e);
+    } finally {
+      isUpdatingTabs = false;
+      notifyListeners();
+    }
+  }
+
   String _extractError(Object e) {
     if (e is DioException) {
       final data = e.response?.data;

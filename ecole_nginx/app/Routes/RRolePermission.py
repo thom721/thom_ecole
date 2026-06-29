@@ -475,3 +475,27 @@ async def assign_permission_to_role(
             status_code=500,
             detail={"errors": {"general": [str(e)]}}
         )
+
+
+class UpdateRoleTabsRequest(BaseModel):
+    accessible_tabs: Optional[List[str]] = None
+
+
+@router.patch("/roles/{role_id}/tabs")
+def update_role_tabs(
+    role_id: str,
+    request: UpdateRoleTabsRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(check_permission("Modifier role")),
+):
+    """
+    Définit quels onglets de navigation sont accessibles pour un rôle.
+    accessible_tabs=null → accès à tous les onglets (comportement admin).
+    accessible_tabs=[...] → restreint aux IDs listés.
+    """
+    role = db.query(Role).filter(Role.id == role_id).first()
+    if not role:
+        raise HTTPException(status_code=404, detail="Rôle introuvable")
+    role.accessible_tabs = request.accessible_tabs
+    db.commit()
+    return {"success": True, "accessible_tabs": role.accessible_tabs}
