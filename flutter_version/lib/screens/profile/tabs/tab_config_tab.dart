@@ -144,7 +144,7 @@ class _TabConfigTabState extends State<TabConfigTab> {
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: AppColors.hoverOverlay.withValues(alpha: 0.4),
+          color: AppColors.appBg,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: AppColors.borderSubtle),
         ),
