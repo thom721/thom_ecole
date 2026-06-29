@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../state/auth_state.dart';
 import '../../state/depense_state.dart';
 import '../../state/loan_state.dart';
 import '../../state/payroll_state.dart';
@@ -32,8 +33,22 @@ class FinanceScreen extends StatefulWidget {
 
 enum _Tab { vente, produits, depenses, prets, payroll, transactions }
 
+const _tabSubId = {
+  _Tab.vente: 'vente',
+  _Tab.produits: 'produits',
+  _Tab.depenses: 'depenses',
+  _Tab.prets: 'prets',
+  _Tab.payroll: 'payroll',
+  _Tab.transactions: 'transactions',
+};
+
 class _FinanceScreenState extends State<FinanceScreen> {
   _Tab _tab = _Tab.vente;
+
+  List<_Tab> _visibleTabs(Set<String>? sub) {
+    if (sub == null) return _Tab.values;
+    return _Tab.values.where((t) => sub.contains(_tabSubId[t])).toList();
+  }
 
   @override
   void initState() {
@@ -66,7 +81,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
     }
   }
 
-  Widget _buildSwitcher() {
+  Widget _buildSwitcher(List<_Tab> visible) {
     Widget pill(_Tab value, String label, IconData icon) {
       final selected = _tab == value;
       return Padding(
@@ -85,9 +100,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
                   Icon(
                     icon,
                     size: 15,
-                    color: selected
-                        ? AppColors.accentLight
-                        : AppColors.textMuted,
+                    color: selected ? AppColors.accentLight : AppColors.textMuted,
                   ),
                   const SizedBox(width: 8),
                   Text(
@@ -95,9 +108,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: selected
-                          ? AppColors.textPrimary
-                          : AppColors.textMuted,
+                      color: selected ? AppColors.textPrimary : AppColors.textMuted,
                     ),
                   ),
                 ],
@@ -108,6 +119,15 @@ class _FinanceScreenState extends State<FinanceScreen> {
       );
     }
 
+    Widget? pillFor(_Tab t) => switch (t) {
+      _Tab.vente => pill(_Tab.vente, 'Vente', Icons.point_of_sale_outlined),
+      _Tab.produits => pill(_Tab.produits, 'Produits', Icons.inventory_2_outlined),
+      _Tab.depenses => pill(_Tab.depenses, 'Dépenses', Icons.payments_outlined),
+      _Tab.prets => pill(_Tab.prets, 'Prêts', Icons.handshake_outlined),
+      _Tab.payroll => pill(_Tab.payroll, 'Payroll', Icons.account_balance_wallet_outlined),
+      _Tab.transactions => pill(_Tab.transactions, 'Autre transaction', Icons.receipt_long_outlined),
+    };
+
     return Container(
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
@@ -115,26 +135,25 @@ class _FinanceScreenState extends State<FinanceScreen> {
         border: Border.all(color: AppColors.borderSubtle),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          pill(_Tab.vente, 'Vente', Icons.point_of_sale_outlined),
-          pill(_Tab.produits, 'Produits', Icons.inventory_2_outlined),
-          pill(_Tab.depenses, 'Dépenses', Icons.payments_outlined),
-          pill(_Tab.prets, 'Prêts', Icons.handshake_outlined),
-          pill(_Tab.payroll, 'Payroll', Icons.account_balance_wallet_outlined),
-          pill(
-            _Tab.transactions,
-            'Autre transaction',
-            Icons.receipt_long_outlined,
-          ),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: visible.map(pillFor).nonNulls.toList(),
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final sub = context.watch<AuthState>().visibleSubItems('vente');
+    final visible = _visibleTabs(sub);
+    // Si l'onglet actif vient d'être masqué par un changement de rôle, revenir
+    // au premier onglet visible pour ne pas afficher un contenu inaccessible.
+    final effectiveTab =
+        visible.contains(_tab) ? _tab : (visible.isNotEmpty ? visible.first : _Tab.vente);
+
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -147,10 +166,10 @@ class _FinanceScreenState extends State<FinanceScreen> {
             colorKey: 'emerald',
           ),
           const SizedBox(height: 16),
-          _buildSwitcher(),
+          _buildSwitcher(visible),
           const SizedBox(height: 16),
           Expanded(
-            child: switch (_tab) {
+            child: switch (effectiveTab) {
               _Tab.vente => VenteTab(),
               _Tab.produits => ProduitTab(),
               _Tab.depenses => DepenseTab(),

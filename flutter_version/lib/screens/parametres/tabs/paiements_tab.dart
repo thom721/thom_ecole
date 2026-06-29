@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../models/parametres.dart';
+import '../../../state/auth_state.dart';
 import '../../../state/parametres_state.dart';
 import '../../../state/reference_data_state.dart';
 import '../../../theme/app_theme.dart';
@@ -19,11 +20,7 @@ const _deviseOptions = ['GDES', 'USD'];
 const _accessoireTypes = ['Maillot', 'Badge', 'Tenue de Sport', 'Initiale'];
 
 // Clés mois acceptées par VERSEMENT_KEY_REGEX côté serveur
-// (RPaiementParam.py:25-28) : minuscules, SANS accents. `strftime("%B")`
-// utilisé par le bureau peut produire des noms accentués selon la locale
-// système (ex: "février") qui ne correspondraient alors PAS à la regex —
-// on utilise ici directement la liste non accentuée pour garantir des clés
-// toujours valides côté serveur.
+// (RPaiementParam.py:25-28) : minuscules, SANS accents.
 const _moisCles = [
   'janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin',
   'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre',
@@ -31,9 +28,7 @@ const _moisCles = [
 
 String _capitalize(String s) => s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
 
-/// Équivalent de list_months_between() (Payment_params.py:140-170) : liste
-/// des clés de mois (non accentuées) entre date_debut et date_fin de
-/// l'année académique sélectionnée, dans l'ordre calendaire.
+/// Équivalent de list_months_between() (Payment_params.py:140-170).
 List<String> _moisEntreDates(String dateDebut, String dateFin) {
   DateTime? start = DateTime.tryParse(dateDebut);
   DateTime? end = DateTime.tryParse(dateFin);
@@ -48,25 +43,68 @@ List<String> _moisEntreDates(String dateDebut, String dateFin) {
   return result;
 }
 
-/// Onglet "Paiements" — la LISTE (table v1/parametrePaiement) reste alignée
-/// sur Parametres.vue (colonnes/pastilles identiques), mais la MODALE
-/// ajout/édition reproduit fidèlement le bureau réel
-/// (Helper/Components/Payment_params.py, classe Main_payment) plutôt que le
-/// formulaire web — demandé explicitement après comparaison des deux
-/// captures d'écran (le bureau diffère du web sur : pas de "Controle", pas
-/// de "$HT", Nbres d'échéances toujours 1-5 (jamais figé/désactivé), pas de
-/// champs dynamiques par mois (juste "Frais d'entre" + "Montant"), et le
-/// champ Faculté/Domaine d'étude apparaît pour "Universitaire" ET
-/// "Technique" (pas seulement "Universitaire").
+/// Onglet "Paiements" — la LISTE reste alignée sur Parametres.vue ; la MODALE
+/// reproduit fidèlement le bureau réel (Helper/Components/Payment_params.py).
 class PaiementsTab extends StatelessWidget {
   const PaiementsTab({super.key});
+
+  Future<void> _confirmDelete(
+      BuildContext context, ParametrePaiementRecord pp, ParametresState state) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Supprimer'),
+        content: Text('Supprimer le paramètre de paiement "${pp.nomClasse} — ${pp.anneeAc}" ?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    final error = await state.deletePaiementParam(pp.id);
+    if (!context.mounted) return;
+    if (error != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+  }
+
+  void _showDetail(BuildContext context, ParametrePaiementRecord pp) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Détails — Paramètre Paiement'),
+        content: ParamDetailTable(rows: [
+          ('Cycle', pp.niveauName),
+          ('Classe', pp.nomClasse),
+          ('Année', pp.anneeAc),
+          ('Payer par', pp.echeance),
+          ('Devise', pp.devise),
+          if (pp.montant != null) ('Montant', '${pp.montant}'),
+          if (pp.nbEcheance != null) ("Nb d'échéances", '${pp.nbEcheance}'),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Fermer')),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<ParametresState>();
+    final subs = context.watch<AuthState>().visibleSubItems('settings');
+    final canAjouter = subs == null || subs.contains('ajouter');
+    final canModifier = subs == null || subs.contains('modifier');
+    final canSupprimer = subs == null || subs.contains('supprimer');
+    final canVoir = subs == null || subs.contains('voir');
+
     return ParamTabCard(
       title: 'Paramètres des Paiements',
       subtitle: 'Montants, échéances et devises par classe',
+      canAdd: canAjouter,
       onAdd: () => showDialog(context: context, builder: (_) => const _PaiementParamFormDialog()),
       isLoading: state.paiementParamLoading,
       error: state.paiementParamError,
@@ -91,26 +129,48 @@ class PaiementsTab extends StatelessWidget {
                     TextSpan(
                         text: '${pp.montant} ',
                         style: TextStyle(
-                            color: AppColors.textPrimary, fontWeight: FontWeight.w700, fontFamily: 'monospace')),
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w700,
+                            fontFamily: 'monospace')),
                     TextSpan(text: pp.devise, style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
                   ]))
                 : const BadgePill(label: 'Versements', colorKey: 'emerald'),
           ),
           DataCell(BadgePill(label: pp.niveauName, colorKey: 'purple')),
-          DataCell(Text(pp.nomClasse, style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600))),
+          DataCell(
+              Text(pp.nomClasse, style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600))),
           DataCell(BadgePill(label: pp.echeance, colorKey: 'sky')),
           DataCell(Text(pp.anneeAc, style: TextStyle(color: AppColors.textMuted))),
-          DataCell(
-            IconButton(
-              icon: Icon(Icons.edit_outlined, size: 16, color: AppColors.textMuted),
-              onPressed: () async {
-                final full = await context.read<ParametresState>().fetchPaiementParam(pp.id);
-                if (full != null && context.mounted) {
-                  showDialog(context: context, builder: (_) => _PaiementParamFormDialog(record: full));
-                }
-              },
-            ),
-          ),
+          DataCell(Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (canVoir)
+                IconButton(
+                  tooltip: 'Voir',
+                  icon: const Icon(Icons.remove_red_eye_outlined, size: 16, color: Color(0xFF34D399)),
+                  onPressed: () => _showDetail(context, pp),
+                ),
+              if (canModifier)
+                IconButton(
+                  tooltip: 'Modifier',
+                  icon: Icon(Icons.edit_outlined, size: 16, color: AppColors.accentLight),
+                  onPressed: () async {
+                    final full = await context.read<ParametresState>().fetchPaiementParam(pp.id);
+                    if (full != null && context.mounted) {
+                      showDialog(
+                          context: context,
+                          builder: (_) => _PaiementParamFormDialog(record: full));
+                    }
+                  },
+                ),
+              if (canSupprimer)
+                IconButton(
+                  tooltip: 'Supprimer',
+                  icon: const Icon(Icons.delete_outline, size: 16, color: AppColors.danger),
+                  onPressed: () => _confirmDelete(context, pp, state),
+                ),
+            ],
+          )),
         ]);
       }).toList(),
     );
@@ -141,12 +201,8 @@ class _PaiementParamFormDialogState extends State<_PaiementParamFormDialog> {
   String? _echeance;
   String? _devise;
   int? _nbEcheance;
-  // Visibles uniquement si _isMois (last_frame dans Payment_params.py) :
-  // "Frais d'entre" couvre le premier mois (souvent majoré, ex: frais
-  // d'inscription inclus), "Montant" couvre tous les autres mois.
   final _fraisDentreController = TextEditingController();
   final _montantController = TextEditingController();
-  // Visibles uniquement si !_isMois — un champ par échéance.
   Map<String, TextEditingController> _montantParControllers = {};
   List<_AccessoireFormRow> _accessoires = [];
   String? _error;
@@ -169,8 +225,6 @@ class _PaiementParamFormDialogState extends State<_PaiementParamFormDialog> {
       _nbEcheance = r.nbEcheance ?? 1;
       if (r.montant != null) _montantController.text = '${r.montant}';
       if (r.echeance == 'mois') {
-        // Équivalent du bloc `else` (lignes 392-402) : on relit le premier
-        // mois (plus petit index) de montant_par pour "Frais d'entre".
         final sorted = r.montantPar.entries.toList()
           ..sort((a, b) {
             final ia = int.tryParse(a.key.split('_').elementAtOrNull(1) ?? '') ?? 0;
@@ -205,10 +259,6 @@ class _PaiementParamFormDialogState extends State<_PaiementParamFormDialog> {
     super.dispose();
   }
 
-  /// Équivalent de create_other_fiels()/reset_echeance_data()
-  /// (Payment_params.py:456-466, 502-556) : régénère les champs
-  /// montant_par dynamiques (un par échéance), clés
-  /// `<echeance>_<index>_<annee-uuid>`.
   void _regenerateMontantParFields() {
     for (final c in _montantParControllers.values) {
       c.dispose();
@@ -221,8 +271,6 @@ class _PaiementParamFormDialogState extends State<_PaiementParamFormDialog> {
     }
   }
 
-  /// Équivalent de controle_other() (Payment_params.py:470-490) : changer
-  /// d'échéance réinitialise toujours nb_echeance au premier choix ("1").
   void _onEcheanceChanged(String? v) {
     setState(() {
       _echeance = v;
@@ -252,7 +300,6 @@ class _PaiementParamFormDialogState extends State<_PaiementParamFormDialog> {
         _accessoires.removeAt(index);
       });
 
-  /// Équivalent de save_payment_params() (Payment_params.py:655-703).
   Future<void> _submit(ParametresState state) async {
     if (_niveauId == null || _classeId == null || _echeance == null || _devise == null || _anneeAcademiqueId == null) {
       setState(() => _error = 'Cycle, classe, échéance, devise et année sont requis.');
@@ -333,10 +380,6 @@ class _PaiementParamFormDialogState extends State<_PaiementParamFormDialog> {
   Widget build(BuildContext context) {
     final state = context.watch<ParametresState>();
     final ref = context.watch<ReferenceDataState>();
-    // Équivalent du test sur combo_cycle.currentText() dans
-    // generic_success_handler (Payment_params.py:736-739) : la Faculté
-    // apparaît pour "Universitaire" ET "Technique", pas seulement
-    // "Universitaire".
     final niveauName = ref.niveaux.where((n) => n.id == _niveauId).firstOrNull?.name;
     final showFaculte = niveauName == 'Universitaire' || niveauName == 'Technique';
 
@@ -355,9 +398,6 @@ class _PaiementParamFormDialogState extends State<_PaiementParamFormDialog> {
             initialValue: _niveauId,
             decoration: const InputDecoration(labelText: 'Cycle / niveau / Section'),
             items: ref.niveaux.map((n) => DropdownMenuItem(value: n.id, child: Text(n.name))).toList(),
-            // Équivalent de load_classe()/generic_success_handler : faculte/
-            // classe/devise/montant ne sont réinitialisés qu'en création,
-            // pas en édition (pour ne pas effacer les valeurs déjà chargées).
             onChanged: (v) => setState(() {
               _niveauId = v;
               if (widget.record == null) {
@@ -381,14 +421,18 @@ class _PaiementParamFormDialogState extends State<_PaiementParamFormDialog> {
           DropdownButtonFormField<String>(
             initialValue: _classeId,
             decoration: const InputDecoration(labelText: 'Classe'),
-            items: ref.classesForNiveau(_niveauId).map((c) => DropdownMenuItem(value: c.id, child: Text(c.nomClasse))).toList(),
+            items: ref
+                .classesForNiveau(_niveauId)
+                .map((c) => DropdownMenuItem(value: c.id, child: Text(c.nomClasse)))
+                .toList(),
             onChanged: (v) => setState(() => _classeId = v),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             initialValue: _anneeAcademiqueId,
             decoration: const InputDecoration(labelText: 'Année Académique'),
-            items: state.annees.map((a) => DropdownMenuItem(value: a.id, child: Text(a.anneeAcademique))).toList(),
+            items:
+                state.annees.map((a) => DropdownMenuItem(value: a.id, child: Text(a.anneeAcademique))).toList(),
             onChanged: _onAnneeChanged,
           ),
           const SizedBox(height: 12),
@@ -458,7 +502,8 @@ class _PaiementParamFormDialogState extends State<_PaiementParamFormDialog> {
                     child: DropdownButtonFormField<String>(
                       initialValue: row.type,
                       decoration: const InputDecoration(labelText: 'Type'),
-                      items: _accessoireTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                      items:
+                          _accessoireTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
                       onChanged: (v) => setState(() => row.type = v),
                     ),
                   ),
@@ -479,9 +524,6 @@ class _PaiementParamFormDialogState extends State<_PaiementParamFormDialog> {
             );
           }),
           const SizedBox(height: 8),
-          // Équivalent de last_frame (Payment_params.py:238-272) : "Frais
-          // d'entre" + "Montant" ne sont visibles que pour l'échéance
-          // "mois" ; "Devise" reste toujours visible.
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -491,7 +533,8 @@ class _PaiementParamFormDialogState extends State<_PaiementParamFormDialog> {
                     controller: _fraisDentreController,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
-                      labelText: 'Frais d\'entre (+) ${premierMois == null ? 'Premier mois' : _capitalize(premierMois)}',
+                      labelText:
+                          'Frais d\'entre (+) ${premierMois == null ? 'Premier mois' : _capitalize(premierMois)}',
                     ),
                   ),
                 ),

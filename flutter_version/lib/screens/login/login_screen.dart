@@ -65,11 +65,15 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
     await _ipStorage.saveServerIp(ip);
+    // Équivalent de add_or_update_host() (Controllers/Main.py:4009-4057) :
+    // met à jour /etc/hosts avec l'entrée aplekol360.local → ip.
+    // Sur Mac/Linux, élève les privilèges via osascript/pkexec si nécessaire
+    // (équivalent de run_as_admin(), Main.py:3597-3613).
+    final hostsError = await _ipStorage.addOrUpdateHost(ip);
     setState(() {
-      _ipMessage =
-          "IP enregistrée. Le fichier hosts de la machine doit aussi être "
-          "mis à jour manuellement pour l'instant (équivalent non encore "
-          "fait : add_or_update_host() exige les droits administrateur).";
+      _ipMessage = hostsError == null
+          ? 'IP enregistrée et fichier hosts mis à jour (aplekol360.local → $ip).'
+          : 'IP enregistrée. Fichier hosts : $hostsError';
     });
   }
 

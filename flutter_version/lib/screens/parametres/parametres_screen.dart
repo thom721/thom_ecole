@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../state/auth_state.dart';
 import '../../state/parametres_state.dart';
 import '../../state/reference_data_state.dart';
 import '../../theme/app_theme.dart';
@@ -85,6 +86,14 @@ class _ParametresScreenState extends State<ParametresScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final sub = context.watch<AuthState>().visibleSubItems('settings');
+    final visibleTabs = sub == null
+        ? _tabs
+        : _tabs.where((t) => sub.contains(t.id)).toList();
+    final effectiveTab = visibleTabs.any((t) => t.id == _activeTab)
+        ? _activeTab
+        : (visibleTabs.isNotEmpty ? visibleTabs.first.id : _activeTab);
+
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -106,8 +115,8 @@ class _ParametresScreenState extends State<ParametresScreen> {
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
-                children: _tabs.map((tab) {
-                  final selected = tab.id == _activeTab;
+                children: visibleTabs.map((tab) {
+                  final selected = tab.id == effectiveTab;
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 2),
                     child: Material(
@@ -150,7 +159,7 @@ class _ParametresScreenState extends State<ParametresScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          Expanded(child: SingleChildScrollView(child: _buildTabContent(_activeTab))),
+          Expanded(child: SingleChildScrollView(child: _buildTabContent(effectiveTab))),
         ],
       ),
     );

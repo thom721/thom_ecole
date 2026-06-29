@@ -69,4 +69,8 @@ class ApiClient {
   Future<Response<dynamic>> post(String endpoint, {Map<String, dynamic>? data}) {
     return _dio.post(endpoint, data: data);
   }
+
+  Future<Response<dynamic>> delete(String endpoint, {Map<String, dynamic>? query}) {
+    return _dio.delete(endpoint, queryParameters: query);
+  }
 }

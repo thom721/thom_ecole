@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/print_gate.dart';
 import '../../models/student.dart';
 import '../../models/student_detail.dart';
 import '../../state/reference_data_state.dart';
@@ -263,6 +264,7 @@ class _EtudiantDetailScreenState extends State<EtudiantDetailScreen> {
   }
 
   Future<void> _printFiche() async {
+    if (!canPrintNonReceipt(context)) return;
     final id = widget.student?.id;
     if (id == null) return;
     final error = await context.read<StudentsState>().printStudentDetails(id);

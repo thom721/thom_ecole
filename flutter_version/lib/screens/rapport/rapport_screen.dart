@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/print_gate.dart';
 import '../../models/student.dart';
 import '../../state/parametres_state.dart';
 import '../../state/rapport_state.dart';
@@ -126,6 +127,7 @@ class _RapportScreenState extends State<RapportScreen> {
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   Future<void> _run(Future<String?> Function() action) async {
+    if (!canPrintNonReceipt(context)) return;
     final error = await action();
     if (!mounted) return;
     if (error != null) {

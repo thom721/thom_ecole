@@ -5,9 +5,10 @@ import '../../../state/role_permission_state.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/section_header.dart';
 
-/// Configure quels onglets de navigation sont visibles pour chaque rôle.
-/// Un rôle avec accessible_tabs=null voit tous les onglets (accès total).
-/// Les onglets non cochés sont masqués pour les utilisateurs ayant ce rôle.
+/// Configure quels onglets (et sous-onglets) sont visibles pour chaque rôle.
+/// Les IDs de sous-onglets utilisent le format "parentId.sousId"
+/// (ex: "vente.depenses") et sont stockés dans accessible_tabs au même niveau
+/// que les IDs d'onglets principaux.
 class TabConfigTab extends StatefulWidget {
   const TabConfigTab({super.key});
 
@@ -17,12 +18,9 @@ class TabConfigTab extends StatefulWidget {
 
 class _TabConfigTabState extends State<TabConfigTab> {
   String? _selectedRoleId;
-  /// null signifie "accès total" (tous les onglets cochés sans restriction)
   Set<String>? _checkedTabIds;
   bool _allTabs = true;
   String? _error;
-
-  static const _allNavItems = kAllNavItems;
 
   @override
   void initState() {
@@ -56,6 +54,25 @@ class _TabConfigTabState extends State<TabConfigTab> {
     });
   }
 
+  /// true si tous les sous-onglets de [parentId] sont en mode "accès total"
+  /// (aucun ID "parentId.*" stocké dans _checkedTabIds → pas de restriction).
+  bool _subAllChecked(String parentId) {
+    return !_checkedTabIds!.any((id) => id.startsWith('$parentId.'));
+  }
+
+  void _toggleSubAll(String parentId, bool allVisible) {
+    final subs = kSubNavItems[parentId] ?? [];
+    setState(() {
+      if (allVisible) {
+        _checkedTabIds!.removeWhere((id) => id.startsWith('$parentId.'));
+      } else {
+        for (final sub in subs) {
+          _checkedTabIds!.add(sub.id);
+        }
+      }
+    });
+  }
+
   Future<void> _submit() async {
     if (_selectedRoleId == null) {
       setState(() => _error = 'Sélectionnez un rôle.');
@@ -75,6 +92,131 @@ class _TabConfigTabState extends State<TabConfigTab> {
         const SnackBar(content: Text('Vues du rôle mises à jour.')),
       );
     }
+  }
+
+  Widget _buildParentCheckbox(NavItem item) {
+    final checked = _checkedTabIds!.contains(item.id);
+    final hasSubs = kSubNavItems.containsKey(item.id);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: CheckboxListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            value: checked,
+            activeColor: AppColors.accent,
+            title: Row(
+              children: [
+                Icon(item.icon, size: 15, color: AppColors.textMuted),
+                const SizedBox(width: 6),
+                Text(
+                  item.label,
+                  style: TextStyle(color: AppColors.textPrimary, fontSize: 13),
+                ),
+              ],
+            ),
+            onChanged: (v) => setState(() {
+              if (v == true) {
+                _checkedTabIds!.add(item.id);
+              } else {
+                _checkedTabIds!.remove(item.id);
+                // Retirer les sous-onglets quand le parent est caché
+                _checkedTabIds!.removeWhere((id) => id.startsWith('${item.id}.'));
+              }
+            }),
+          ),
+        ),
+        if (checked && hasSubs) _buildSubGroup(item.id),
+      ],
+    );
+  }
+
+  Widget _buildSubGroup(String parentId) {
+    final subs = kSubNavItems[parentId]!;
+    final allVisible = _subAllChecked(parentId);
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 24, bottom: 4),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: AppColors.hoverOverlay.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.borderSubtle),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Material(
+              color: Colors.transparent,
+              child: CheckboxListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                value: allVisible,
+                activeColor: AppColors.accent,
+                title: Text(
+                  'Tous les sous-onglets',
+                  style: TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                onChanged: (v) => _toggleSubAll(parentId, v ?? true),
+              ),
+            ),
+            if (!allVisible) ...[
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 8,
+                runSpacing: 0,
+                children: subs.map((sub) {
+                  final subChecked = _checkedTabIds!.contains(sub.id);
+                  return SizedBox(
+                    width: 180,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: CheckboxListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        value: subChecked,
+                        activeColor: AppColors.accentLight,
+                        title: Row(
+                          children: [
+                            Icon(sub.icon, size: 13, color: AppColors.textMuted),
+                            const SizedBox(width: 5),
+                            Text(
+                              sub.label,
+                              style: TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                        onChanged: (v) => setState(() {
+                          if (v == true) {
+                            _checkedTabIds!.add(sub.id);
+                          } else {
+                            _checkedTabIds!.remove(sub.id);
+                          }
+                        }),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -148,48 +290,12 @@ class _TabConfigTabState extends State<TabConfigTab> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 4,
-                    children: _allNavItems
-                        .where((item) => item.id != 'actualiser' && item.id != 'a_propos')
-                        .map((item) {
-                      final checked = _checkedTabIds!.contains(item.id);
-                      return SizedBox(
-                        width: 200,
-                        child: Material(
-                          color: Colors.transparent,
-                          child: CheckboxListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            controlAffinity: ListTileControlAffinity.leading,
-                            value: checked,
-                            activeColor: AppColors.accent,
-                            title: Row(
-                              children: [
-                                Icon(item.icon, size: 15, color: AppColors.textMuted),
-                                const SizedBox(width: 6),
-                                Text(
-                                  item.label,
-                                  style: TextStyle(
-                                    color: AppColors.textPrimary,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            onChanged: (v) => setState(() {
-                              if (v == true) {
-                                _checkedTabIds!.add(item.id);
-                              } else {
-                                _checkedTabIds!.remove(item.id);
-                              }
-                            }),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
+                  ...kAllNavItems
+                      .where(
+                        (item) =>
+                            item.id != 'actualiser' && item.id != 'a_propos',
+                      )
+                      .map(_buildParentCheckbox),
                 ],
               ],
               if (_error != null) ...[

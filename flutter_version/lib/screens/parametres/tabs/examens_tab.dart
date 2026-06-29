@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../models/parametres.dart';
+import '../../../state/auth_state.dart';
 import '../../../state/parametres_state.dart';
 import '../../../state/reference_data_state.dart';
 import '../../../theme/app_theme.dart';
@@ -23,12 +24,58 @@ const _evaluationLabels = {
 class ExamensTab extends StatelessWidget {
   const ExamensTab({super.key});
 
+  Future<void> _confirmDelete(BuildContext context, ParamExamRecord e, ParametresState state) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Supprimer'),
+        content: Text('Supprimer le paramètre "${e.niveauName} — ${e.anneeAcademique}" ?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    final error = await state.deleteExamen(e.id);
+    if (!context.mounted) return;
+    if (error != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+  }
+
+  void _showDetail(BuildContext context, ParamExamRecord e) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Détails — Paramètre Examen'),
+        content: ParamDetailTable(rows: [
+          ('Cycle', e.niveauName),
+          ('Évaluation', _evaluationLabels[e.evaluationPar] ?? e.evaluationPar),
+          ('Année académique', e.anneeAcademique),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Fermer')),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = context.watch<ParametresState>();
+    final subs = context.watch<AuthState>().visibleSubItems('settings');
+    final canAjouter = subs == null || subs.contains('ajouter');
+    final canModifier = subs == null || subs.contains('modifier');
+    final canSupprimer = subs == null || subs.contains('supprimer');
+    final canVoir = subs == null || subs.contains('voir');
+
     return ParamTabCard(
       title: 'Paramètres des Examens',
       subtitle: "Configurez les méthodes d'évaluation par cycle et année",
+      canAdd: canAjouter,
       onAdd: () => showDialog(context: context, builder: (_) => const _ExamenFormDialog()),
       isLoading: state.examenLoading,
       error: state.examenError,
@@ -49,12 +96,29 @@ class ExamensTab extends StatelessWidget {
               style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600))),
           DataCell(BadgePill(label: _evaluationLabels[e.evaluationPar] ?? e.evaluationPar, colorKey: 'sky')),
           DataCell(Text(e.anneeAcademique, style: TextStyle(color: AppColors.textMuted))),
-          DataCell(
-            IconButton(
-              icon: Icon(Icons.edit_outlined, size: 16, color: AppColors.textMuted),
-              onPressed: () => showDialog(context: context, builder: (_) => _ExamenFormDialog(record: e)),
-            ),
-          ),
+          DataCell(Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (canVoir)
+                IconButton(
+                  tooltip: 'Voir',
+                  icon: const Icon(Icons.remove_red_eye_outlined, size: 16, color: Color(0xFF34D399)),
+                  onPressed: () => _showDetail(context, e),
+                ),
+              if (canModifier)
+                IconButton(
+                  tooltip: 'Modifier',
+                  icon: Icon(Icons.edit_outlined, size: 16, color: AppColors.accentLight),
+                  onPressed: () => showDialog(context: context, builder: (_) => _ExamenFormDialog(record: e)),
+                ),
+              if (canSupprimer)
+                IconButton(
+                  tooltip: 'Supprimer',
+                  icon: const Icon(Icons.delete_outline, size: 16, color: AppColors.danger),
+                  onPressed: () => _confirmDelete(context, e, state),
+                ),
+            ],
+          )),
         ]);
       }).toList(),
     );
@@ -152,3 +216,4 @@ class _ExamenFormDialogState extends State<_ExamenFormDialog> {
     );
   }
 }
+

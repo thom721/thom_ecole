@@ -48,6 +48,32 @@ class ParamDialogShell extends StatelessWidget {
   }
 }
 
+/// Table clé/valeur pour les dialogues de détail des onglets Paramètres.
+class ParamDetailTable extends StatelessWidget {
+  const ParamDetailTable({super.key, required this.rows});
+  final List<(String, String)> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return Table(
+      columnWidths: const {0: IntrinsicColumnWidth(), 1: FlexColumnWidth()},
+      children: rows.map((r) {
+        return TableRow(children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+            child: Text(r.$1, style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+            child: Text(r.$2,
+                style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w500, fontSize: 13)),
+          ),
+        ]);
+      }).toList(),
+    );
+  }
+}
+
 /// Ligne d'actions "Fermer" / "Enregistrer ou Modifier" — identique dans
 /// chaque modale de Parametres.vue (DangerButton + PrimaryButton).
 class ParamDialogActions extends StatelessWidget {

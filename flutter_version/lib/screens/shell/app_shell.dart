@@ -60,6 +60,57 @@ const List<NavItem> kSecondaryNavItems = [
 
 const List<NavItem> kAllNavItems = [...kMainNavItems, ...kSecondaryNavItems];
 
+class NavSubItem {
+  const NavSubItem(this.id, this.label, this.icon);
+  /// Format "parentId.sousId" — même format utilisé dans accessible_tabs.
+  final String id;
+  final String label;
+  final IconData icon;
+}
+
+/// Sous-onglets configurables par rôle. La clé est l'ID de l'onglet parent.
+/// L'ID de chaque sous-onglet suit le format "parentId.sousId" pour être
+/// stocké directement dans accessible_tabs sans collision avec les IDs
+/// d'onglets principaux.
+const Map<String, List<NavSubItem>> kSubNavItems = {
+  'home': [
+    NavSubItem('home.suivi_paiement', 'Suivi de paiement', Icons.show_chart_outlined),
+    NavSubItem('home.stats_etudiant', 'Statistiques étudiants', Icons.groups_outlined),
+    NavSubItem('home.classes', 'Détail des classes', Icons.apartment_outlined),
+  ],
+  'etudiant': [
+    NavSubItem('etudiant.badge', 'Générer badge', Icons.badge_outlined),
+  ],
+  'vente': [
+    NavSubItem('vente.vente', 'Vente', Icons.point_of_sale_outlined),
+    NavSubItem('vente.produits', 'Produits', Icons.inventory_2_outlined),
+    NavSubItem('vente.depenses', 'Dépenses', Icons.payments_outlined),
+    NavSubItem('vente.prets', 'Prêts', Icons.handshake_outlined),
+    NavSubItem('vente.payroll', 'Payroll', Icons.account_balance_wallet_outlined),
+    NavSubItem('vente.transactions', 'Autre transaction', Icons.receipt_long_outlined),
+  ],
+  'profile': [
+    NavSubItem('profile.ecole', "Profil de l'école", Icons.apartment_outlined),
+    NavSubItem('profile.compte', 'Mon compte', Icons.manage_accounts_outlined),
+    NavSubItem('profile.roles', 'Rôles', Icons.group_outlined),
+    NavSubItem('profile.permissions', 'Permissions', Icons.lock_outline),
+    NavSubItem('profile.vues', 'Vues', Icons.visibility_outlined),
+  ],
+  'settings': [
+    NavSubItem('settings.exams', 'Examens', Icons.fact_check_outlined),
+    NavSubItem('settings.facultes', 'Facultés', Icons.school_outlined),
+    NavSubItem('settings.annees', 'Années', Icons.calendar_today_outlined),
+    NavSubItem('settings.classes', 'Classes', Icons.apartment_outlined),
+    NavSubItem('settings.paiements', 'Paiements', Icons.credit_card_outlined),
+    NavSubItem('settings.frais', 'Frais', Icons.receipt_long_outlined),
+    NavSubItem('settings.frais_divers', 'Frais Divers', Icons.receipt_outlined),
+    NavSubItem('settings.ajouter', 'Ajouter', Icons.add_circle_outline),
+    NavSubItem('settings.modifier', 'Modifier', Icons.edit_outlined),
+    NavSubItem('settings.supprimer', 'Supprimer', Icons.delete_outline),
+    NavSubItem('settings.voir', 'Voir détails', Icons.remove_red_eye_outlined),
+  ],
+};
+
 const _sidebarExpandedWidth = 240.0;
 // 68 pile suffisait en théorie pour le logo replié (36 + 16+16 de padding)
 // mais la bordure droite du conteneur (BorderSide, 1px) est automatiquement
@@ -196,7 +247,7 @@ class _AppShellState extends State<AppShell> {
                 Icon(
                   item.icon,
                   size: 18,
-                  color: selected ? AppColors.accent : AppColors.textMuted,
+                  color: selected ? AppColors.accent : AppColors.sidebarTextMuted,
                 ),
                 if (!_isCollapsed) ...[
                   const SizedBox(width: 10),
@@ -208,7 +259,7 @@ class _AppShellState extends State<AppShell> {
                         fontSize: 13.5,
                         color: selected
                             ? AppColors.accent
-                            : AppColors.textMuted,
+                            : AppColors.sidebarTextMuted,
                         fontWeight: selected
                             ? FontWeight.w600
                             : FontWeight.normal,
@@ -264,7 +315,7 @@ class _AppShellState extends State<AppShell> {
                   decoration: BoxDecoration(
                     color: AppColors.sidebarBg,
                     border: Border(
-                      right: BorderSide(color: AppColors.borderSubtle),
+                      right: BorderSide(color: AppColors.sidebarBorder),
                     ),
                   ),
                   // En-tête et pied (profil) fixes, seule la nav défile dans
@@ -283,7 +334,7 @@ class _AppShellState extends State<AppShell> {
                         ),
                         decoration: BoxDecoration(
                           border: Border(
-                            bottom: BorderSide(color: AppColors.borderSubtle),
+                            bottom: BorderSide(color: AppColors.sidebarBorder),
                           ),
                         ),
                         child: Row(
@@ -315,12 +366,13 @@ class _AppShellState extends State<AppShell> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text('Lekol360', style: AppTheme.serif(15)),
+                                    Text('Lekol360',
+                                        style: AppTheme.serif(15, color: AppColors.sidebarText)),
                                     Text(
                                       'Espace Admin',
                                       style: TextStyle(
                                         fontSize: 11,
-                                        color: AppColors.textMuted,
+                                        color: AppColors.sidebarTextMuted,
                                       ),
                                     ),
                                   ],
@@ -345,7 +397,7 @@ class _AppShellState extends State<AppShell> {
                                       style: TextStyle(
                                         fontSize: 10,
                                         letterSpacing: 1.2,
-                                        color: AppColors.textMuted,
+                                        color: AppColors.sidebarTextMuted,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -365,7 +417,7 @@ class _AppShellState extends State<AppShell> {
                                         style: TextStyle(
                                           fontSize: 10,
                                           letterSpacing: 1.2,
-                                          color: AppColors.textMuted,
+                                          color: AppColors.sidebarTextMuted,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
@@ -373,7 +425,7 @@ class _AppShellState extends State<AppShell> {
                                   else
                                     Divider(
                                       height: 16,
-                                      color: AppColors.borderSubtle,
+                                      color: AppColors.sidebarBorder,
                                     ),
                                   ...secondaryItems.map(_navTile),
                                 ],
@@ -391,7 +443,7 @@ class _AppShellState extends State<AppShell> {
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           border: Border(
-                            top: BorderSide(color: AppColors.borderSubtle),
+                            top: BorderSide(color: AppColors.sidebarBorder),
                           ),
                         ),
                         child: Row(
@@ -414,8 +466,8 @@ class _AppShellState extends State<AppShell> {
                               child: Text(
                                 (auth.user?.email ?? '?').characters.first
                                     .toUpperCase(),
-                                style: TextStyle(
-                                  color: AppColors.appBg,
+                                style: const TextStyle(
+                                  color: Colors.white,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
                                 ),
@@ -427,9 +479,9 @@ class _AppShellState extends State<AppShell> {
                                 child: Text(
                                   auth.user?.email ?? '',
                                   overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 12.5,
-                                    color: AppColors.textPrimary,
+                                    color: AppColors.sidebarText,
                                   ),
                                 ),
                               ),
@@ -522,15 +574,15 @@ class _ThemeToggleTile extends StatelessWidget {
                   ? MainAxisAlignment.center
                   : MainAxisAlignment.start,
               children: [
-                Icon(icon, size: 18, color: AppColors.textMuted),
+                Icon(icon, size: 18, color: AppColors.sidebarTextMuted),
                 if (!collapsed) ...[
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       isDark ? 'Thème sombre' : 'Thème clair',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 13.5,
-                        color: AppColors.textMuted,
+                        color: AppColors.sidebarTextMuted,
                       ),
                     ),
                   ),

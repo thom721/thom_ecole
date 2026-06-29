@@ -31,9 +31,9 @@ STORAGE_PATH='/static/'
 
 
 conf = ConnectionConfig(
-    MAIL_USERNAME="noreply@software.link",
+    MAIL_USERNAME="software@infini-software.cloud",
     MAIL_PASSWORD="", # Ne pas laisser vide !
-    MAIL_FROM="noreply@software.link",
+    MAIL_FROM="software@infini-software.cloud",
     MAIL_PORT=587,                          # Port standard pour SSL
     MAIL_SERVER="smtp.titan.email",
     MAIL_STARTTLS=True,                    # Désactivé car on est en SSL direct
@@ -145,9 +145,9 @@ class SimpleSettings:
     # Email (optionnel)
     SMTP_HOST: Optional[str] = os.getenv("SMTP_HOST","smtp.hostinger.com")
     SMTP_PORT: Optional[int] = int(os.getenv("SMTP_PORT")) if os.getenv("SMTP_PORT") else None
-    SMTP_USER: Optional[str] = os.getenv("SMTP_USER","noreply@infini-software.cloud")
-    SMTP_PASSWORD: Optional[str] = os.getenv("SMTP_PASSWORD","@Janvier1991")
-    MAIL_FROM: Optional[str] = os.getenv("MAIL_FROM","noreply@infini-software.cloud")
+    SMTP_USER: Optional[str] = os.getenv("SMTP_USER","software@infini-software.cloud")
+    SMTP_PASSWORD: Optional[str] = os.getenv("SMTP_PASSWORD","Janvier@21@")
+    MAIL_FROM: Optional[str] = os.getenv("MAIL_FROM","software@infini-software.cloud")
     MAIL_FROM_NAME: Optional[str] = os.getenv("MAIL_FROM_NAME",'Lekol 360')
     # Redis (optionnel pour cache)
     REDIS_URL: Optional[str] = os.getenv("REDIS_URL")

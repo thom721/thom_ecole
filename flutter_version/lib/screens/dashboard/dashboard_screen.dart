@@ -78,25 +78,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     String mask(Object value) => canSeeRealNumbers ? value.toString() : '********';
 
+    // Contrôle par sous-onglet "home.*" (configurable dans Vues par rôle) :
+    // null → pas de restriction (toutes les sections visibles).
+    final homeSubs = context.watch<AuthState>().visibleSubItems('home');
+    bool homeSub(String id) => homeSubs == null || homeSubs.contains(id);
+
     final cards = [
       _DashCard(
         title: 'Étudiant',
         value: mask(stats.etudiant),
         icon: Icons.groups_outlined,
         colorKey: 'blue',
-        showExpand: true,
-        expandEnabled: canSeeRealNumbers,
+        showExpand: homeSub('stats_etudiant'),
+        expandEnabled: canSeeRealNumbers && homeSub('stats_etudiant'),
         active: _activeSection == _ActiveSection.etudiant,
         onExpand: () => _toggle(_ActiveSection.etudiant),
       ),
       _DashCard(
-        title: 'Paiement',
+        title: 'Suivi paiement',
         value: canSeeRealNumbers ? stats.paiement.toStringAsFixed(1) : '******',
         devise: stats.devise,
-        icon: Icons.credit_card_outlined,
+        icon: Icons.show_chart_outlined,
         colorKey: 'emerald',
-        showExpand: true,
-        expandEnabled: canSeeRealNumbers,
+        showExpand: homeSub('suivi_paiement'),
+        expandEnabled: canSeeRealNumbers && homeSub('suivi_paiement'),
         active: _activeSection == _ActiveSection.paiement,
         onExpand: () => _toggle(_ActiveSection.paiement),
       ),
@@ -105,22 +110,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
         value: mask(stats.professeur),
         icon: Icons.workspace_premium_outlined,
         colorKey: 'violet',
-        showExpand: true,
+        showExpand: false,
       ),
       _DashCard(
         title: 'Personnel',
         value: mask(stats.personnel),
         icon: Icons.badge_outlined,
         colorKey: 'cyan',
-        showExpand: true,
+        showExpand: false,
       ),
       _DashCard(
         title: 'Classe',
         value: mask(stats.classes),
         icon: Icons.apartment_outlined,
         colorKey: 'amber',
-        showExpand: true,
-        expandEnabled: canSeeRealNumbers,
+        showExpand: homeSub('classes'),
+        expandEnabled: canSeeRealNumbers && homeSub('classes'),
         active: _activeSection == _ActiveSection.classe,
         onExpand: () => _toggle(_ActiveSection.classe),
       ),
@@ -130,21 +135,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
         value: mask(7),
         icon: Icons.event_busy_outlined,
         colorKey: 'rose',
-        showExpand: true,
+        showExpand: false,
       ),
       _DashCard(
         title: 'Cours',
         value: mask(stats.cours),
         icon: Icons.menu_book_outlined,
         colorKey: 'sky',
-        showExpand: true,
+        showExpand: false,
       ),
       _DashCard(
         title: 'Cours programmés',
         value: mask(94),
         icon: Icons.calendar_month_outlined,
         colorKey: 'purple',
-        showExpand: true,
+        showExpand: false,
       ),
     ];
 
@@ -184,12 +189,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
               },
             ),
             if (_activeSection != null) ...[
-              const SizedBox(height: 24),
-              switch (_activeSection!) {
-                _ActiveSection.etudiant => EtudiantStatsPanel(),
-                _ActiveSection.paiement => PaiementStatsPanel(),
-                _ActiveSection.classe => _ClasseDetailsTable(details: stats.classeDetails),
-              },
+              // Ne pas afficher le panneau si son sous-onglet a été masqué
+              // par la configuration "Vues" du rôle de l'utilisateur.
+              if (_activeSection == _ActiveSection.paiement && homeSub('suivi_paiement') ||
+                  _activeSection == _ActiveSection.etudiant && homeSub('stats_etudiant') ||
+                  _activeSection == _ActiveSection.classe && homeSub('classes')) ...[
+                const SizedBox(height: 24),
+                switch (_activeSection!) {
+                  _ActiveSection.etudiant => EtudiantStatsPanel(),
+                  _ActiveSection.paiement => PaiementStatsPanel(),
+                  _ActiveSection.classe => _ClasseDetailsTable(details: stats.classeDetails),
+                },
+              ],
             ],
           ],
         ),

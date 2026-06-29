@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../models/parametres.dart';
+import '../../../state/auth_state.dart';
 import '../../../state/parametres_state.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/badge_pill.dart';
@@ -16,12 +17,60 @@ String _fmt(DateTime d) =>
 class AnneesTab extends StatelessWidget {
   const AnneesTab({super.key});
 
+  Future<void> _confirmDelete(
+      BuildContext context, AnneeAcademiqueRecord a, ParametresState state) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Supprimer'),
+        content: Text('Supprimer l\'année académique "${a.anneeAcademique}" ?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    final error = await state.deleteAnnee(a.id);
+    if (!context.mounted) return;
+    if (error != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+  }
+
+  void _showDetail(BuildContext context, AnneeAcademiqueRecord a) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Détails — Année Académique'),
+        content: ParamDetailTable(rows: [
+          ('Année', a.anneeAcademique),
+          ('Début', a.dateDebut),
+          ('Fin', a.dateFin),
+          ('Statut', a.status ? 'Actif' : 'Inactif'),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Fermer')),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = context.watch<ParametresState>();
+    final subs = context.watch<AuthState>().visibleSubItems('settings');
+    final canAjouter = subs == null || subs.contains('ajouter');
+    final canModifier = subs == null || subs.contains('modifier');
+    final canSupprimer = subs == null || subs.contains('supprimer');
+    final canVoir = subs == null || subs.contains('voir');
+
     return ParamTabCard(
       title: 'Années Académiques',
       subtitle: 'Définissez les périodes scolaires actives',
+      canAdd: canAjouter,
       onAdd: () => showDialog(context: context, builder: (_) => const _AnneeFormDialog()),
       isLoading: state.anneeLoading,
       error: state.anneeError,
@@ -48,12 +97,30 @@ class AnneesTab extends StatelessWidget {
             colorKey: a.status ? 'emerald' : 'cyan',
             dot: true,
           )),
-          DataCell(
-            IconButton(
-              icon: Icon(Icons.edit_outlined, size: 16, color: AppColors.textMuted),
-              onPressed: () => showDialog(context: context, builder: (_) => _AnneeFormDialog(record: a)),
-            ),
-          ),
+          DataCell(Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (canVoir)
+                IconButton(
+                  tooltip: 'Voir',
+                  icon: const Icon(Icons.remove_red_eye_outlined, size: 16, color: Color(0xFF34D399)),
+                  onPressed: () => _showDetail(context, a),
+                ),
+              if (canModifier)
+                IconButton(
+                  tooltip: 'Modifier',
+                  icon: Icon(Icons.edit_outlined, size: 16, color: AppColors.accentLight),
+                  onPressed: () =>
+                      showDialog(context: context, builder: (_) => _AnneeFormDialog(record: a)),
+                ),
+              if (canSupprimer)
+                IconButton(
+                  tooltip: 'Supprimer',
+                  icon: const Icon(Icons.delete_outline, size: 16, color: AppColors.danger),
+                  onPressed: () => _confirmDelete(context, a, state),
+                ),
+            ],
+          )),
         ]);
       }).toList(),
     );
@@ -166,7 +233,8 @@ class _DatePickerField extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: InputDecorator(
-        decoration: InputDecoration(labelText: label, suffixIcon: const Icon(Icons.calendar_today_outlined, size: 16)),
+        decoration:
+            InputDecoration(labelText: label, suffixIcon: const Icon(Icons.calendar_today_outlined, size: 16)),
         child: Text(
           value == null ? '' : _fmt(value!),
           style: TextStyle(color: AppColors.textPrimary),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../models/parametres.dart';
+import '../../../state/auth_state.dart';
 import '../../../state/parametres_state.dart';
 import '../../../state/reference_data_state.dart';
 import '../../../theme/app_theme.dart';
@@ -9,21 +10,64 @@ import '../../../widgets/param_dialog.dart';
 import '../../../widgets/param_tab_card.dart';
 
 /// Onglet "Frais Divers" — feature 100% bureau (school_client:
-/// Helper/Components/Frais_divers.py, déclenchée par btn_frais_divers →
-/// frais_divers_params_page(), Main.py:13424), absente du frontend web
-/// (Parametres.vue n'a pas ce tab). Mêmes endpoints que le bureau réel :
-/// v1/frais-divers-index (liste paginée) et v1/frais-divers-store (créer/
-/// modifier). Colonne "Description" volontairement vide en pratique — voir
-/// le commentaire sur FraisDiversRecord (lib/models/parametres.dart).
+/// Helper/Components/Frais_divers.py), absente du frontend web.
 class FraisDiversTab extends StatelessWidget {
   const FraisDiversTab({super.key});
+
+  Future<void> _confirmDelete(
+      BuildContext context, FraisDiversRecord f, ParametresState state) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Supprimer'),
+        content: Text('Supprimer le frais divers "${f.niveauName} — ${f.anneeAcademique}" ?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    final error = await state.deleteFraisDivers(f.id);
+    if (!context.mounted) return;
+    if (error != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+  }
+
+  void _showDetail(BuildContext context, FraisDiversRecord f) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Détails — Frais Divers'),
+        content: ParamDetailTable(rows: [
+          ('Cycle', f.niveauName),
+          ('Année académique', f.anneeAcademique),
+          ('Description', f.description.isEmpty ? '—' : f.description),
+          ('Prix', '${f.prix}'),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Fermer')),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<ParametresState>();
+    final subs = context.watch<AuthState>().visibleSubItems('settings');
+    final canAjouter = subs == null || subs.contains('ajouter');
+    final canModifier = subs == null || subs.contains('modifier');
+    final canSupprimer = subs == null || subs.contains('supprimer');
+    final canVoir = subs == null || subs.contains('voir');
+
     return ParamTabCard(
       title: 'Frais Divers',
       subtitle: 'Frais ponctuels par cycle et année (uniforme, carte, etc.)',
+      canAdd: canAjouter,
       onAdd: () => showDialog(context: context, builder: (_) => const _FraisDiversFormDialog()),
       isLoading: state.fraisDiversLoading,
       error: state.fraisDiversError,
@@ -46,13 +90,32 @@ class FraisDiversTab extends StatelessWidget {
           DataCell(Text(f.description.isEmpty ? '—' : f.description,
               style: TextStyle(color: AppColors.textMuted))),
           DataCell(Text('${f.prix}',
-              style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700, fontFamily: 'monospace'))),
-          DataCell(
-            IconButton(
-              icon: Icon(Icons.edit_outlined, size: 16, color: AppColors.textMuted),
-              onPressed: () => showDialog(context: context, builder: (_) => _FraisDiversFormDialog(record: f)),
-            ),
-          ),
+              style: TextStyle(
+                  color: AppColors.textPrimary, fontWeight: FontWeight.w700, fontFamily: 'monospace'))),
+          DataCell(Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (canVoir)
+                IconButton(
+                  tooltip: 'Voir',
+                  icon: const Icon(Icons.remove_red_eye_outlined, size: 16, color: Color(0xFF34D399)),
+                  onPressed: () => _showDetail(context, f),
+                ),
+              if (canModifier)
+                IconButton(
+                  tooltip: 'Modifier',
+                  icon: Icon(Icons.edit_outlined, size: 16, color: AppColors.accentLight),
+                  onPressed: () =>
+                      showDialog(context: context, builder: (_) => _FraisDiversFormDialog(record: f)),
+                ),
+              if (canSupprimer)
+                IconButton(
+                  tooltip: 'Supprimer',
+                  icon: const Icon(Icons.delete_outline, size: 16, color: AppColors.danger),
+                  onPressed: () => _confirmDelete(context, f, state),
+                ),
+            ],
+          )),
         ]);
       }).toList(),
     );
@@ -71,20 +134,18 @@ class _FraisDiversFormDialog extends StatefulWidget {
 class _FraisDiversFormDialogState extends State<_FraisDiversFormDialog> {
   String? _niveauId;
   String? _anneeAcId;
-  final _descriptionController = TextEditingController();
-  final _prixController = TextEditingController();
+  late final TextEditingController _descriptionController;
+  late final TextEditingController _prixController;
   String? _error;
 
   @override
   void initState() {
     super.initState();
     final r = widget.record;
-    if (r != null) {
-      _niveauId = r.niveauId;
-      _anneeAcId = r.anneeAcId;
-      _descriptionController.text = r.description;
-      _prixController.text = '${r.prix}';
-    }
+    _niveauId = r?.niveauId;
+    _anneeAcId = r?.anneeAcId;
+    _descriptionController = TextEditingController(text: r?.description ?? '');
+    _prixController = TextEditingController(text: r == null ? '' : '${r.prix}');
   }
 
   @override

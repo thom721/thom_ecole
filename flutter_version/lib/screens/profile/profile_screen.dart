@@ -299,6 +299,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Recalcule les sections visibles pour choisir un fallback si _section
+    // a été masquée par un changement de configuration de rôle.
+    final auth = context.watch<AuthState>();
+    final sub = auth.visibleSubItems('profile');
+    bool subOk(String id) => sub == null || sub.contains(id);
+    final visibleSections = <_ProfileSection>[
+      if (!auth.isBaseUser && subOk('ecole')) _ProfileSection.ecole,
+      if (subOk('compte')) _ProfileSection.compte,
+      if (!auth.isBaseUser && auth.permissions.contains('Voir role') && subOk('roles'))
+        _ProfileSection.roles,
+      if (!auth.isBaseUser && auth.permissions.contains('Voir permission') && subOk('permissions'))
+        _ProfileSection.permissions,
+      if (!auth.isBaseUser && auth.permissions.contains('Voir role') && subOk('vues'))
+        _ProfileSection.vues,
+    ];
+    final effectiveSection = visibleSections.contains(_section)
+        ? _section
+        : (visibleSections.isNotEmpty ? visibleSections.first : _ProfileSection.compte);
+
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -308,7 +327,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 16),
           Expanded(
             child: SingleChildScrollView(
-              child: switch (_section) {
+              child: switch (effectiveSection) {
                 _ProfileSection.ecole => _buildEcoleSection(),
                 _ProfileSection.compte => _buildCompteSection(),
                 _ProfileSection.roles => RoleAssignmentTab(),
@@ -334,8 +353,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             borderRadius: BorderRadius.circular(12),
             onTap: () {
               setState(() => _section = value);
-              if (value == _ProfileSection.compte && !_compteLoadedOnce)
+              if (value == _ProfileSection.compte && !_compteLoadedOnce) {
                 _loadCompte();
+              }
             },
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -372,12 +392,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // un rôle "user" nu ("isBaseUser") n'a accès qu'à "Mon compte" ; les
     // sections Rôles/Permissions exigent en plus les permissions "Voir
     // role"/"Voir permission" (adProfile.vue:371,417).
+    // En plus : visibleSubItems('profile') peut restreindre davantage selon
+    // la configuration "Vues" du rôle (accessible_tabs "profile.xxx").
     final auth = context.watch<AuthState>();
-    final canSeeEcole = !auth.isBaseUser;
+    final sub = auth.visibleSubItems('profile');
+    bool subOk(String id) => sub == null || sub.contains(id);
+    final canSeeEcole = !auth.isBaseUser && subOk('ecole');
+    final canSeeCom = subOk('compte');
     final canSeeRoles =
-        !auth.isBaseUser && auth.permissions.contains('Voir role');
+        !auth.isBaseUser && auth.permissions.contains('Voir role') && subOk('roles');
     final canSeePermissions =
-        !auth.isBaseUser && auth.permissions.contains('Voir permission');
+        !auth.isBaseUser && auth.permissions.contains('Voir permission') && subOk('permissions');
+    final canSeeVues = canSeeRoles && subOk('vues');
 
     return Container(
       padding: const EdgeInsets.all(6),
@@ -395,7 +421,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               "Profil de l'école",
               Icons.account_balance_outlined,
             ),
-          pill(_ProfileSection.compte, 'Mon compte', Icons.person_outline),
+          if (canSeeCom)
+            pill(_ProfileSection.compte, 'Mon compte', Icons.person_outline),
           if (canSeeRoles)
             pill(_ProfileSection.roles, 'Rôles', Icons.badge_outlined),
           if (canSeePermissions)
@@ -404,7 +431,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               'Permissions',
               Icons.lock_outline,
             ),
-          if (canSeeRoles)
+          if (canSeeVues)
             pill(
               _ProfileSection.vues,
               'Vues',

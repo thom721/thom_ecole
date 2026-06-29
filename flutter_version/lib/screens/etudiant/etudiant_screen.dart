@@ -102,8 +102,8 @@ class _EtudiantScreenState extends State<EtudiantScreen> {
         _mode = _Mode.edit;
       });
 
-  void _openBadge() => setState(() {
-        _selectedStudent = null;
+  void _openBadge([Student? s]) => setState(() {
+        _selectedStudent = s;
         _mode = _Mode.badge;
       });
 
@@ -178,7 +178,7 @@ class _EtudiantScreenState extends State<EtudiantScreen> {
           ),
           Expanded(
             child: switch (_mode) {
-              _Mode.badge => BadgeScreen(),
+              _Mode.badge => BadgeScreen(initialStudent: _selectedStudent),
               _Mode.diplome => const _DeadSearchTablePage(title: 'Diplôme'),
               _Mode.certificat => const _DeadSearchTablePage(title: 'Certificat'),
               _ => EtudiantDetailScreen(
@@ -192,8 +192,13 @@ class _EtudiantScreenState extends State<EtudiantScreen> {
     }
 
     final state = context.watch<StudentsState>();
-    final roles = context.watch<AuthState>().roles;
+    final auth = context.watch<AuthState>();
+    final roles = auth.roles;
     final canWrite = _canWrite(roles);
+    // Sous-onglet "etudiant.badge" : configurable dans Vues par rôle.
+    // null = pas de restriction → bouton badge visible pour tous.
+    final etudiantSubs = auth.visibleSubItems('etudiant');
+    final canSeeBadgeButton = etudiantSubs == null || etudiantSubs.contains('badge');
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -339,6 +344,12 @@ class _EtudiantScreenState extends State<EtudiantScreen> {
                                 tooltip: 'Modifier',
                                 icon: Icon(Icons.edit_outlined, size: 17, color: AppColors.accentLight),
                                 onPressed: () => _openEdit(s),
+                              ),
+                            if (canSeeBadgeButton)
+                              IconButton(
+                                tooltip: 'Badge',
+                                icon: const Icon(Icons.badge_outlined, size: 17, color: Color(0xFFF472B6)),
+                                onPressed: () => _openBadge(s),
                               ),
                             if (canWrite)
                               IconButton(

@@ -44,6 +44,12 @@ class AppColors {
   static Color get accent => _current.accent;
   static Color get accentLight => _current.accentLight;
 
+  // La sidebar reste sombre dans les deux thèmes (sobre et professionnelle) :
+  // ces couleurs sont indépendantes du thème actif.
+  static const sidebarText = Color(0xFFE8EAF0);
+  static const sidebarTextMuted = Color(0xFF7C83A0);
+  static const sidebarBorder = Color(0x12FFFFFF); // white 7%
+
   // Toujours sombre : page de connexion bureau (school_client), indépendante
   // du choix clair/sombre de l'application principale.
   static const loginBg = Color(0xFF0D0D14);
@@ -126,15 +132,15 @@ const _dark = _Palette(
 
 const _light = _Palette(
   appBg: Color(0xFFF4F5F8),
-  sidebarBg: Color(0xFFFFFFFF),
+  sidebarBg: Color(0xFF171B26), // sidebar sombre dans les deux thèmes
   cardBg: Color(0xFFFFFFFF),
   panelBg: Color(0xFFEEF0F5),
   inputBg: Color(0xFFFFFFFF),
-  borderSubtle: Color(0x14000000), // black 8%
+  borderSubtle: Color(0x14000000), // black 8% (contenu principal)
   borderHover: Color(0x21000000), // black 13%
   hoverOverlay: Color(0x0A000000), // black 4%
-  textPrimary: Color(0xFF1A1E2A),
-  textMuted: Color(0xFF6B7280),
+  textPrimary: Color(0xFF0D1117),
+  textMuted: Color(0xFF4B5565), // plus foncé pour lisibilité
   accent: Color(0xFF2E6BD6),
   accentLight: Color(0xFF4F8EF7),
 );
@@ -195,13 +201,15 @@ class AppTheme {
       ),
       dataTableTheme: DataTableThemeData(
         headingTextStyle: TextStyle(
-          color: AppColors.textMuted,
+          color: brightness == Brightness.light ? const Color(0xFFE8EAF0) : AppColors.textMuted,
           fontWeight: FontWeight.w600,
           fontSize: 11,
           letterSpacing: 0.6,
         ),
         dataTextStyle: TextStyle(color: AppColors.textPrimary.withValues(alpha: 0.85), fontSize: 13),
-        headingRowColor: const WidgetStatePropertyAll(Colors.transparent),
+        headingRowColor: WidgetStatePropertyAll(
+          brightness == Brightness.light ? const Color(0xFF1E2742) : Colors.transparent,
+        ),
         dataRowColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.hovered)) return AppColors.hoverOverlay;
           return Colors.transparent;

@@ -14,6 +14,7 @@ class ParamTabCard extends StatelessWidget {
     required this.onAdd,
     required this.columns,
     required this.rows,
+    this.canAdd = true,
     this.currentPage,
     this.lastPage,
     this.onPageChange,
@@ -26,6 +27,7 @@ class ParamTabCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onAdd;
+  final bool canAdd;
   final List<DataColumn> columns;
   final List<DataRow> rows;
   final int? currentPage;
@@ -65,17 +67,18 @@ class ParamTabCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                TextButton.icon(
-                  onPressed: onAdd,
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Ajouter'),
-                  style: TextButton.styleFrom(
-                    backgroundColor: AppColors.accent.withValues(alpha: 0.15),
-                    foregroundColor: AppColors.accentLight,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                if (canAdd)
+                  TextButton.icon(
+                    onPressed: onAdd,
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('Ajouter'),
+                    style: TextButton.styleFrom(
+                      backgroundColor: AppColors.accent.withValues(alpha: 0.15),
+                      foregroundColor: AppColors.accentLight,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
                   ),
-                ),
               ],
             ),
           ),

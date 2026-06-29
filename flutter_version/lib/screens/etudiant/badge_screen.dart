@@ -3,12 +3,13 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:camera_macos/camera_macos.dart';
+import 'package:camera/camera.dart';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import '../../core/print_gate.dart';
 import '../../models/student.dart';
 import '../../services/template_store.dart';
 import '../../state/profile_state.dart';
@@ -66,7 +67,13 @@ const _templates = {'template_badge_1': 'Template 1', 'template_badge_2': 'Templ
 /// vérifié explicitement. Les coordonnées reprises ici sont déjà la copie
 /// fidèle des QRect/drawText réels du bureau.
 class BadgeScreen extends StatefulWidget {
-  const BadgeScreen({super.key});
+  /// [initialStudent] : pré-sélectionne un étudiant si ouvert depuis la
+  /// ligne de la liste (icône badge par étudiant) — équivalent de
+  /// on_row_clicked_badge() (school_client, Main.py), qui ouvrait directement
+  /// la page badge avec l'étudiant cliqué déjà chargé.
+  const BadgeScreen({super.key, this.initialStudent});
+
+  final Student? initialStudent;
 
   @override
   State<BadgeScreen> createState() => _BadgeScreenState();
@@ -91,10 +98,11 @@ class _BadgeScreenState extends State<BadgeScreen> {
   int _expMonth = DateTime.now().month;
   int _expYear = DateTime.now().year;
 
-  // ── Caméra USB (camera_macos) ───────────────────────────────────────────
-  List<CameraMacOSDevice> _devices = [];
-  CameraMacOSDevice? _selectedDevice;
-  CameraMacOSController? _cameraController;
+  // ── Caméra USB (camera — cross-platform : macOS + Windows + Linux) ─────
+  List<CameraDescription> _cameras = [];
+  CameraDescription? _selectedCamera;
+  CameraController? _cameraController;
+  bool _cameraInitialized = false;
   bool _previewRunning = false;
 
   // ── Rescan auto des périphériques (stop_search_cam, Main.py:5665) ──────
@@ -113,9 +121,11 @@ class _BadgeScreenState extends State<BadgeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final profile = context.read<ProfileState>();
       if (profile.profile == null) profile.load();
+      // Pré-sélection si ouvert depuis la liste étudiant avec un étudiant donné.
+      if (widget.initialStudent != null) _selectStudent(widget.initialStudent!);
     });
-    _loadDevices();
-    _scanTimer = Timer.periodic(const Duration(seconds: 2), (_) => _loadDevices());
+    _loadCameras();
+    _scanTimer = Timer.periodic(const Duration(seconds: 2), (_) => _loadCameras());
     _loadTemplates();
   }
 
@@ -132,18 +142,26 @@ class _BadgeScreenState extends State<BadgeScreen> {
     _ipController.dispose();
     _scanTimer?.cancel();
     _ipPollTimer?.cancel();
-    _cameraController?.destroy();
+    _cameraController?.dispose();
     super.dispose();
   }
 
-  Future<void> _loadDevices() async {
+  /// Équivalent de listDevices() (camera_macos) — utilise le package
+  /// cross-platform `camera` (macOS + Windows + Linux).
+  Future<void> _loadCameras() async {
     try {
-      final devices = await CameraMacOS.instance.listDevices(deviceType: CameraMacOSDeviceType.video);
+      final cameras = await availableCameras();
       if (!mounted) return;
       setState(() {
-        _devices = devices;
-        if (_selectedDevice != null && !_devices.any((d) => d.deviceId == _selectedDevice!.deviceId)) {
-          _selectedDevice = null;
+        _cameras = cameras;
+        // Si la caméra sélectionnée a disparu (débranché), réinitialiser.
+        if (_selectedCamera != null &&
+            !_cameras.any((c) => c.name == _selectedCamera!.name)) {
+          _selectedCamera = null;
+          _cameraController?.dispose();
+          _cameraController = null;
+          _cameraInitialized = false;
+          _previewRunning = false;
         }
       });
     } catch (_) {
@@ -156,9 +174,34 @@ class _BadgeScreenState extends State<BadgeScreen> {
   void _toggleScan() {
     setState(() => _scanActive = !_scanActive);
     if (_scanActive) {
-      _scanTimer = Timer.periodic(const Duration(seconds: 2), (_) => _loadDevices());
+      _scanTimer = Timer.periodic(const Duration(seconds: 2), (_) => _loadCameras());
     } else {
       _scanTimer?.cancel();
+    }
+  }
+
+  /// Démarre l'aperçu USB via CameraController (camera package).
+  Future<void> _startUsbPreview() async {
+    final camera = _selectedCamera!;
+    final ctrl = CameraController(
+      camera,
+      ResolutionPreset.medium,
+      enableAudio: false,
+    );
+    try {
+      await ctrl.initialize();
+      if (!mounted) {
+        await ctrl.dispose();
+        return;
+      }
+      setState(() {
+        _cameraController = ctrl;
+        _cameraInitialized = true;
+        _previewRunning = true;
+      });
+    } catch (e) {
+      await ctrl.dispose();
+      if (mounted) setState(() => _error = 'Impossible d\'initialiser la caméra : $e');
     }
   }
 
@@ -245,7 +288,7 @@ class _BadgeScreenState extends State<BadgeScreen> {
       setState(() {
         _isIpCamera = true;
         _error = null;
-        _selectedDevice = null;
+        _selectedCamera = null;
       });
     } catch (_) {
       if (!mounted) return;
@@ -279,8 +322,8 @@ class _BadgeScreenState extends State<BadgeScreen> {
       if (_isIpCamera) {
         setState(() => _previewRunning = true);
         _startIpPolling();
-      } else if (_selectedDevice != null) {
-        setState(() => _previewRunning = true);
+      } else if (_selectedCamera != null) {
+        await _startUsbPreview();
       } else {
         setState(() => _error = 'Sélectionnez une caméra.');
       }
@@ -294,13 +337,15 @@ class _BadgeScreenState extends State<BadgeScreen> {
         _photoBytes = _ipPreviewBytes;
         _previewRunning = false;
       });
-    } else {
-      final file = await _cameraController?.takePicture();
-      await _cameraController?.destroy();
+    } else if (_cameraController != null && _cameraInitialized) {
+      final file = await _cameraController!.takePicture();
+      final bytes = await file.readAsBytes();
+      await _cameraController!.dispose();
       setState(() {
-        if (file?.bytes != null) _photoBytes = file!.bytes;
+        _photoBytes = Uint8List.fromList(bytes);
         _previewRunning = false;
         _cameraController = null;
+        _cameraInitialized = false;
       });
     }
   }
@@ -376,6 +421,7 @@ class _BadgeScreenState extends State<BadgeScreen> {
   }
 
   Future<void> _onGenerer() async {
+    if (!canPrintNonReceipt(context)) return;
     final png = await _generate(sync: false);
     if (!mounted || png == null) return;
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Badge généré et ouvert.')));
@@ -516,14 +562,8 @@ class _BadgeScreenState extends State<BadgeScreen> {
       content = _ipPreviewBytes != null
           ? Image.memory(_ipPreviewBytes!, fit: BoxFit.contain, gaplessPlayback: true)
           : const Center(child: CircularProgressIndicator());
-    } else if (_previewRunning && _selectedDevice != null) {
-      content = CameraMacOSView(
-        key: ValueKey(_selectedDevice!.deviceId),
-        deviceId: _selectedDevice!.deviceId,
-        cameraMode: CameraMacOSMode.photo,
-        enableAudio: false,
-        onCameraInizialized: (controller) => setState(() => _cameraController = controller),
-      );
+    } else if (_previewRunning && _cameraController != null && _cameraInitialized) {
+      content = CameraPreview(_cameraController!);
     } else {
       content = Center(
         child: Icon(Icons.videocam_off_outlined, color: AppColors.textMuted, size: 32),
@@ -642,16 +682,22 @@ class _BadgeScreenState extends State<BadgeScreen> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  initialValue: _isIpCamera ? 'ip' : _selectedDevice?.deviceId,
+                  initialValue: _isIpCamera ? 'ip' : _selectedCamera?.name,
                   decoration: const InputDecoration(labelText: 'Choisir La camera', isDense: true),
                   items: [
-                    ..._devices.map((d) => DropdownMenuItem(value: d.deviceId, child: Text(d.localizedName ?? d.deviceId))),
+                    ..._cameras.map((c) => DropdownMenuItem(
+                          value: c.name,
+                          child: Text(c.name, overflow: TextOverflow.ellipsis),
+                        )),
                     if (_isIpCamera) const DropdownMenuItem(value: 'ip', child: Text('Camera ip')),
                   ],
                   onChanged: (v) {
                     if (v == 'ip') return;
+                    _cameraController?.dispose();
                     setState(() {
-                      _selectedDevice = _devices.firstWhere((d) => d.deviceId == v);
+                      _selectedCamera = _cameras.firstWhere((c) => c.name == v);
+                      _cameraController = null;
+                      _cameraInitialized = false;
                       _previewRunning = false;
                     });
                   },

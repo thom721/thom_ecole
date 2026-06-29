@@ -24,6 +24,34 @@ class AuthState extends ChangeNotifier {
   bool isLoading = false;
   String? errorMessage;
 
+  /// Équivalent de self.access_key (Controllers/Main.py:279, 1551) :
+  /// code de statut extrait de heart_autos.descript ("{user_id}--{code}"),
+  /// écrit exclusivement par infini-software via POST /activate-state.
+  /// Vaut "22" quand l'installation est autorisée, autre valeur (ex: "23")
+  /// quand révoquée. Non initialisé = "0" (bloque les impressions).
+  String _accessKey = '0';
+
+  /// Équivalent de self.access_key_info (Main.py:280, 1552) :
+  /// même code extrait de users.client_infos (3ème segment UUID, 2 premiers
+  /// caractères), mis à jour au même moment par la même opération infini-software.
+  /// Les deux doivent être "22" pour que canPrintNonReceipt() laisse passer.
+  String _accessKeyInfo = '0';
+
+  /// Vrai quand les deux codes sont "22" — équivalent du test
+  /// `access_key == '22' and access_key_info == access_key` (Main.py:3739).
+  /// Seuls les reçus court-circuitent ce test (voir print_gate.dart).
+  bool get isLicenseAuthorized =>
+      _accessKey == '22' && _accessKeyInfo == _accessKey;
+
+  /// Équivalent de get_client_autorisation() (Main.py:1455-1462) :
+  /// extrait les 2 premiers caractères du 3ème segment du UUID client_infos.
+  static String _extractClientCode(String clientInfos) {
+    final parts = clientInfos.split('-');
+    if (parts.length < 3) return '0';
+    final seg = parts[2];
+    return seg.length >= 2 ? seg.substring(0, 2) : '0';
+  }
+
   bool get isLoggedIn => user != null;
 
   /// Mêmes boutons que roles_boutons dans Controllers/Main.py connect_buttons()
@@ -104,6 +132,21 @@ class AuthState extends ChangeNotifier {
   /// profil ne voit que l'onglet "Mon compte" dans ProfileScreen.
   bool get isBaseUser => roles.length == 1 && roles.contains('user');
 
+  /// Retourne les IDs de sous-onglets visibles pour un onglet parent (ex:
+  /// 'vente', 'profile', 'settings'). null = pas de restriction (tout visible).
+  /// Quand accessible_tabs contient au moins une entrée "parentId.sousId", seuls
+  /// ces sous-onglets sont montrés ; si aucune entrée de ce préfixe n'existe le
+  /// parent est entièrement libre (aucune restriction de sous-onglets).
+  Set<String>? visibleSubItems(String parentId) {
+    if (_accessibleTabs == null) return null;
+    final prefix = '$parentId.';
+    final sub = _accessibleTabs!
+        .where((id) => id.startsWith(prefix))
+        .map((id) => id.substring(prefix.length))
+        .toSet();
+    return sub.isEmpty ? null : sub;
+  }
+
   Set<String> get visibleNavItems {
     // Quand le serveur envoie tab_ids (liste non-null), on l'utilise directement.
     // Quand tab_ids est null (au moins un rôle = accès total), on retombe sur
@@ -114,6 +157,21 @@ class AuthState extends ChangeNotifier {
       items.addAll(roleNavItems[role] ?? const []);
     }
     return items;
+  }
+
+  /// Équivalent de la double extraction dans handle_authorization_success()
+  /// (Main.py:1548-1552) : lit les deux codes de statut écrits exclusivement
+  /// par infini-software via POST /activate-state → get_all_user().
+  void _parseAccessKeys(Map<String, dynamic> userJson) {
+    // access_key ← heart_auto['descript'].split('--')[1]  (Main.py:1550-1551)
+    final heartAuto = userJson['heart_auto'] as Map<String, dynamic>?;
+    final descript = heartAuto?['descript']?.toString() ?? '';
+    final parts = descript.split('--');
+    _accessKey = parts.length >= 2 ? parts[1] : '0';
+
+    // access_key_info ← get_client_autorisation(client_infos)  (Main.py:1552)
+    final clientInfos = userJson['client_infos']?.toString() ?? '';
+    _accessKeyInfo = _extractClientCode(clientInfos);
   }
 
   Future<bool> login(String email, String password) async {
@@ -164,6 +222,7 @@ class AuthState extends ChangeNotifier {
           .toList();
       final tabIds = data['tab_ids'] as List?;
       _accessibleTabs = tabIds?.map((e) => e.toString()).toList();
+      _parseAccessKeys(userJson);
 
       await _tokenStorage.saveToken(data['token']?.toString() ?? '');
       await _tokenStorage.saveUserEmail(email);
@@ -228,6 +287,7 @@ class AuthState extends ChangeNotifier {
           .toList();
       final tabIdsChange = data['tab_ids'] as List?;
       _accessibleTabs = tabIdsChange?.map((e) => e.toString()).toList();
+      _parseAccessKeys(userJson);
 
       await _tokenStorage.saveToken(data['token']?.toString() ?? '');
       return true;
@@ -255,6 +315,8 @@ class AuthState extends ChangeNotifier {
     roles = [];
     permissions = [];
     _accessibleTabs = null;
+    _accessKey = '0';
+    _accessKeyInfo = '0';
     await _tokenStorage.clear();
     notifyListeners();
   }

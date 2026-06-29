@@ -422,6 +422,80 @@ class ParametresState extends ChangeNotifier {
     }
   }
 
+  // ── Méthodes de suppression ────────────────────────────────────────────
+  // Les boutons "Supprimer" étaient visuellement présents dans Parametres.vue
+  // mais non câblés ; on tente les endpoints REST standard DELETE /{resource}/{id}.
+
+  Future<String?> deleteExamen(String id) async {
+    try {
+      await _apiClient.delete('paramsExam/$id');
+      await loadExamens(page: examenCurrentPage);
+      return null;
+    } catch (e) {
+      return _extractError(e);
+    }
+  }
+
+  Future<String?> deleteFaculte(String id) async {
+    try {
+      await _apiClient.delete('faculte/$id');
+      await loadFacultes(page: faculteCurrentPage);
+      return null;
+    } catch (e) {
+      return _extractError(e);
+    }
+  }
+
+  Future<String?> deleteAnnee(String id) async {
+    try {
+      await _apiClient.delete('anneeAcademique/$id');
+      await loadAnnees(page: anneeCurrentPage);
+      return null;
+    } catch (e) {
+      return _extractError(e);
+    }
+  }
+
+  Future<String?> deleteClasse(String id) async {
+    try {
+      await _apiClient.delete('classes/$id');
+      await loadClasses(page: classeCurrentPage);
+      return null;
+    } catch (e) {
+      return _extractError(e);
+    }
+  }
+
+  Future<String?> deleteFrais(String id) async {
+    try {
+      await _apiClient.delete('fraisDinscription/$id');
+      await loadFrais();
+      return null;
+    } catch (e) {
+      return _extractError(e);
+    }
+  }
+
+  Future<String?> deleteFraisDivers(String id) async {
+    try {
+      await _apiClient.delete('frais-divers/$id');
+      await loadFraisDivers(page: fraisDiversCurrentPage);
+      return null;
+    } catch (e) {
+      return _extractError(e);
+    }
+  }
+
+  Future<String?> deletePaiementParam(String id) async {
+    try {
+      await _apiClient.delete('parametrePaiement/$id');
+      await loadPaiementParams(page: paiementParamCurrentPage);
+      return null;
+    } catch (e) {
+      return _extractError(e);
+    }
+  }
+
   String _extractError(Object e) {
     if (e is DioException) {
       final data = e.response?.data;

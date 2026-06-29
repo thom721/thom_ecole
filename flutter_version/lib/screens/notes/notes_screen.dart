@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/print_gate.dart';
 import '../../models/note.dart';
 import '../../state/note_state.dart';
 import '../../state/reference_data_state.dart';
@@ -57,6 +58,7 @@ class _NotesScreenState extends State<NotesScreen> {
   }
 
   Future<void> _printRow(CoursEtudiantRecord row) async {
+    if (!canPrintNonReceipt(context)) return;
     final selection = _periodeSelection[row.id];
     if (selection == null) return;
     final isUniversitaire = row.niveauName == 'Universitaire';
@@ -243,6 +245,7 @@ class _MassBulletinDialogState extends State<_MassBulletinDialog> {
   String? _error;
 
   Future<void> _submit() async {
+    if (!canPrintNonReceipt(context)) return;
     if (_anneeNom == null || _mois == null || _classeId == null) {
       setState(() => _error = 'Année, mois et classe sont requis.');
       return;
