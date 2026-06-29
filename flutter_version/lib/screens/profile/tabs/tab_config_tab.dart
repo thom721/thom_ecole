@@ -99,7 +99,7 @@ class _TabConfigTabState extends State<TabConfigTab> {
     final hasSubs = kSubNavItems.containsKey(item.id);
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Material(
           color: Colors.transparent,
