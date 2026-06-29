@@ -66,10 +66,12 @@ class ExamensTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<ParametresState>();
-    final subs = context.watch<AuthState>().visibleSubItems('settings');
-    final canAjouter = subs == null || subs.contains('ajouter');
-    final canModifier = subs == null || subs.contains('modifier');
-    final canSupprimer = subs == null || subs.contains('supprimer');
+    final auth = context.watch<AuthState>();
+    final subs = auth.visibleSubItems('settings');
+    final canWrite = auth.roles.contains('admin');
+    final canAjouter = canWrite && (subs == null || subs.contains('ajouter'));
+    final canModifier = canWrite && (subs == null || subs.contains('modifier'));
+    final canSupprimer = canWrite && (subs == null || subs.contains('supprimer'));
     final canVoir = subs == null || subs.contains('voir');
 
     return ParamTabCard(
