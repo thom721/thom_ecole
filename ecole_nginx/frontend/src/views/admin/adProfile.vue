@@ -126,6 +126,93 @@ const assignPermission = async () => {
   }
 }
 
+/* ── VUES PAR RÔLE ── */
+const ALL_NAV = [
+  { id: 'home',      label: 'Dashboard',     subs: [
+    { id: 'home.suivi_paiement', label: 'Suivi de paiement' },
+    { id: 'home.stats_etudiant', label: 'Statistiques étudiants' },
+    { id: 'home.classes',        label: 'Détail des classes' },
+  ]},
+  { id: 'admin',     label: 'Administration', subs: [] },
+  { id: 'etudiant',  label: 'Étudiant',       subs: [
+    { id: 'etudiant.badge', label: 'Générer badge' },
+  ]},
+  { id: 'promus',    label: 'Promus',         subs: [] },
+  { id: 'prof',      label: 'Professeur',     subs: [] },
+  { id: 'cours',     label: 'Cours',          subs: [] },
+  { id: 'notes',     label: 'Notes',          subs: [] },
+  { id: 'presences', label: 'Présences',      subs: [] },
+  { id: 'paiement',  label: 'Paiement',       subs: [] },
+  { id: 'vente',     label: 'Finances',       subs: [
+    { id: 'vente.vente',         label: 'Vente' },
+    { id: 'vente.produits',      label: 'Produits' },
+    { id: 'vente.depenses',      label: 'Dépenses' },
+    { id: 'vente.prets',         label: 'Prêts' },
+    { id: 'vente.payroll',       label: 'Payroll' },
+    { id: 'vente.transactions',  label: 'Autre transaction' },
+  ]},
+  { id: 'rapport',   label: 'Rapport',        subs: [] },
+  { id: 'settings',  label: 'Paramètres',     subs: [
+    { id: 'settings.exams',        label: 'Examens' },
+    { id: 'settings.facultes',     label: 'Facultés' },
+    { id: 'settings.annees',       label: 'Années' },
+    { id: 'settings.classes',      label: 'Classes' },
+    { id: 'settings.paiements',    label: 'Paiements' },
+    { id: 'settings.frais',        label: 'Frais' },
+    { id: 'settings.frais_divers', label: 'Frais Divers' },
+  ]},
+  { id: 'log',        label: 'Log',           subs: [] },
+  { id: 'abonnement', label: 'Abonnement',    subs: [] },
+]
+
+const vuesRoleId   = ref('')
+const vuesAllTabs  = ref(true)
+const vuesChecked  = ref([])
+const vuesLoad     = ref(false)
+
+const selectRoleForVues = () => {
+  const role = allRole.value.find(r => r.id === vuesRoleId.value)
+  if (!role || role.accessible_tabs == null) {
+    vuesAllTabs.value = true
+    vuesChecked.value = []
+  } else {
+    vuesAllTabs.value = false
+    vuesChecked.value = [...role.accessible_tabs]
+  }
+}
+
+const toggleTab = (id, subs) => {
+  if (vuesChecked.value.includes(id)) {
+    const subIds = subs.map(s => s.id)
+    vuesChecked.value = vuesChecked.value.filter(t => t !== id && !subIds.includes(t))
+  } else {
+    vuesChecked.value = [...vuesChecked.value, id]
+  }
+}
+
+const toggleSub = (subId) => {
+  if (vuesChecked.value.includes(subId))
+    vuesChecked.value = vuesChecked.value.filter(t => t !== subId)
+  else
+    vuesChecked.value = [...vuesChecked.value, subId]
+}
+
+const submitVues = async () => {
+  if (!vuesRoleId.value) return
+  vuesLoad.value = true
+  try {
+    const tabs = vuesAllTabs.value ? null : vuesChecked.value
+    await axios.patch(BASE_URL + `/roles/${vuesRoleId.value}/tabs`, { accessible_tabs: tabs })
+    const idx = allRole.value.findIndex(r => r.id === vuesRoleId.value)
+    if (idx >= 0) allRole.value[idx].accessible_tabs = tabs
+    notify('Vues du rôle mises à jour !')
+  } catch {
+    notify('Erreur lors de la mise à jour.', false)
+  } finally {
+    vuesLoad.value = false
+  }
+}
+
 /* ── MODAL RECHERCHE ── */
 const showModal    = ref(false)
 const activeModal  = ref('role')
@@ -485,6 +572,89 @@ onMounted(async () => {
             </div>
           </form>
         </div>
+      </div>
+
+      <!-- ════════════════════════════════════════
+           SECTION : VUES PAR RÔLE
+      ════════════════════════════════════════ -->
+      <div v-if="!authStore.isBaseUser && hasPermission('Voir role')" class="flex items-center gap-3 mb-5">
+        <div class="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-[16px] shrink-0">👁</div>
+        <div>
+          <h1 class="text-[15px] font-bold text-[#e8eaf0] leading-tight">Vues par rôle</h1>
+          <p class="text-[12px] text-[#7c83a0]">Choisissez quels onglets chaque rôle peut voir</p>
+        </div>
+      </div>
+
+      <div v-if="!authStore.isBaseUser && hasPermission('Voir role')" class="bg-[#161b26] rounded-2xl border border-white/[0.07] p-6 mb-6">
+        <!-- Sélecteur de rôle -->
+        <div class="mb-5 max-w-xs">
+          <label class="field-label">Rôle</label>
+          <div class="relative mt-1.5">
+            <select v-model="vuesRoleId" @change="selectRoleForVues" class="dark-select">
+              <option value="" disabled>Choisir un rôle…</option>
+              <option v-for="role in allRole" :key="role.id" :value="role.id">{{ role.name }}</option>
+            </select>
+          </div>
+        </div>
+
+        <template v-if="vuesRoleId">
+          <!-- Accès total -->
+          <label class="flex items-center gap-2.5 p-2.5 rounded-xl border cursor-pointer mb-4 transition-all"
+            :class="vuesAllTabs ? 'border-sky-500/35 bg-sky-500/[0.08]' : 'border-white/[0.06] bg-[#0d1117]/50'">
+            <input type="checkbox" v-model="vuesAllTabs" @change="vuesAllTabs && (vuesChecked = [])" class="sr-only" />
+            <span class="relative w-8 h-4 rounded-full transition-colors shrink-0"
+              :class="vuesAllTabs ? 'bg-sky-500' : 'bg-white/[0.08]'">
+              <span class="absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all"
+                :class="vuesAllTabs ? 'left-[18px]' : 'left-0.5'"></span>
+            </span>
+            <span class="text-[13px] font-semibold text-[#c9d1d9]">Accès total (tous les onglets)</span>
+          </label>
+
+          <template v-if="!vuesAllTabs">
+            <p class="text-[11px] font-semibold tracking-widest text-[#7c83a0] uppercase mb-3">Onglets autorisés</p>
+            <div class="space-y-0.5">
+              <template v-for="item in ALL_NAV" :key="item.id">
+                <!-- Onglet parent -->
+                <label class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-white/[0.02] transition-colors">
+                  <input type="checkbox" :checked="vuesChecked.includes(item.id)" @change="toggleTab(item.id, item.subs)" class="sr-only" />
+                  <span class="relative w-8 h-4 rounded-full transition-colors shrink-0"
+                    :class="vuesChecked.includes(item.id) ? 'bg-sky-500' : 'bg-white/[0.06]'">
+                    <span class="absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all"
+                      :class="vuesChecked.includes(item.id) ? 'left-[18px]' : 'left-0.5'"></span>
+                  </span>
+                  <span class="text-[12px] font-medium text-[#c9d1d9]">{{ item.label }}</span>
+                </label>
+
+                <!-- Sous-onglets (si parent coché et a des sous-items) -->
+                <div v-if="vuesChecked.includes(item.id) && item.subs.length"
+                  class="ml-8 pl-3 border-l border-white/[0.05] mb-1">
+                  <div class="flex flex-wrap gap-2 py-2">
+                    <label v-for="sub in item.subs" :key="sub.id"
+                      class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border cursor-pointer transition-all text-[11px]"
+                      :class="vuesChecked.includes(sub.id)
+                        ? 'border-sky-500/35 bg-sky-500/[0.08] text-sky-300'
+                        : 'border-white/[0.06] bg-[#0d1117]/50 text-[#7c83a0] hover:border-sky-500/20'">
+                      <input type="checkbox" :checked="vuesChecked.includes(sub.id)" @change="toggleSub(sub.id)" class="sr-only" />
+                      <span class="relative w-6 h-3 rounded-full transition-colors shrink-0"
+                        :class="vuesChecked.includes(sub.id) ? 'bg-sky-500' : 'bg-white/[0.08]'">
+                        <span class="absolute top-[1px] w-[10px] h-[10px] bg-white rounded-full shadow transition-all"
+                          :class="vuesChecked.includes(sub.id) ? 'left-[13px]' : 'left-[1px]'"></span>
+                      </span>
+                      {{ sub.label }}
+                    </label>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </template>
+
+          <div class="flex justify-end mt-5 pt-4 border-t border-white/[0.05]">
+            <button type="button" @click="submitVues" class="action-btn action-btn--blue" :disabled="vuesLoad">
+              <svg v-if="vuesLoad" class="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"/></svg>
+              <span>Enregistrer</span>
+            </button>
+          </div>
+        </template>
       </div>
 
       <!-- ════════════════════════════════════════
