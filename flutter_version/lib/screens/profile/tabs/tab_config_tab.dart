@@ -60,12 +60,20 @@ class _TabConfigTabState extends State<TabConfigTab> {
     return !_checkedTabIds!.any((id) => id.startsWith('$parentId.'));
   }
 
+  /// Marqueur local (jamais envoyé au backend, filtré dans _submit) qui
+  /// distingue "aucun id stocké car pas de restriction" de "l'utilisateur a
+  /// volontairement décoché tous les sous-onglets un par un" — sans lui, le
+  /// second cas était indiscernable du premier et _subAllChecked revenait
+  /// automatiquement à "Tous les sous-onglets" coché.
+  String _noneMarker(String parentId) => '$parentId.__none__';
+
   void _toggleSubAll(String parentId, bool allVisible) {
     final subs = kSubNavItems[parentId] ?? [];
     setState(() {
       if (allVisible) {
         _checkedTabIds!.removeWhere((id) => id.startsWith('$parentId.'));
       } else {
+        _checkedTabIds!.remove(_noneMarker(parentId));
         for (final sub in subs) {
           _checkedTabIds!.add(sub.id);
         }
@@ -79,7 +87,9 @@ class _TabConfigTabState extends State<TabConfigTab> {
       return;
     }
     setState(() => _error = null);
-    final tabs = _allTabs ? null : _checkedTabIds!.toList();
+    final tabs = _allTabs
+        ? null
+        : _checkedTabIds!.where((id) => !id.endsWith('.__none__')).toList();
     final error = await context.read<RolePermissionState>().updateRoleTabs(
       _selectedRoleId!,
       tabs,
@@ -177,8 +187,9 @@ class _TabConfigTabState extends State<TabConfigTab> {
                 runSpacing: 0,
                 children: subs.map((sub) {
                   final subChecked = _checkedTabIds!.contains(sub.id);
+                  final none = _noneMarker(parentId);
                   return SizedBox(
-                    width: 180,
+                    width: 210,
                     child: Material(
                       color: Colors.transparent,
                       child: CheckboxListTile(
@@ -191,20 +202,30 @@ class _TabConfigTabState extends State<TabConfigTab> {
                           children: [
                             Icon(sub.icon, size: 13, color: AppColors.textMuted),
                             const SizedBox(width: 5),
-                            Text(
-                              sub.label,
-                              style: TextStyle(
-                                color: AppColors.textPrimary,
-                                fontSize: 12,
+                            Expanded(
+                              child: Text(
+                                sub.label,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
                           ],
                         ),
                         onChanged: (v) => setState(() {
                           if (v == true) {
+                            _checkedTabIds!.remove(none);
                             _checkedTabIds!.add(sub.id);
                           } else {
                             _checkedTabIds!.remove(sub.id);
+                            final stillHasReal = _checkedTabIds!.any(
+                              (id) => id.startsWith('$parentId.') && id != none,
+                            );
+                            if (!stillHasReal) {
+                              _checkedTabIds!.add(none);
+                            }
                           }
                         }),
                       ),
