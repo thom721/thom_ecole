@@ -13,7 +13,7 @@ import requests
 import psutil # type: ignore
 from PySide6.QtWidgets import QApplication,QMessageBox
 from Helper.verify_key import ask_for_activation_key
-from Helper.server_key_generate import show_activation_key,delete_key,is_license_valid,get_mac_address
+from Helper.server_key_generate import show_activation_key,delete_key,is_license_valid,get_mac_address,apply_remote_licence,generate_fernet_key,decrypt_value
 from Helper.Ip_manager import Ip_manager
 from Helper.manage_activate import Manage_active
 import threading
@@ -2969,7 +2969,7 @@ class ServiceControlWindow(QWidget):
         # d'un client, puisque c'est le serveur qui doit être réactivé.
         renew_url = f"https://infini-software.cloud/renouveler?mac={get_mac_address()}"
         self.btn_verify.clicked.connect(lambda: self.verifier_cle(url_copy))
-        self.btn_verify_online.clicked.connect(lambda: self.verify_online(renew_url))
+        self.btn_verify_online.clicked.connect(lambda: self.verify_online(renew_url, url_copy))
          
         self.fram_activate_h =  QFrame()
         self.layout_h_active = QHBoxLayout(self.fram_activate_h)
@@ -3029,20 +3029,58 @@ class ServiceControlWindow(QWidget):
     def verifier_cle(self, url):
         user_input_key = self.key_input.text().strip()
         mac = get_mac_address()
-        expiration_date = 30
-        
-        if verify_activation_key_graphic(provided_key=user_input_key, mac_address=mac, days=expiration_date, url=url):
-            expiration_date_ =(datetime.utcnow() + timedelta(days=expiration_date)).strftime("%Y-%m-%d") 
+        if verify_activation_key_graphic(provided_key=user_input_key, mac_address=mac, url=url):
+            from PySide6.QtCore import QSettings
+            settings = QSettings("MonAppServer", "Licence")
+            enc_key = generate_fernet_key(mac)
+            expiration_date_ = decrypt_value(settings.value("expiration_date", ""), enc_key)
             self.fram_activate.setHidden(True)
             QMessageBox.information(self, "Succès", f"Clé valide. Expire le {expiration_date_}")
-            print(f"✅ Clé valide. mac {mac}")
+            print("✅ Clé valide.")
         else:
-            print(f"❌ Clé invalide. mac {mac}") 
-            QMessageBox.critical(self, "Erreur", f"Clé invalide ou expirée. {mac}")
-    
-    def verify_online(self, url):
-        import webbrowser
-        webbrowser.open(url)
+            print("❌ Clé invalide.")
+            QMessageBox.critical(self, "Erreur", "Clé invalide ou expirée.")
+
+    def verify_online(self, renew_url, local_url):
+        payment_id = self.key_input_payment.text().strip()
+        if not payment_id:
+            import webbrowser
+            webbrowser.open(renew_url)
+            return
+        try:
+            r = requests.get(
+                "https://infini-software.cloud/api/licence/payer/confirmer",
+                params={"payment_id": payment_id},
+                timeout=15,
+            )
+            if r.status_code != 200:
+                QMessageBox.warning(self, "Erreur", f"Paiement introuvable ({r.status_code}).")
+                return
+            data = r.json()
+            if data.get("status") != "success":
+                QMessageBox.warning(self, "Erreur", "Paiement non confirmé par infini-software.")
+                return
+            key = data.get("key", "")
+            expiration_date = data.get("expiration_date", "")
+            days_valid = data.get("days_valid")
+            from PySide6.QtCore import QSettings
+            settings = QSettings("MonAppServer", "Licence")
+            enc_key = generate_fernet_key(get_mac_address())
+            old_key = decrypt_value(settings.value("activation_key", ""), enc_key)
+            apply_remote_licence(key, expiration_date, days_valid)
+            try:
+                requests.post(
+                    f"{local_url}log-activate",
+                    json={"last_key": old_key, "new_key": key, "exprired_at": expiration_date},
+                    timeout=10,
+                    verify="C:/Program Files/ecole-serve/nginx/certs/ca.pem",
+                )
+            except Exception as e:
+                print(f"Log-activate POST failed (non-fatal): {e}")
+            self.fram_activate.setHidden(True)
+            QMessageBox.information(self, "Succès", f"Licence activée. Expire le {expiration_date}.")
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur", f"Impossible de contacter infini-software : {e}")
 
     def get_service_status(self, service_name):
         """Vérifie si un service est en cours d'exécution."""

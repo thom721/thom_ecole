@@ -56,7 +56,7 @@ def _valider_paiement(payment: Payment, db: Session) -> dict:
     db.add(licence_key)
     db.commit()
 
-    return {"status": "success", "key": key, "expiration_date": expiration_date}
+    return {"status": "success", "key": key, "expiration_date": expiration_date, "days_valid": jours_valid_ajustes}
 
 
 @router.get("/tarif", response_model=PricingConfigOut)

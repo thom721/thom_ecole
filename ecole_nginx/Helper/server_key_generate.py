@@ -352,92 +352,65 @@ def generate_activation_key_graphic(mac_address, days_valid=30):
     return formatted_key, expiration_date, days_valid
 
 
-def verify_activation_key_graphic(provided_key, mac_address, url, days=30):
+_CANDIDATE_DAYS = [30, 60, 90, 120, 180, 365]
+
+
+def verify_activation_key_graphic(provided_key, mac_address, url, days=None):
     """
-    Comme generate_activation_key_graphic ne dépend que de (mac, date
-    d'expiration, days_valid), on essaie plusieurs dates de génération
-    possibles (aujourd'hui, hier, ... jusqu'à KEY_ENTRY_GRACE_DAYS jours en
-    arrière) au lieu d'uniquement aujourd'hui : ça absorbe le décalage normal
-    entre la génération d'une clé par le support et sa saisie par le client,
-    sans rendre la clé valide indéfiniment si elle fuite.
+    Vérifie le HMAC de provided_key en essayant toutes les durées connues
+    (_CANDIDATE_DAYS) sur une fenêtre de KEY_ENTRY_GRACE_DAYS jours en arrière
+    (tolérance de saisie tardive). Si le HMAC correspond, la clé est sauvegardée
+    immédiatement dans QSettings ; le POST d'audit vers log-activate est ensuite
+    tenté mais son échec n'invalide pas la clé (non-fatal).
     """
     cleaned_key = provided_key.replace("-", "").upper()
-
     aujourdhui = datetime.utcnow().date()
+
+    days_to_try = _CANDIDATE_DAYS if days is None else sorted({days} | set(_CANDIDATE_DAYS))
+
     expected_key_cleaned = None
     expiration_date = None
-    for jours_ecoules in range(KEY_ENTRY_GRACE_DAYS + 1):
-        date_generation = aujourdhui - timedelta(days=jours_ecoules)
-        candidate_expiration = (date_generation + timedelta(days=days)).strftime("%Y-%m-%d")
-        candidate_key = _key_for_expiration_graphic(mac_address, candidate_expiration, days).replace("-", "").upper()
-        if cleaned_key == candidate_key:
-            expected_key_cleaned = candidate_key
-            expiration_date = candidate_expiration
+    matched_days = None
+
+    for candidate_days in days_to_try:
+        for jours_ecoules in range(KEY_ENTRY_GRACE_DAYS + 1):
+            date_generation = aujourdhui - timedelta(days=jours_ecoules)
+            candidate_expiration = (date_generation + timedelta(days=candidate_days)).strftime("%Y-%m-%d")
+            candidate_key = _key_for_expiration_graphic(mac_address, candidate_expiration, candidate_days).replace("-", "").upper()
+            if cleaned_key == candidate_key:
+                expected_key_cleaned = candidate_key
+                expiration_date = candidate_expiration
+                matched_days = candidate_days
+                break
+        if expected_key_cleaned is not None:
             break
 
-    if expected_key_cleaned is not None:
-        settings = QSettings("MonAppServer", "Licence")
-        activation_key = settings.value("activation_key", "")
-        expiration_date_str = settings.value("expiration_date", "")
+    if expected_key_cleaned is None:
+        return False
 
-        mac = get_mac_address()
-        encryption_key = generate_fernet_key(mac)
+    # HMAC matched — save key immediately before the network POST
+    mac = get_mac_address()
+    encryption_key = generate_fernet_key(mac)
+    settings = QSettings("MonAppServer", "Licence")
+    old_key = decrypt_value(settings.value("activation_key", ""), encryption_key)
 
-        encrypted_key = settings.value("activation_key", "")
-        
-        activation_key_ = decrypt_value(activation_key, encryption_key)
+    delete_key()
+    settings.setValue("activation_key", encrypt_value(provided_key, encryption_key))
+    settings.setValue("expiration_date", encrypt_value(expiration_date, encryption_key))
+    settings.setValue("days_valid", encrypt_value(str(matched_days), encryption_key))
 
-        # expiration_date_str = decrypt_value(encrypted_date, encryption_key)
+    # Non-fatal audit POST
+    try:
+        requests.post(
+            f"{url}log-activate",
+            json={"last_key": old_key, "new_key": provided_key, "exprired_at": expiration_date},
+            timeout=15,
+            verify="C:/Program Files/ecole-serve/nginx/certs/ca.pem",
+        )
+    except Exception as e:
+        print(f"Log-activate POST failed (non-fatal): {e}")
 
-
-        try:
-            status_code = 500
-            request_data={
-                'last_key':activation_key_,
-                'new_key':provided_key,
-                'exprired_at':expiration_date
-                    }
-
-            log_url = f"{url}log-activate"
-            response = requests.post(
-                log_url,
-                json=request_data,
-                timeout=50,verify="C:/Program Files/ecole-serve/nginx/certs/ca.pem"
-            ) 
-            status_code = response.status_code
-
-            if status_code == 200:
-                delete_key()
-                encryption_key = generate_fernet_key(get_mac_address())
-
-                encrypted_date1 = encrypt_value(expiration_date, encryption_key)
-                provided_key1 = encrypt_value(provided_key, encryption_key)
-    
-
-                settings.setValue("activation_key", provided_key1)
-                settings.setValue("expiration_date", encrypted_date1)
-                # days est conservé pour que is_license_valid() puisse
-                # revérifier le HMAC de cette clé ensuite (sinon elle reste
-                # "legacy" pour toujours et perd la protection anti-fraude).
-                settings.setValue("days_valid", encrypt_value(str(days), encryption_key))
-
-                # settings.setValue("activation_key", provided_key)
-                # settings.setValue("expiration_date", expiration_date)
-
-                license_data = {'key':provided_key,
-                'expiry_date':expiration_date,
-                # 'is_trial': False
-                }
-                # license.unlock_registry_key()
-                # license.write_license_to_registry00000(license_data)
-                # lock_registry_key()
-                return cleaned_key == expected_key_cleaned
-            else:
-                return False
-
-                
-        except Exception as e:
-            print(f"API Error: {str(e)}")
+    return True
 
 
 def lock_registry_key():

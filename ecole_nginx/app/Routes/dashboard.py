@@ -513,7 +513,14 @@ def get_abonnement(db: Session = Depends(get_db), current_user: User = Depends(g
 
     historique = db.query(LogActive).order_by(desc(LogActive.created_at)).all()
     if not historique:
-        raise HTTPException(status_code=404, detail="Aucune activation trouvée.")
+        return {
+            "actif": False,
+            "cle_actuelle": None,
+            "date_expiration": None,
+            "jours_restants": None,
+            "mac": get_host_mac(),
+            "historique": [],
+        }
 
     dernier = historique[0]
     jours_restants = None
