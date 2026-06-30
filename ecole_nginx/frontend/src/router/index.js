@@ -305,6 +305,39 @@ if (routeRole && isAuthenticated && !roles.some(r => authStore.roleNames.include
     return next({ name: 'Profile' })
   }
 
+  // Respecter accessible_tabs : bloquer la navigation directe par URL
+  const ROUTE_TAB_ID = {
+    'Dashboard':       'home',
+    'Administration':  'admin',
+    'Étudiants':       'etudiant',
+    'student-add':     'etudiant',
+    'student-view':    'etudiant',
+    'student-edit':    'etudiant',
+    'Professeurs':     'prof',
+    'Notes':           'notes',
+    'add-notes':       'notes',
+    'Cours':           'cours',
+    'add-cours':       'cours',
+    'add-programme':   'cours',
+    'Paiements':       'paiement',
+    'add-paiement':    'paiement',
+    'paiement-detail': 'paiement',
+    'Trésorerie':      'vente',
+    'Présences':       'presences',
+    'Rapport':         'rapport',
+    'Paramètres':      'settings',
+    'Abonnement':      'abonnement',
+  }
+  if (isAuthenticated && to.name !== 'Profile') {
+    const tabs = authStore.user?.tab_ids ?? null
+    if (tabs !== null) {
+      const tabId = ROUTE_TAB_ID[to.name]
+      if (tabId && !tabs.includes(tabId)) {
+        return next({ name: 'Profile' })
+      }
+    }
+  }
+
   next()
 })
 

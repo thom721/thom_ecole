@@ -191,6 +191,23 @@ const onOutsideClick = (e) => {
   }
 };
 
+// Correspondance nom d'item de nav → ID d'onglet (identique à kAllNavItems Flutter)
+const NAV_TAB_ID = {
+  'Dashboard':      'home',
+  'Administration': 'admin',
+  'Étudiants':      'etudiant',
+  'Professeurs':    'prof',
+  'Notes':          'notes',
+  'Cours':          'cours',
+  'Paiements':      'paiement',
+  'Trésorerie':     'vente',
+  'Présences':      'presences',
+  'Rapport':        'rapport',
+  'Paramètres':     'settings',
+  'Abonnement':     'abonnement',
+  'Profile':        'profile',
+}
+
 // Vérifier si un élément du menu doit être affiché selon les permissions
 const shouldShowMenuItem = (itemName) => {
   // Profil toujours visible pour tous les utilisateurs authentifiés
@@ -198,6 +215,13 @@ const shouldShowMenuItem = (itemName) => {
 
   // Utilisateurs avec seulement le rôle 'user' ne voient que Profile
   if (authStore.isBaseUser) return false;
+
+  // Respecter accessible_tabs configuré par rôle (null = accès total)
+  const tabs = authStore.user?.tab_ids ?? null;
+  if (tabs !== null) {
+    const tabId = NAV_TAB_ID[itemName];
+    if (tabId && !tabs.includes(tabId)) return false;
+  }
 
   // Vérifier les permissions spécifiques pour chaque élément du menu
   switch (itemName) {
