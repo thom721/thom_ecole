@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../state/auth_state.dart';
 import '../../state/dashboard_state.dart';
@@ -129,6 +131,55 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   String _currentPageId = 'home';
   bool _collapsed = false;
+
+  static const _kInactivityTimeout = Duration(minutes: 10);
+  static const _kCountdown = 60;
+  Timer? _inactivityTimer;
+  bool _dialogShown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _resetInactivityTimer();
+    HardwareKeyboard.instance.addHandler(_onKeyEvent);
+  }
+
+  @override
+  void dispose() {
+    _inactivityTimer?.cancel();
+    HardwareKeyboard.instance.removeHandler(_onKeyEvent);
+    super.dispose();
+  }
+
+  bool _onKeyEvent(KeyEvent event) {
+    _resetInactivityTimer();
+    return false;
+  }
+
+  void _resetInactivityTimer() {
+    _inactivityTimer?.cancel();
+    _inactivityTimer = Timer(_kInactivityTimeout, _onInactive);
+  }
+
+  void _onInactive() {
+    if (!mounted || _dialogShown) return;
+    _dialogShown = true;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _InactivityDialog(
+        countdown: _kCountdown,
+        onStay: () {
+          _dialogShown = false;
+          _resetInactivityTimer();
+        },
+        onLogout: () {
+          _dialogShown = false;
+          _logout(context.read<AuthState>());
+        },
+      ),
+    );
+  }
 
   /// _navTile() n'a pas accès à la variable locale `collapsed` calculée
   /// dans build() (qui combine _collapsed ET la largeur de fenêtre) — sans
@@ -302,7 +353,12 @@ class _AppShellState extends State<AppShell> {
         ? _sidebarCollapsedWidth
         : _sidebarExpandedWidth;
 
-    return Scaffold(
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => _resetInactivityTimer(),
+      onPointerMove: (_) => _resetInactivityTimer(),
+      onPointerSignal: (_) => _resetInactivityTimer(),
+      child: Scaffold(
       backgroundColor: AppColors.appBg,
       body: Column(
         children: [
@@ -531,6 +587,7 @@ class _AppShellState extends State<AppShell> {
           ),
         ],
       ),
+      ), // Listener
     );
   }
 }
@@ -717,6 +774,166 @@ class _TopBar extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _InactivityDialog extends StatefulWidget {
+  const _InactivityDialog({
+    required this.countdown,
+    required this.onStay,
+    required this.onLogout,
+  });
+
+  final int countdown;
+  final VoidCallback onStay;
+  final VoidCallback onLogout;
+
+  @override
+  State<_InactivityDialog> createState() => _InactivityDialogState();
+}
+
+class _InactivityDialogState extends State<_InactivityDialog> {
+  late int _remaining;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _remaining = widget.countdown;
+    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return;
+      setState(() => _remaining--);
+      if (_remaining <= 0) {
+        t.cancel();
+        Navigator.of(context).pop();
+        widget.onLogout();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = _remaining / widget.countdown;
+    const amber = Color(0xFFD4A017);
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        width: 420,
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: const Color(0xFF14141f),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: amber, width: 1.5),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 62,
+              height: 62,
+              decoration: BoxDecoration(
+                color: amber.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.warning_amber_rounded, color: amber, size: 32),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Session inactive',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 10),
+            RichText(
+              textAlign: TextAlign.center,
+              text: TextSpan(
+                style: const TextStyle(
+                  color: Color(0xFFa0a0b8),
+                  fontSize: 14,
+                  height: 1.5,
+                ),
+                children: [
+                  const TextSpan(text: 'Vous serez déconnecté dans '),
+                  TextSpan(
+                    text: '$_remaining',
+                    style: const TextStyle(
+                      color: amber,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const TextSpan(text: ' secondes en raison\nd\'inactivité.'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 6,
+                backgroundColor: const Color(0xFF2e2e3e),
+                valueColor: const AlwaysStoppedAnimation<Color>(amber),
+              ),
+            ),
+            const SizedBox(height: 28),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      widget.onLogout();
+                    },
+                    style: TextButton.styleFrom(
+                      backgroundColor: const Color(0xFF3d1515),
+                      foregroundColor: const Color(0xFFe57373),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Se déconnecter',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      widget.onStay();
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: const BorderSide(color: Color(0xFF3a3a4e)),
+                      ),
+                    ),
+                    child: const Text(
+                      'Rester connecté',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
