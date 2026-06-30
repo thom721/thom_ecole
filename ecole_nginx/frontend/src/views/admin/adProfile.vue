@@ -31,6 +31,7 @@ const profileErrors = ref({})
 
 const profileForm = ref({
   nom: '', email: '', ligne1: '', ligne2: '', adresse: '', logo_image_path: null,
+  is_receive_arriere: false,
 })
 
 const handleFileChange = (e) => {
@@ -52,6 +53,7 @@ const getProfile = async () => {
     Object.assign(profileForm.value, {
       nom: d.nom, email: d.email,
       ligne1: d.ligne1, ligne2: d.ligne2, adresse: d.adresse,
+      is_receive_arriere: d.is_receive_arriere ?? false,
     })
     if (d.logo_image_base64) logoPreview.value = d.logo_image_base64
     isEditing.value = true
@@ -328,6 +330,21 @@ onMounted(async () => {
             <div class="flex flex-col gap-1.5">
               <label class="field-label">Adresse</label>
               <input v-model="profileForm.adresse" type="text" placeholder="12 rue des Écoles, Port-au-Prince" class="field-input" />
+            </div>
+
+            <!-- Toggle arriérés -->
+            <div class="md:col-span-2 flex items-start gap-3 p-3 rounded-xl bg-[#0d1117] border border-white/[0.06]">
+              <button type="button"
+                @click="profileForm.is_receive_arriere = !profileForm.is_receive_arriere"
+                class="relative w-9 h-5 rounded-full transition-colors shrink-0 mt-0.5"
+                :class="profileForm.is_receive_arriere ? 'bg-[#4f8ef7]' : 'bg-white/[0.08]'">
+                <span class="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all"
+                  :class="profileForm.is_receive_arriere ? 'left-[18px]' : 'left-0.5'"></span>
+              </button>
+              <div>
+                <p class="text-[12px] font-semibold text-[#c9d1d9]">Vérifier les arriérés de l'année précédente</p>
+                <p class="text-[11px] text-[#7c83a0] mt-0.5">Si activé, un paiement pour l'année en cours est refusé si l'étudiant a des versements impayés de l'année précédente.</p>
+              </div>
             </div>
 
             <!-- Logo upload -->
