@@ -45,24 +45,41 @@ def _windows_ssl_args() -> str:
 
 def _candidate_configs():
     """Liste des configurations à essayer, dans l'ordre, jusqu'à ce qu'une
-    connexion réussisse. Sur Windows, reproduit l'historique (port 3307,
-    deux comptes possibles, SSL client) ; sur Mac/Linux/Docker, une seule
-    config surchargeable par variables d'env (DB_HOST/DB_PORT/... — voir
-    app_gui.py et docker-compose.yml, qui les positionnent déjà)."""
+    connexion réussisse. Si DB_NAME ou DB_PASSWORD est défini dans l'env (ou
+    dans un .env placé à côté de l'exe), cette config est testée EN PREMIER
+    sur toutes les plateformes — ce qui permet à chaque installation Windows
+    d'avoir son propre .env sans recompiler. Sur Windows, des configs par
+    défaut connues sont ensuite ajoutées en fallback."""
+    candidates = []
+
+    # Priorité 1 : variables d'environnement / fichier .env
+    if os.getenv("DB_NAME") or os.getenv("DB_PASSWORD") or os.getenv("DB_USER"):
+        candidates.append({
+            "user": os.getenv("DB_USER", "root"),
+            "db": os.getenv("DB_NAME", "lekol360"),
+            "pw": os.getenv("DB_PASSWORD", "@#1900"),
+            "host": os.getenv("DB_HOST", "localhost"),
+            "port": os.getenv("DB_PORT", "3307" if platform.system() == "Windows" else "3306"),
+            "ssl": _windows_ssl_args() if platform.system() == "Windows" else "",
+        })
+
     if platform.system() == "Windows":
         ssl_args = _windows_ssl_args()
-        return [
+        candidates += [
             {"user": "root", "db": "lemignon", "pw": "@#1900", "host": "localhost", "port": "3307", "ssl": ssl_args},
             {"user": "user_pyside", "db": "lekol360", "pw": "@#Janvier21", "host": "localhost", "port": "3307", "ssl": ssl_args},
         ]
-    return [{
-        "user": os.getenv("DB_USER", "root"),
-        "db": os.getenv("DB_NAME", "lekol360"),
-        "pw": os.getenv("DB_PASSWORD", "@#1900"),
-        "host": os.getenv("DB_HOST", "localhost"),
-        "port": os.getenv("DB_PORT", "3306"),
-        "ssl": "",
-    }]
+    elif not candidates:
+        candidates.append({
+            "user": os.getenv("DB_USER", "root"),
+            "db": os.getenv("DB_NAME", "lekol360"),
+            "pw": os.getenv("DB_PASSWORD", "@#1900"),
+            "host": os.getenv("DB_HOST", "localhost"),
+            "port": os.getenv("DB_PORT", "3306"),
+            "ssl": "",
+        })
+
+    return candidates
 
 
 def get_engine_dynamically():
