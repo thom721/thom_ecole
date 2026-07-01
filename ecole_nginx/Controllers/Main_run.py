@@ -3029,7 +3029,8 @@ class ServiceControlWindow(QWidget):
     def verifier_cle(self, url):
         user_input_key = self.key_input.text().strip()
         mac = get_mac_address()
-        if verify_activation_key_graphic(provided_key=user_input_key, mac_address=mac, url=url):
+        result = verify_activation_key_graphic(provided_key=user_input_key, mac_address=mac, url=url)
+        if result is True:
             from PySide6.QtCore import QSettings
             settings = QSettings("MonAppServer", "Licence")
             enc_key = generate_fernet_key(mac)
@@ -3037,6 +3038,9 @@ class ServiceControlWindow(QWidget):
             self.fram_activate.setHidden(True)
             QMessageBox.information(self, "Succès", f"Clé valide. Expire le {expiration_date_}")
             print("✅ Clé valide.")
+        elif result is None:
+            print("❌ Erreur serveur lors de l'activation.")
+            QMessageBox.critical(self, "Erreur", "Impossible de contacter le serveur local. Assurez-vous que le serveur est démarré, puis réessayez.")
         else:
             print("❌ Clé invalide.")
             QMessageBox.critical(self, "Erreur", "Clé invalide ou expirée.")
@@ -3067,16 +3071,18 @@ class ServiceControlWindow(QWidget):
             settings = QSettings("MonAppServer", "Licence")
             enc_key = generate_fernet_key(get_mac_address())
             old_key = decrypt_value(settings.value("activation_key", ""), enc_key)
-            apply_remote_licence(key, expiration_date, days_valid)
             try:
                 requests.post(
                     f"{local_url}log-activate",
                     json={"last_key": old_key, "new_key": key, "exprired_at": expiration_date},
                     timeout=10,
                     verify="C:/Program Files/ecole-serve/nginx/certs/ca.pem",
-                )
+                ).raise_for_status()
             except Exception as e:
-                print(f"Log-activate POST failed (non-fatal): {e}")
+                print(f"Log-activate POST failed: {e}")
+                QMessageBox.critical(self, "Erreur", "Impossible de contacter le serveur local. Assurez-vous que le serveur est démarré, puis réessayez.")
+                return
+            apply_remote_licence(key, expiration_date, days_valid)
             self.fram_activate.setHidden(True)
             QMessageBox.information(self, "Succès", f"Licence activée. Expire le {expiration_date}.")
         except Exception as e:

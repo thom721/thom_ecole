@@ -88,6 +88,27 @@ Les établissements scolaires gèrent manuellement ou via des outils disparates 
 - Bug corrigé sur `AskingResponse` (`/asking`) qui provoquait un 500 systématique et empêchait la transmission du bundle de certificats SSL au client (voir `docs/ecole_nginx.md` section 6 ter).
 - Confirmé : deux mécanismes de licence séparés coexistent (historique `log_actives` en base vs. fichier d'essai local chiffré `license_check.py`) — à unifier si l'incohérence d'affichage entre les deux écrans (Abonnement vs. fenêtre Gestion du serveur) devient gênante en usage réel.
 
+## 7 ter. Mise à jour — contrôle d'accès par onglets et déconnexion forcée (livré)
+
+### Contrôle d'accès par onglets (`accessible_tabs`)
+
+- **Paramètres** (`Parametres.vue`) : les sous-onglets (niveaux, examens, frais, etc.) sont désormais filtrés par `settings.xxx` dans `tab_ids` — si aucun sous-onglet n'est coché dans Vues pour le rôle de l'utilisateur, la page est entièrement vide. Les boutons Ajouter/Modifier/Supprimer sont cachés si l'utilisateur n'a pas la permission `"Ajouter parametre"` (calculée dans le computed `canWrite`).
+- **Dashboard** (`Dashboard.vue`) : les sections PaiementsStats, DashboardStudentStats et le détail par classe sont conditionnés par `canSeeSubTab('home.xxx')` — un utilisateur sans accès à "Suivi de paiement" ne voit pas ce bloc, même si le Dashboard parent lui est accordé.
+- **Trésorerie** (`Tresorerie.vue`) : les quatre sous-onglets (Ventes, Dépenses, Prêts, Autres transactions) sont filtrés par `vente.xxx` dans `tab_ids` ; si le sous-onglet actif disparaît lors d'un changement de droits, la vue bascule automatiquement sur le premier visible.
+- **Communauté** (`Communaute.vue`) : idem pour `communaute.evenements`, `communaute.actualites`, `communaute.annonces`.
+- **Profile** (`adProfile.vue`) : section Vues (configuration des onglets accessibles par rôle) correctement gardée par `canSeeSection('profile.vues')`.
+- **Correctif `shouldShowMenuItem`** (`AdminLayout.vue`) : la branche `'Profile'` retournait `true` sans passer par la vérification `tab_ids`, court-circuitant le contrôle pour les autres items. Corrigé.
+
+### Déconnexion forcée sur modification des onglets
+
+- **Web** : `auth.js` expose `startTabWatcher()` / `stopTabWatcher()` — interroge `/verify-token` toutes les 2 minutes et compare la signature `tab_ids` avec le snapshot pris à la connexion. Si elle a changé, `tabsModified = true`. `AdminLayout.vue` détecte ce changement via un `watch`, affiche une bannière amber avec compte à rebours de 10 secondes (Teleport vers `<body>`) et force la déconnexion/redirection vers `/login` à l'expiration.
+- **Flutter** : mêmes mécanismes dans `auth_state.dart` (`startTabWatcher`/`stopTabWatcher`, `Timer.periodic` 2 min) et `app_shell.dart` (écoute `addListener`, dialog `_TabsModifiedDialog` avec compte à rebours 10 s). La dialog propose un bouton "Se déconnecter maintenant" pour ne pas attendre.
+
+### Ajout de Communauté (web et Flutter)
+
+- `ALL_NAV` (`adProfile.vue`) et `NAV_TAB_ID` / `ROUTE_TAB_ID` (`AdminLayout.vue`, `router/index.js`) : `'Communauté'` ajouté avec ses 3 sous-items (`evenements`, `actualites`, `annonces`).
+- Flutter : `NavItem('communaute', ...)` ajouté à `kMainNavItems` ; `'communaute': [3 sous-items]` ajouté à `kSubNavItems`.
+
 ## 7. Mise à jour — installation multiplateforme (livré)
 
 Objectif ajouté en cours de projet : rendre `ecole_nginx` installable sur Mac et Linux en plus de Windows, sans modifier le comportement de l'installateur Windows existant.

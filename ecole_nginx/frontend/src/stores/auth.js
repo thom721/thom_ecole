@@ -9,7 +9,10 @@ export const useAuthStore = defineStore('auth', {
     school: null,
     token: localStorage.getItem('auth-token') || null,
     loading: false,
-    error: null
+    error: null,
+    tabsModified: false,
+    _tabWatcherTimer: null,
+    _tabSnapshot: null,
   }),
 
   getters: {
@@ -177,11 +180,47 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
-    hasRole(rolesToCheck) { 
+    startTabWatcher() {
+      if (this._tabWatcherTimer) return
+      this._tabSnapshot = JSON.stringify(this.user?.tab_ids ?? null)
+      this._tabWatcherTimer = setInterval(async () => {
+        if (!this.user) { this.stopTabWatcher(); return }
+        try {
+          const token = localStorage.getItem('auth-token')
+          const { data } = await axios.get('/verify-token', {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          const freshTabs = JSON.stringify(data.tab_ids ?? null)
+          if (freshTabs !== this._tabSnapshot) {
+            this.tabsModified = true
+            this.stopTabWatcher()
+          }
+        } catch { /* ignore network errors */ }
+      }, 120_000)
+    },
+
+    stopTabWatcher() {
+      if (this._tabWatcherTimer) {
+        clearInterval(this._tabWatcherTimer)
+        this._tabWatcherTimer = null
+      }
+    },
+
+    hasRole(rolesToCheck) {
       const checks = Array.isArray(rolesToCheck) ? rolesToCheck : [rolesToCheck];
-      const userRoles = this.roleNames;  
-      
+      const userRoles = this.roleNames;
+
       return checks.some(role => userRoles.includes(role));
+    },
+
+    hasPermission(permissionName) {
+      const perms = this.user?.permissions ?? []
+      return perms.includes(permissionName)
+    },
+
+    canSeeSubTab(subId) {
+      const tabs = this.user?.tab_ids ?? null
+      return tabs === null || tabs.includes(subId)
     },
 
     setUser(user) {

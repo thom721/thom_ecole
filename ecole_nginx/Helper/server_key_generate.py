@@ -359,9 +359,9 @@ def verify_activation_key_graphic(provided_key, mac_address, url, days=None):
     """
     Vérifie le HMAC de provided_key en essayant toutes les durées connues
     (_CANDIDATE_DAYS) sur une fenêtre de KEY_ENTRY_GRACE_DAYS jours en arrière
-    (tolérance de saisie tardive). Si le HMAC correspond, la clé est sauvegardée
-    immédiatement dans QSettings ; le POST d'audit vers log-activate est ensuite
-    tenté mais son échec n'invalide pas la clé (non-fatal).
+    (tolérance de saisie tardive).
+    Retourne True si tout réussit, False si le HMAC ne correspond pas,
+    None si le POST /log-activate échoue (la clé n'est PAS sauvegardée dans ce cas).
     """
     cleaned_key = provided_key.replace("-", "").upper()
     aujourdhui = datetime.utcnow().date()
@@ -388,27 +388,29 @@ def verify_activation_key_graphic(provided_key, mac_address, url, days=None):
     if expected_key_cleaned is None:
         return False
 
-    # HMAC matched — save key immediately before the network POST
+    # HMAC matched — POST to log-activate first; only persist key if it succeeds.
+    # Returns None on server error so the caller can show a distinct message.
     mac = get_mac_address()
     encryption_key = generate_fernet_key(mac)
     settings = QSettings("MonAppServer", "Licence")
     old_key = decrypt_value(settings.value("activation_key", ""), encryption_key)
 
-    delete_key()
-    settings.setValue("activation_key", encrypt_value(provided_key, encryption_key))
-    settings.setValue("expiration_date", encrypt_value(expiration_date, encryption_key))
-    settings.setValue("days_valid", encrypt_value(str(matched_days), encryption_key))
-
-    # Non-fatal audit POST
     try:
-        requests.post(
+        resp = requests.post(
             f"{url}log-activate",
             json={"last_key": old_key, "new_key": provided_key, "exprired_at": expiration_date},
             timeout=15,
             verify="C:/Program Files/ecole-serve/nginx/certs/ca.pem",
         )
+        resp.raise_for_status()
     except Exception as e:
-        print(f"Log-activate POST failed (non-fatal): {e}")
+        print(f"Log-activate POST failed: {e}")
+        return None
+
+    delete_key()
+    settings.setValue("activation_key", encrypt_value(provided_key, encryption_key))
+    settings.setValue("expiration_date", encrypt_value(expiration_date, encryption_key))
+    settings.setValue("days_valid", encrypt_value(str(matched_days), encryption_key))
 
     return True
 

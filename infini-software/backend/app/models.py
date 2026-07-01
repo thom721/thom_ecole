@@ -77,4 +77,7 @@ class PricingConfig(Base):
     monthly_price = Column(Float, nullable=False, default=10.0)
     currency = Column(String, nullable=False, default="USD")
     exchange_rate_usd_htg = Column(Float, nullable=False, default=132.0)
+    # Si True, la clé est générée et affichée dès que le fournisseur de paiement confirme.
+    # Si False, le paiement passe en statut "paid" et un admin doit cliquer "Activer" pour générer la clé.
+    auto_release = Column(Boolean, nullable=False, default=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

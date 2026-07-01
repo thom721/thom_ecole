@@ -87,6 +87,11 @@ Les répertoires `windows/`, `macos/`, `linux/` sont déjà scaffoldés (cibles 
 - **Bug corrigé — plafond de stock absent en édition** : `GET order-vente/{vente}` (`RVente.py show_order_items`) ne renvoyait pas `produit_id` dans sa réponse, donc une ligne rechargée en édition n'était jamais reliée à sa fiche produit et n'avait aucun plafond de stock (`stockDisponible`). Corrigé en deux temps : la route renvoie désormais `produit_id`, et `VenteState.applyStockCaps()` (appelée juste après `loadForEdit()`, dans `vente_composer_screen.dart`) résout `stockDisponible` pour chaque ligne depuis le catalogue déjà chargé (`ProduitState.items`).
 - **Bug corrigé — suppression de ligne de vente impossible** : `DELETE /order_item` (`destroy_order_item`, `RVente.py:238-240`) typait `order_item_id`/`vente_id` en `int`, alors que `OrderItem.id`/`Vente.id` sont des UUID (`CHAR(36)`) — toute suppression échouait avec une erreur de validation Pydantic (`"Input should be a valid integer, unable to parse string as an integer"`). Pré-existant, jamais exercé avant l'ajout du panneau d'édition (aucune UI n'appelait cette route auparavant). Corrigé en retypant les deux paramètres en `str`.
 
+## 7 quater. Mise à jour — Communauté, contrôle d'accès par onglets, déconnexion forcée (livré)
+
+- **Communauté** : `NavItem('communaute', 'Communauté', Icons.people_outline)` ajouté à `kMainNavItems` ; `'communaute'` avec 3 sous-items (`evenements`, `actualites`, `annonces`) ajouté à `kSubNavItems` dans `app_shell.dart`.
+- **Déconnexion forcée sur modification des droits** : `auth_state.dart` ajoute `startTabWatcher()` / `stopTabWatcher()` (polling `/verify-token` toutes les 2 minutes, comparaison par set de `tab_ids`). `app_shell.dart` écoute les changements via `addListener` et affiche `_TabsModifiedDialog` (amber, compte à rebours 10 s, bouton de déconnexion immédiate) — même conception que `_InactivityDialog` déjà en place. `logout()` stoppe le watcher et réinitialise `tabsModified`/`_tabSnapshot`.
+
 ## 7 ter. Mise à jour — autorisation par PIN (double approbation) (livré)
 
 Voir `ecole_nginx/PRD.md` §4.3 "S5" pour le détail complet du mécanisme côté serveur (`verify_dual_auth`/`DualAuthChecker`, `User.code_pin`, `Log.reason`/`Log.authorization_id`, contrainte de non-divulgation sur l'unicité des PIN). Côté `flutter_version` :

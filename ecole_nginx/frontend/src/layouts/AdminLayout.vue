@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { RouterLink, useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth';
 import { storeToRefs } from 'pinia';
@@ -204,17 +204,15 @@ const NAV_TAB_ID = {
   'Présences':      'presences',
   'Rapport':        'rapport',
   'Paramètres':     'settings',
+  'Communauté':     'communaute',
   'Abonnement':     'abonnement',
   'Profile':        'profile',
 }
 
 // Vérifier si un élément du menu doit être affiché selon les permissions
 const shouldShowMenuItem = (itemName) => {
-  // Profil toujours visible pour tous les utilisateurs authentifiés
-  if (itemName === 'Profile') return true;
-
   // Utilisateurs avec seulement le rôle 'user' ne voient que Profile
-  if (authStore.isBaseUser) return false;
+  if (authStore.isBaseUser) return itemName === 'Profile';
 
   // Respecter accessible_tabs configuré par rôle (null = accès total)
   const tabs = authStore.user?.tab_ids ?? null;
@@ -259,16 +257,44 @@ const shouldShowMenuItem = (itemName) => {
   }
 };
 
+// ── Tab-modification watcher ────────────────────────────────────
+const tabsModifiedCountdown = ref(0)
+let _countdownInterval = null
+
+const startCountdown = () => {
+  tabsModifiedCountdown.value = 10
+  _countdownInterval = setInterval(() => {
+    tabsModifiedCountdown.value--
+    if (tabsModifiedCountdown.value <= 0) {
+      clearInterval(_countdownInterval)
+      authStore.logout()
+      router.push({ name: 'login' })
+    }
+  }, 1000)
+}
+
+watch(() => authStore.tabsModified, (modified) => {
+  if (modified) startCountdown()
+})
+
+const forceLogoutNow = () => {
+  clearInterval(_countdownInterval)
+  authStore.logout()
+  router.push({ name: 'login' })
+}
+
 onMounted(async () => {
   checkMobile();
   window.addEventListener('resize', checkMobile);
   document.addEventListener('click', onOutsideClick);
   if (!authStore.user) await authStore.initializeAuth();
-  // Suppression de la vérification stricte 'admin' pour permettre aux autres rôles d'accéder
+  authStore.startTabWatcher();
 });
 onUnmounted(() => {
   window.removeEventListener('resize', checkMobile);
   document.removeEventListener('click', onOutsideClick);
+  authStore.stopTabWatcher();
+  clearInterval(_countdownInterval);
 });
 
 // Computed school name
@@ -654,6 +680,36 @@ const userEmail = computed(() => authStore.user?.user?.email ?? '');
       </div>
     </div>
   </Transition>
+
+  <!-- ── Dialog : accès modifiés ──────────────────────────────── -->
+  <Teleport to="body">
+    <Transition name="fade">
+      <div v-if="authStore.tabsModified"
+        class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div class="bg-[#161b26] border border-amber-500/30 rounded-2xl p-7 max-w-sm w-full mx-4 shadow-2xl">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
+              <svg class="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-[14px] font-bold text-amber-300">Accès modifiés</h3>
+              <p class="text-[11px] text-[#7c83a0]">Modification détectée par l'administrateur</p>
+            </div>
+          </div>
+          <p class="text-[13px] text-[#c9d1d9] leading-relaxed mb-5">
+            Vos droits d'accès ont été modifiés. Vous serez déconnecté automatiquement dans
+            <span class="font-bold text-amber-300">{{ tabsModifiedCountdown }}s</span>.
+          </p>
+          <button @click="forceLogoutNow"
+            class="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-semibold text-[13px] transition-colors">
+            Se déconnecter maintenant
+          </button>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 
 </template>
 

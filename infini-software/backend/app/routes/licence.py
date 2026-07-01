@@ -145,6 +145,12 @@ async def initier_paiement(data: PaiementCreateIn, db: Session = Depends(get_db)
     if PAYMENT_TEST_MODE:
         payment.provider_reference = order_id
         db.commit()
+        config = get_or_create_pricing_config(db)
+        if not config.auto_release:
+            payment.status = "paid"
+            db.commit()
+            return {"payment_id": payment.id, "redirect_url": None, "provider_reference": order_id,
+                    "status": "paid", "message": "Votre paiement a bien été reçu. Contactez l'administrateur pour obtenir votre clé d'activation."}
         resultat = _valider_paiement(payment, db)
         return {"payment_id": payment.id, "redirect_url": None, "provider_reference": order_id, **resultat}
 
@@ -196,5 +202,13 @@ async def confirmer_paiement(
         payment.status = "failed"
         db.commit()
         raise HTTPException(status_code=402, detail="Paiement non confirmé par le fournisseur")
+
+    config = get_or_create_pricing_config(db)
+    if not config.auto_release:
+        # Paiement confirmé par le fournisseur mais livraison manuelle requise.
+        # Statut "paid" = attendant qu'un admin clique "Activer" dans le tableau de bord.
+        payment.status = "paid"
+        db.commit()
+        return {"status": "paid", "message": "Votre paiement a bien été reçu. Contactez l'administrateur pour obtenir votre clé d'activation."}
 
     return _valider_paiement(payment, db)

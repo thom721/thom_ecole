@@ -79,6 +79,19 @@ Le personnel administratif, les caissiers et les enseignants des établissements
 - **Modules HTTP dupliqués** : la logique « URL de base + endpoint » est réimplémentée indépendamment dans au moins 8 fichiers (`Config.py`, `Models/ApiHandler.py`, `Models/enregistrement.py`, `Models/fetch_data.py`, `Models/AsyncDataHandler.py`, `Helper/Check_data.py`, plus des variantes mortes). C'est cette duplication qui a permis au bug de préfixe `/v1` manquant de passer inaperçu dans plusieurs fichiers à la fois — à factoriser pour éviter une récidive.
 - Fichiers morts confirmés non importés par l'app (`Models/AsyncDataHandlerPdf.py`, `Models/AsyncRequestHandler.py`, `Models/AsyncRequestHandler1.py`, `Models/connection.py`, `Helper/Check.py`, `Helper/Check_and_insert.py`, `Helper/Check_db.py`, `Helper/Sync_data.py`, la classe `CertificateManager` dans `Controllers/Main.py`) — candidats à suppression lors d'un prochain nettoyage.
 
+## 7 ter. Mise à jour — sécurisation de l'activation de licence (livré)
+
+### Bug corrigé : clé sauvegardée avant la confirmation serveur
+
+`verify_activation_key_graphic` (`Helper/server_key_generate.py`) sauvegardait la clé dans `QSettings` **immédiatement** après la vérification HMAC, avant le POST à `/log-activate`. Si la requête échouait (serveur non démarré, réseau), la clé était enregistrée localement sans que `heart_autos` ait été mis à jour côté serveur (statut 22 non positionné — les impressions restaient bloquées).
+
+**Correction** :
+1. Le POST à `/log-activate` est maintenant effectué **avant** tout appel à `QSettings.setValue()`. `resp.raise_for_status()` est appelé pour capturer aussi les erreurs HTTP 4xx/5xx (pas seulement les exceptions réseau).
+2. Si le POST échoue → la clé n'est **pas** sauvegardée → la fonction retourne `None` (nouveau troisième cas, distinct de `False` = HMAC invalide).
+3. `verifier_cle` (`Controllers/Main_run.py`) gère les trois cas : `True` (succès), `None` (erreur serveur → message explicite "vérifiez que le serveur est démarré"), `False` (clé invalide ou expirée).
+
+**Même correctif appliqué au flux `verify_online`** (activation via infini-software.cloud) : `apply_remote_licence` (qui écrit dans `QSettings`) est désormais appelé **après** le POST réussi à `/log-activate` ; si ce POST échoue, un message d'erreur est affiché et la fonction retourne sans sauvegarder.
+
 ## 7 bis. Mise à jour — abonnement & renouvellement (livré)
 
 - Nouvel onglet Abonnement (admin uniquement) + bouton Renouveler conditionnel, ouvrant le site `infini-software` (voir `docs/infini-software-PRD.md`) avec l'établissement pré-identifié.

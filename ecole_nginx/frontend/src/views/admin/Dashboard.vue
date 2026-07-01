@@ -12,6 +12,7 @@ import { storeToRefs } from 'pinia';
 
 const authStore = useAuthStore();
 const showFinancials = computed(() => !authStore.shouldMaskFinancials);
+const canSeeSubTab = (subId) => authStore.canSeeSubTab(subId);
 
 const schoolStore = useSchoolStore();
 const { niveau, professeur, annee, classes, faculte, cours, loading } = storeToRefs(schoolStore);
@@ -112,21 +113,21 @@ const actions = [
 </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <AdminDashComposante title="Total Étudiants"  icon="ri-group-line"        :value="stats.etudiant"      color="blue"    @show-details="toggleStudentChart(2)" />
-      <AdminDashComposante v-if="showFinancials" title="Paiements reçus" icon="ri-bank-card-line" :value="stats.paiement" color="emerald" devise="HTG" @show-details="togglePaymentChart(3)" />
+      <AdminDashComposante title="Total Étudiants"  icon="ri-group-line"        :value="stats.etudiant"      color="blue"    @show-details="canSeeSubTab('home.stats_etudiant') && toggleStudentChart(2)" />
+      <AdminDashComposante v-if="showFinancials && canSeeSubTab('home.suivi_paiement')" title="Paiements reçus" icon="ri-bank-card-line" :value="stats.paiement" color="emerald" devise="HTG" @show-details="togglePaymentChart(3)" />
       <AdminDashComposante title="Professeurs"     icon="ri-user-star-line"     :value="stats.professeur"        color="violet"  @show-details="" />
       <AdminDashComposante title="Personnel"       icon="ri-user-star-line"     :value="stats.personnel"         color="cian"    @show-details="" />
-      <AdminDashComposante title="Classes actives" icon="ri-building-line"      :value="stats.classes"           color="amber"   @show-details="toggleAccordion(1)" />
+      <AdminDashComposante title="Classes actives" icon="ri-building-line"      :value="stats.classes"           color="amber"   @show-details="canSeeSubTab('home.classes') && toggleAccordion(1)" />
       <AdminDashComposante title="Absences"        icon="ri-calendar-close-line" :value="7"                     color="rose"    @show-details="" />
       <AdminDashComposante title="Cours"           icon="ri-book-open-line"     :value="stats.cours"             color="sky"     @show-details="" />
       <AdminDashComposante title="Cours programmés" icon="ri-book-open-line"   :value="94"                      color="purple"  @show-details="" />
 
     </div>
-    <PaiementsStats v-if="openAccordionIndex===3 && showFinancials" :annee="annee" />
+    <PaiementsStats v-if="openAccordionIndex===3 && showFinancials && canSeeSubTab('home.suivi_paiement')" :annee="annee" />
 
-    <DashboardStudentStats  v-if="openAccordionIndex===2" />
+    <DashboardStudentStats v-if="openAccordionIndex===2 && canSeeSubTab('home.stats_etudiant')" />
 
-<div v-if="openAccordionIndex === 1" class="mt-4">
+<div v-if="openAccordionIndex === 1 && canSeeSubTab('home.classes')" class="mt-4">
  <!-- <h3 class=" text-gray-300 text-xl ml-4P">Détails des Classes</h3> -->
          <div class="px-4 mt-2 flex items-center gap-3">
           <div class="w-9 h-9 rounded-xl flex items-center justify-center border transition-colors border-amber-500/20 bg-amber-500/10 shrink-0">

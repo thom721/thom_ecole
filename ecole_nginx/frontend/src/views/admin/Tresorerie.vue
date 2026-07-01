@@ -247,17 +247,31 @@
 
 <script setup>
 import axios from 'axios'
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, ref, watch, computed } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 
 const url = import.meta.env.VITE_APP_BASE_URL
+const authStore = useAuthStore()
+
+const ALL_TABS = [
+  { key: 'vente',   subId: 'vente.vente',        label: 'Ventes' },
+  { key: 'depense', subId: 'vente.depenses',      label: 'Dépenses' },
+  { key: 'pret',    subId: 'vente.prets',         label: 'Prêts' },
+  { key: 'autre',   subId: 'vente.transactions',  label: 'Autres transactions' },
+]
+
+const tabs = computed(() => {
+  const tabIds = authStore.user?.tab_ids ?? null
+  if (tabIds === null) return ALL_TABS
+  return ALL_TABS.filter(t => tabIds.includes(t.subId))
+})
 
 const activeSub = ref('vente')
-const tabs = [
-  { key: 'vente',   label: 'Ventes' },
-  { key: 'depense', label: 'Dépenses' },
-  { key: 'pret',    label: 'Prêts' },
-  { key: 'autre',   label: 'Autres transactions' },
-]
+watch(tabs, (vt) => {
+  if (vt.length && !vt.find(t => t.key === activeSub.value)) {
+    activeSub.value = vt[0]?.key ?? 'vente'
+  }
+}, { immediate: true })
 
 // ── Ventes ────────────────────────────────────────────────────────────────
 const ventesCards  = ref([])

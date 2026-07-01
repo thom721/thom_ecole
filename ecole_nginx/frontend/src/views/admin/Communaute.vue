@@ -340,14 +340,16 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
 import Swal from 'sweetalert2'
 import { useSchoolStore } from '@/stores/schoolStore'
+import { useAuthStore } from '@/stores/auth'
 import { storeToRefs } from 'pinia'
 
 const url = import.meta.env.VITE_APP_BASE_URL
 const schoolStore = useSchoolStore()
+const authStore = useAuthStore()
 const { classes, niveau } = storeToRefs(schoolStore)
 
 const activeSub      = ref('evenement')
@@ -374,11 +376,24 @@ const newsImagePreview  = ref(null)
 const eventForm = ref({ title: '', description: '', location: '', start_date: '', end_date: '', audience: 'public', is_published: false })
 const newsForm  = ref({ title: '', content: '', audience: 'public', is_published: false })
 
-const tabs = computed(() => [
-  { key: 'evenement', label: 'Événements', count: evenements.value.length },
-  { key: 'actualite', label: 'Actualités',  count: actualites.value.length },
-  { key: 'annonce',   label: 'Annonces',    count: 0 },
-])
+const ALL_COMMUNITY_TABS = [
+  { key: 'evenement', subId: 'communaute.evenements', label: 'Événements' },
+  { key: 'actualite', subId: 'communaute.actualites', label: 'Actualités' },
+  { key: 'annonce',   subId: 'communaute.annonces',   label: 'Annonces' },
+]
+const tabs = computed(() => {
+  const tabIds = authStore.user?.tab_ids ?? null
+  const base = tabIds === null ? ALL_COMMUNITY_TABS : ALL_COMMUNITY_TABS.filter(t => tabIds.includes(t.subId))
+  return base.map(t => ({
+    ...t,
+    count: t.key === 'evenement' ? evenements.value.length : t.key === 'actualite' ? actualites.value.length : 0
+  }))
+})
+watch(tabs, (vt) => {
+  if (vt.length && !vt.find(t => t.key === activeSub.value)) {
+    activeSub.value = vt[0]?.key ?? 'evenement'
+  }
+}, { immediate: true })
 
 // Listes filtrées par audience
 const evenementsFiltres = computed(() => {

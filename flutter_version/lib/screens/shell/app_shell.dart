@@ -48,6 +48,7 @@ const List<NavItem> kMainNavItems = [
   NavItem('presences', 'Présences', Icons.fact_check_outlined),
   NavItem('paiement', 'Paiement', Icons.credit_card_outlined),
   NavItem('vente', 'Finances', Icons.account_balance_outlined),
+  NavItem('communaute', 'Communauté', Icons.people_outline),
   NavItem('rapport', 'Rapport', Icons.bar_chart_outlined),
   NavItem('profile', 'Profile', Icons.badge_outlined),
 ];
@@ -82,6 +83,11 @@ const Map<String, List<NavSubItem>> kSubNavItems = {
   ],
   'etudiant': [
     NavSubItem('etudiant.badge', 'Générer badge', Icons.badge_outlined),
+  ],
+  'communaute': [
+    NavSubItem('communaute.evenements', 'Événements', Icons.event_outlined),
+    NavSubItem('communaute.actualites', 'Actualités', Icons.newspaper_outlined),
+    NavSubItem('communaute.annonces', 'Annonces', Icons.campaign_outlined),
   ],
   'vente': [
     NavSubItem('vente.vente', 'Vente', Icons.point_of_sale_outlined),
@@ -136,19 +142,42 @@ class _AppShellState extends State<AppShell> {
   static const _kCountdown = 60;
   Timer? _inactivityTimer;
   bool _dialogShown = false;
+  bool _tabsDialogShown = false;
 
   @override
   void initState() {
     super.initState();
     _resetInactivityTimer();
     HardwareKeyboard.instance.addHandler(_onKeyEvent);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = context.read<AuthState>();
+      auth.startTabWatcher();
+      auth.addListener(_onAuthChanged);
+    });
   }
 
   @override
   void dispose() {
     _inactivityTimer?.cancel();
     HardwareKeyboard.instance.removeHandler(_onKeyEvent);
+    final auth = context.read<AuthState>();
+    auth.stopTabWatcher();
+    auth.removeListener(_onAuthChanged);
     super.dispose();
+  }
+
+  void _onAuthChanged() {
+    final auth = context.read<AuthState>();
+    if (auth.tabsModified && mounted && !_tabsDialogShown) {
+      _tabsDialogShown = true;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => _TabsModifiedDialog(
+          onLogout: () => _logout(context.read<AuthState>()),
+        ),
+      );
+    }
   }
 
   bool _onKeyEvent(KeyEvent event) {
@@ -931,6 +960,119 @@ class _InactivityDialogState extends State<_InactivityDialog> {
                   ),
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Dialog : accès modifiés par l'admin ─────────────────────────────────────
+class _TabsModifiedDialog extends StatefulWidget {
+  const _TabsModifiedDialog({required this.onLogout});
+  final VoidCallback onLogout;
+  @override
+  State<_TabsModifiedDialog> createState() => _TabsModifiedDialogState();
+}
+
+class _TabsModifiedDialogState extends State<_TabsModifiedDialog> {
+  static const _kCountdown = 10;
+  int _remaining = _kCountdown;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return;
+      setState(() => _remaining--);
+      if (_remaining <= 0) {
+        t.cancel();
+        Navigator.of(context).pop();
+        widget.onLogout();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const accent = Color(0xFFF59E0B);
+    final progress = _remaining / _kCountdown;
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        width: 420,
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: const Color(0xFF14141f),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: accent.withValues(alpha: 0.5), width: 1.5),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 62,
+              height: 62,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.lock_person_outlined, color: accent, size: 32),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Accès modifiés',
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            RichText(
+              textAlign: TextAlign.center,
+              text: TextSpan(
+                style: const TextStyle(color: Color(0xFFa0a0b8), fontSize: 14, height: 1.5),
+                children: [
+                  const TextSpan(text: 'Vos droits d\'accès ont été modifiés par l\'administrateur.\nDéconnexion automatique dans '),
+                  TextSpan(
+                    text: '$_remaining',
+                    style: const TextStyle(color: accent, fontWeight: FontWeight.bold),
+                  ),
+                  const TextSpan(text: ' secondes.'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 6,
+                backgroundColor: const Color(0xFF2e2e3e),
+                valueColor: const AlwaysStoppedAnimation<Color>(accent),
+              ),
+            ),
+            const SizedBox(height: 28),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  widget.onLogout();
+                },
+                style: TextButton.styleFrom(
+                  backgroundColor: accent,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('Se déconnecter maintenant', style: TextStyle(fontWeight: FontWeight.w600)),
+              ),
             ),
           ],
         ),

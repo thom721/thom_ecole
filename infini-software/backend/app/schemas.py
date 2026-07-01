@@ -81,6 +81,7 @@ class PricingConfigOut(BaseModel):
     monthly_price: float
     currency: str
     exchange_rate_usd_htg: float
+    auto_release: bool = False
     updated_at: datetime
 
     class Config:
@@ -91,6 +92,7 @@ class PricingConfigIn(BaseModel):
     monthly_price: float
     currency: str = "USD"
     exchange_rate_usd_htg: float
+    auto_release: bool = False
 
 
 class ActiverPlanIn(BaseModel):
@@ -100,3 +102,21 @@ class ActiverPlanIn(BaseModel):
     mac: str
     email: str
     months: int = 1
+
+
+class PaymentPendingOut(BaseModel):
+    """Paiement confirmé par le fournisseur mais en attente d'activation admin (auto_release=False)."""
+    id: int
+    provider: str
+    amount: float
+    currency: str
+    days_valid: int
+    created_at: datetime
+    client_id: int
+    client_nom: str
+    client_prenom: str
+    client_email: str
+    client_mac: str
+
+    class Config:
+        from_attributes = True

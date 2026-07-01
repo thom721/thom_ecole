@@ -326,6 +326,7 @@ if (routeRole && isAuthenticated && !roles.some(r => authStore.roleNames.include
     'Présences':       'presences',
     'Rapport':         'rapport',
     'Paramètres':      'settings',
+    'Communauté':      'communaute',
     'Abonnement':      'abonnement',
   }
   if (isAuthenticated && to.name !== 'Profile') {

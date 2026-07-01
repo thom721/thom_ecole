@@ -2,7 +2,11 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import axios from 'axios'
 import { useAuthStore } from '@/stores/auth';
-const authStore = useAuthStore(); 
+const authStore = useAuthStore();
+const canSeeSection = (subId) => {
+  const tabs = authStore.user?.tab_ids ?? null
+  return tabs === null || tabs.includes(subId)
+}
 
 const props = defineProps({
   profilesData: Object,
@@ -152,6 +156,11 @@ const ALL_NAV = [
     { id: 'vente.transactions',  label: 'Autre transaction' },
   ]},
   { id: 'rapport',   label: 'Rapport',        subs: [] },
+  { id: 'communaute', label: 'Communauté',   subs: [
+    { id: 'communaute.evenements', label: 'Événements' },
+    { id: 'communaute.actualites', label: 'Actualités' },
+    { id: 'communaute.annonces',   label: 'Annonces' },
+  ]},
   { id: 'settings',  label: 'Paramètres',     subs: [
     { id: 'settings.exams',        label: 'Examens' },
     { id: 'settings.facultes',     label: 'Facultés' },
@@ -163,6 +172,13 @@ const ALL_NAV = [
   ]},
   { id: 'log',        label: 'Log',           subs: [] },
   { id: 'abonnement', label: 'Abonnement',    subs: [] },
+  { id: 'profile',    label: 'Profil',        subs: [
+    { id: 'profile.ecole',       label: "Profil de l'école" },
+    { id: 'profile.compte',      label: 'Mon compte' },
+    { id: 'profile.roles',       label: 'Rôles' },
+    { id: 'profile.permissions', label: 'Permissions' },
+    { id: 'profile.vues',        label: 'Vues' },
+  ]},
 ]
 
 const vuesRoleId   = ref('')
@@ -380,7 +396,7 @@ onMounted(async () => {
       <!-- ════════════════════════════════════════
            SECTION : PROFIL DE L'ÉCOLE
       ════════════════════════════════════════ -->
-      <div v-if="!authStore.isBaseUser" class="flex items-center gap-3 mb-5">
+      <div v-if="!authStore.isBaseUser && canSeeSection('profile.ecole')" class="flex items-center gap-3 mb-5">
         <div class="w-9 h-9 rounded-xl bg-[#4f8ef7]/10 border border-[#4f8ef7]/20 flex items-center justify-center text-[16px] shrink-0">🏫</div>
         <div>
           <h1 class="text-[15px] font-bold text-[#e8eaf0] leading-tight">Profil de l'école</h1>
@@ -388,7 +404,7 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div v-if="!authStore.isBaseUser" class="bg-[#161b26] rounded-2xl border border-white/[0.07] p-6 mb-6">
+      <div v-if="!authStore.isBaseUser && canSeeSection('profile.ecole')" class="bg-[#161b26] rounded-2xl border border-white/[0.07] p-6 mb-6">
         <form @submit.prevent="submitProfile">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
@@ -464,7 +480,7 @@ onMounted(async () => {
       <!-- ════════════════════════════════════════
            SECTION : RÔLES & PERMISSIONS
       ════════════════════════════════════════ -->
-      <div v-if="!authStore.isBaseUser" class="flex items-center gap-3 mb-5">
+      <div v-if="!authStore.isBaseUser && (canSeeSection('profile.roles') || canSeeSection('profile.permissions'))" class="flex items-center gap-3 mb-5">
         <div class="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-[16px] shrink-0">🔐</div>
         <div>
           <h1 class="text-[15px] font-bold text-[#e8eaf0] leading-tight">Rôles &amp; Permissions</h1>
@@ -472,7 +488,7 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div v-if="!authStore.isBaseUser && hasPermission('Voir role')" class="bg-[#161b26] rounded-2xl border border-white/[0.07] p-6 mb-6 space-y-6">
+      <div v-if="!authStore.isBaseUser && hasPermission('Voir role') && (canSeeSection('profile.roles') || canSeeSection('profile.permissions'))" class="bg-[#161b26] rounded-2xl border border-white/[0.07] p-6 mb-6 space-y-6">
 
         <!-- ── Assigner rôle ── -->
         <form @submit.prevent="assignRoleToUser">
@@ -577,7 +593,7 @@ onMounted(async () => {
       <!-- ════════════════════════════════════════
            SECTION : VUES PAR RÔLE
       ════════════════════════════════════════ -->
-      <div v-if="!authStore.isBaseUser && hasPermission('Voir role')" class="flex items-center gap-3 mb-5">
+      <div v-if="!authStore.isBaseUser && hasPermission('Voir role') && canSeeSection('profile.vues')" class="flex items-center gap-3 mb-5">
         <div class="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-[16px] shrink-0">👁</div>
         <div>
           <h1 class="text-[15px] font-bold text-[#e8eaf0] leading-tight">Vues par rôle</h1>
@@ -585,7 +601,7 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div v-if="!authStore.isBaseUser && hasPermission('Voir role')" class="bg-[#161b26] rounded-2xl border border-white/[0.07] p-6 mb-6">
+      <div v-if="!authStore.isBaseUser && hasPermission('Voir role') && canSeeSection('profile.vues')" class="bg-[#161b26] rounded-2xl border border-white/[0.07] p-6 mb-6">
         <!-- Sélecteur de rôle -->
         <div class="mb-5 max-w-xs">
           <label class="field-label">Rôle</label>

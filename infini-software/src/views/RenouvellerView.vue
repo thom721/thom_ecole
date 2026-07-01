@@ -119,6 +119,14 @@
 
           <p v-if="confirmError" class="text-sm text-red-400">{{ confirmError }}</p>
 
+          <div v-if="resultPending" class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-5 text-left">
+            <p class="text-amber-400 font-semibold mb-2">Paiement reçu — activation en attente</p>
+            <p class="text-sm text-[#cbd5e1]">
+              Votre paiement a bien été enregistré. La clé d'activation sera générée par un administrateur.
+              Contactez le support pour finaliser l'activation de votre licence.
+            </p>
+          </div>
+
           <div v-if="resultKey" class="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-5 text-left">
             <p class="text-emerald-400 font-semibold mb-2">✅ Licence renouvelée</p>
             <p class="text-sm">Clé : <span class="font-mono">{{ resultKey }}</span></p>
@@ -160,6 +168,7 @@ const confirming = ref(false)
 const confirmError = ref('')
 const resultKey = ref('')
 const resultExpiration = ref('')
+const resultPending = ref(false)
 
 const totalAffiche = computed(() => {
   const base = tarif.value.monthly_price * months.value
@@ -203,7 +212,9 @@ const payer = async () => {
     if (!res.ok) throw new Error(data.detail || 'Paiement impossible')
     paymentId.value = data.payment_id
     redirectUrl.value = data.redirect_url
-    if (data.status === 'success') {
+    if (data.status === 'paid') {
+      resultPending.value = true
+    } else if (data.status === 'success') {
       // Mode test (PAYMENT_TEST_MODE) : le paiement est déjà confirmé, pas besoin de redirection.
       resultKey.value = data.key
       resultExpiration.value = data.expiration_date
@@ -228,8 +239,12 @@ const confirmer = async () => {
     const res = await fetch(`${API_BASE}/api/licence/payer/confirmer?payment_id=${paymentId.value}`)
     const data = await res.json()
     if (!res.ok) throw new Error(data.detail || 'Paiement non confirmé')
-    resultKey.value = data.key
-    resultExpiration.value = data.expiration_date
+    if (data.status === 'paid') {
+      resultPending.value = true
+    } else {
+      resultKey.value = data.key
+      resultExpiration.value = data.expiration_date
+    }
   } catch (e) {
     confirmError.value = e.message
   } finally {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import '../core/api_client.dart';
@@ -23,6 +24,9 @@ class AuthState extends ChangeNotifier {
   List<String>? _accessibleTabs;
   bool isLoading = false;
   String? errorMessage;
+  bool tabsModified = false;
+  Timer? _tabWatcher;
+  List<String>? _tabSnapshot;
 
   /// Équivalent de self.access_key (Controllers/Main.py:279, 1551) :
   /// code de statut extrait de heart_autos.descript ("{user_id}--{code}"),
@@ -310,11 +314,50 @@ class AuthState extends ChangeNotifier {
     }
   }
 
+  void startTabWatcher() {
+    _tabWatcher?.cancel();
+    _tabSnapshot = _accessibleTabs != null ? List<String>.from(_accessibleTabs!) : null;
+    _tabWatcher = Timer.periodic(const Duration(minutes: 2), (_) async {
+      if (user == null) { stopTabWatcher(); return; }
+      try {
+        final token = await _tokenStorage.getToken();
+        final response = await _apiClient.dio.get(
+          '/verify-token',
+          options: Options(headers: {'Authorization': 'Bearer $token'}),
+        );
+        final data = response.data as Map<String, dynamic>;
+        final freshTabs = (data['tab_ids'] as List?)?.map((e) => e.toString()).toList();
+        if (_tabsChanged(_tabSnapshot, freshTabs)) {
+          tabsModified = true;
+          stopTabWatcher();
+          notifyListeners();
+        }
+      } catch (_) {}
+    });
+  }
+
+  void stopTabWatcher() {
+    _tabWatcher?.cancel();
+    _tabWatcher = null;
+  }
+
+  bool _tabsChanged(List<String>? original, List<String>? fresh) {
+    if (original == null && fresh == null) return false;
+    if (original == null || fresh == null) return true;
+    if (original.length != fresh.length) return true;
+    final origSet = original.toSet();
+    final freshSet = fresh.toSet();
+    return !origSet.containsAll(freshSet) || !freshSet.containsAll(origSet);
+  }
+
   Future<void> logout() async {
+    stopTabWatcher();
     user = null;
     roles = [];
     permissions = [];
     _accessibleTabs = null;
+    tabsModified = false;
+    _tabSnapshot = null;
     _accessKey = '0';
     _accessKeyInfo = '0';
     await _tokenStorage.clear();

@@ -15,6 +15,7 @@ from app.schemas import (
     ClientHistoriqueOut,
     ClientListOut,
     ClientOut,
+    PaymentPendingOut,
     PricingConfigIn,
     PricingConfigOut,
 )
@@ -137,6 +138,46 @@ def update_config(data: PricingConfigIn, db: Session = Depends(get_db), _admin: 
     config.monthly_price = data.monthly_price
     config.currency = data.currency
     config.exchange_rate_usd_htg = data.exchange_rate_usd_htg
+    config.auto_release = data.auto_release
     db.commit()
     db.refresh(config)
     return config
+
+
+@router.get("/paiements/en-attente", response_model=list[PaymentPendingOut])
+def paiements_en_attente(db: Session = Depends(get_db), _admin: AdminUser = Depends(get_current_admin)):
+    """Paiements confirmés par le fournisseur mais non encore activés (auto_release=False).
+    Chaque entrée attend qu'un admin clique 'Activer' pour générer la clé."""
+    payments = (
+        db.query(Payment)
+        .filter(Payment.status == "paid")
+        .order_by(Payment.created_at.desc())
+        .all()
+    )
+    result = []
+    for p in payments:
+        client = db.query(Client).filter(Client.id == p.client_id).first()
+        result.append(PaymentPendingOut(
+            id=p.id,
+            provider=p.provider,
+            amount=p.amount,
+            currency=p.currency,
+            days_valid=p.days_valid,
+            created_at=p.created_at,
+            client_id=client.id,
+            client_nom=client.nom,
+            client_prenom=client.prenom,
+            client_email=client.email,
+            client_mac=client.mac,
+        ))
+    return result
+
+
+@router.post("/paiements/{payment_id}/activer")
+def activer_paiement(payment_id: int, db: Session = Depends(get_db), _admin: AdminUser = Depends(get_current_admin)):
+    """Active manuellement un paiement 'paid' : génère la clé et passe le statut à 'success'.
+    Utilisé quand auto_release=False — l'admin valide la livraison de la clé."""
+    payment = db.query(Payment).filter(Payment.id == payment_id, Payment.status == "paid").first()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Paiement introuvable ou déjà activé.")
+    return _valider_paiement(payment, db)

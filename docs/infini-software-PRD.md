@@ -52,6 +52,23 @@
 - **Identification par mac sans secret** : `verifier-mac` et la création de paiement n'exigent qu'une adresse MAC (non secrète par nature) — acceptable pour ce produit (le pire cas est qu'un tiers paie à la place du client, sans accès à des données sensibles), mais à reconsidérer si le modèle de données du `Client` s'enrichit de données plus sensibles à l'avenir.
 - **Deux mécanismes de licence non synchronisés côté `ecole_nginx`** (historique `log_actives` vs. fichier d'essai local `license_check.py`) — un renouvellement réussi côté `infini-software` ne met pas à jour automatiquement le fichier local ; à connecter si l'incohérence entre les deux affichages (onglet Abonnement vs. fenêtre Gestion du serveur) devient gênante.
 
+## 7 bis. Mise à jour — livraison manuelle de clé (auto_release) (livré)
+
+### Nouvelle fonctionnalité : contrôle de la livraison de clé
+
+- **Champ `auto_release`** (bool, défaut `False`) ajouté à `PricingConfig` (`models.py`). Migration SQLite automatique au démarrage de FastAPI (`main.py`, `ALTER TABLE pricing_config ADD COLUMN auto_release`).
+- **Flux de confirmation (`GET /api/licence/payer/confirmer`)** :
+  - `auto_release = True` → comportement inchangé : `_valider_paiement` est appelé, la clé est générée et retournée immédiatement.
+  - `auto_release = False` → le paiement passe en statut `paid` (confirmé par le fournisseur, en attente de validation admin) ; la réponse est `{"status": "paid", "message": "..."}` sans clé. Idem en mode test (`PAYMENT_TEST_MODE`).
+- **Nouvelles routes admin** :
+  - `GET /api/admin/paiements/en-attente` — liste tous les paiements en statut `paid`, avec les coordonnées du client (nom, email, MAC).
+  - `POST /api/admin/paiements/{id}/activer` — appelle `_valider_paiement` sur le paiement sélectionné : génère la clé, passe le statut à `success`, la clé est ensuite disponible via `GET /api/licence/derniere-cle`.
+- **Admin `PUT /config`** : enregistre désormais `auto_release` en plus des champs tarifaires existants.
+- **`AdminView.vue`** :
+  - Toggle `auto_release` dans la section "Configuration tarifaire", avec texte explicatif dynamique selon la valeur courante.
+  - Nouvelle section "Paiements en attente d'activation" (visible seulement si la liste est non vide) : tableau des paiements `paid` avec client, fournisseur, montant, durée, date, et bouton "Activer" par ligne. La ligne disparaît de la liste après activation, et le tableau des clients se recharge.
+- **`RenouvellerView.vue`** : quand la réponse de `/payer/confirmer` contient `status: "paid"`, affiche un bloc amber "Votre paiement a bien été reçu. Contactez l'administrateur pour obtenir votre clé d'activation." au lieu du bloc clé vert.
+
 ## 7. Mise à jour — backend, paiement & administration (livré)
 
 - Backend FastAPI complet ajouté (n'existait pas avant) : modèles, routes d'enregistrement/paiement/administration, authentification admin JWT.

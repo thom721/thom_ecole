@@ -47,6 +47,24 @@
               <input v-model.number="configForm.exchange_rate_usd_htg" type="number" min="0" step="0.01" required
                      class="w-full bg-[#080c10] border border-[#1e2a38] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#06b6d4]" />
             </div>
+            <div class="sm:col-span-3">
+              <label class="flex items-center gap-3 cursor-pointer select-none">
+                <span class="relative inline-flex">
+                  <input type="checkbox" v-model="configForm.auto_release" class="sr-only peer" />
+                  <div class="w-10 h-6 bg-[#1e2a38] rounded-full peer peer-checked:bg-[#06b6d4] transition-colors"></div>
+                  <div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4"></div>
+                </span>
+                <span class="text-sm font-medium">Livraison automatique de la clé</span>
+              </label>
+              <p class="text-xs text-[#64748b] mt-1 ml-13">
+                <template v-if="configForm.auto_release">
+                  Activé — la clé est générée et affichée dès que le paiement est confirmé par le fournisseur.
+                </template>
+                <template v-else>
+                  Désactivé — après paiement, le client voit "contactez l'admin". Un admin doit cliquer "Activer" pour générer la clé.
+                </template>
+              </p>
+            </div>
             <div class="sm:col-span-3 flex items-center gap-3">
               <button type="submit" class="btn-gold" :disabled="configSaving">
                 {{ configSaving ? 'Enregistrement...' : 'Enregistrer' }}
@@ -90,6 +108,52 @@
           <p v-if="activerError" class="text-sm text-red-400 mt-3">{{ activerError }}</p>
           <p v-if="activerSuccess" class="text-sm text-emerald-400 mt-3">
             Clé générée : <span class="font-mono">{{ activerSuccess.key }}</span> — expire le {{ activerSuccess.expiration_date }}
+          </p>
+        </div>
+
+        <!-- Paiements en attente d'activation (auto_release=false) -->
+        <div v-if="paiementsEnAttente.length" class="card p-6 mb-8">
+          <h2 class="font-syne text-lg font-bold mb-1">Paiements en attente d'activation</h2>
+          <p class="text-xs text-[#64748b] mb-4">
+            Ces paiements ont été confirmés par le fournisseur mais la clé n'a pas encore été générée (livraison manuelle activée).
+          </p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="bg-[#080c10] text-left text-[11px] uppercase tracking-wider text-[#64748b]">
+                  <th class="px-4 py-3">Client</th>
+                  <th class="px-4 py-3">MAC</th>
+                  <th class="px-4 py-3">Fournisseur</th>
+                  <th class="px-4 py-3">Montant</th>
+                  <th class="px-4 py-3">Durée</th>
+                  <th class="px-4 py-3">Date</th>
+                  <th class="px-4 py-3"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="p in paiementsEnAttente" :key="p.id" class="border-t border-[#1e2a38]">
+                  <td class="px-4 py-3">
+                    <div>{{ p.client_prenom }} {{ p.client_nom }}</div>
+                    <div class="text-xs text-[#64748b]">{{ p.client_email }}</div>
+                  </td>
+                  <td class="px-4 py-3 font-mono text-xs text-[#64748b]">{{ p.client_mac }}</td>
+                  <td class="px-4 py-3">{{ p.provider }}</td>
+                  <td class="px-4 py-3">{{ p.amount }} {{ p.currency }}</td>
+                  <td class="px-4 py-3">{{ p.days_valid }} jours</td>
+                  <td class="px-4 py-3 text-[#64748b]">{{ formatDate(p.created_at) }}</td>
+                  <td class="px-4 py-3 text-right">
+                    <button class="btn-gold !px-3 !py-1.5 !text-xs" :disabled="activatingPayment === p.id"
+                            @click="activerPaiement(p)">
+                      {{ activatingPayment === p.id ? '...' : 'Activer' }}
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p v-if="activerPaiementError" class="text-sm text-red-400 mt-3">{{ activerPaiementError }}</p>
+          <p v-if="activerPaiementSuccess" class="text-sm text-emerald-400 mt-3">
+            Clé générée : <span class="font-mono">{{ activerPaiementSuccess.key }}</span> — expire le {{ activerPaiementSuccess.expiration_date }}
           </p>
         </div>
 
@@ -185,7 +249,7 @@ const clients = ref([])
 const ouvert = ref(null)
 const historiqueDetail = ref(null)
 
-const configForm = ref({ monthly_price: 0, currency: 'USD', exchange_rate_usd_htg: 0 })
+const configForm = ref({ monthly_price: 0, currency: 'USD', exchange_rate_usd_htg: 0, auto_release: false })
 const configSaving = ref(false)
 const configSaved = ref(false)
 
@@ -193,6 +257,11 @@ const activerForm = ref({ mac: '', email: '', months: 1 })
 const activerLoading = ref(false)
 const activerError = ref('')
 const activerSuccess = ref(null)
+
+const paiementsEnAttente = ref([])
+const activatingPayment = ref(null)
+const activerPaiementError = ref('')
+const activerPaiementSuccess = ref(null)
 
 const authHeaders = () => ({ Authorization: `Bearer ${token.value}` })
 
@@ -217,7 +286,7 @@ const login = async () => {
     const data = await res.json()
     token.value = data.access_token
     localStorage.setItem('infini_admin_token', token.value)
-    await Promise.all([fetchClients(), fetchConfig()])
+    await Promise.all([fetchClients(), fetchConfig(), fetchPaiementsEnAttente()])
   } catch (e) {
     loginError.value = e.message
   } finally {
@@ -282,9 +351,40 @@ const fetchConfig = async () => {
       monthly_price: data.monthly_price,
       currency: data.currency,
       exchange_rate_usd_htg: data.exchange_rate_usd_htg,
+      auto_release: data.auto_release ?? false,
     }
   } catch {
     // silencieux : la config par défaut s'affiche dans le formulaire
+  }
+}
+
+const fetchPaiementsEnAttente = async () => {
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/paiements/en-attente`, { headers: authHeaders() })
+    if (res.ok) paiementsEnAttente.value = await res.json()
+  } catch {
+    // silencieux
+  }
+}
+
+const activerPaiement = async (p) => {
+  activatingPayment.value = p.id
+  activerPaiementError.value = ''
+  activerPaiementSuccess.value = null
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/paiements/${p.id}/activer`, {
+      method: 'POST',
+      headers: authHeaders(),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.detail || 'Activation impossible')
+    activerPaiementSuccess.value = data
+    paiementsEnAttente.value = paiementsEnAttente.value.filter(x => x.id !== p.id)
+    await fetchClients()
+  } catch (e) {
+    activerPaiementError.value = e.message
+  } finally {
+    activatingPayment.value = null
   }
 }
 
@@ -331,6 +431,7 @@ onMounted(() => {
   if (token.value) {
     fetchClients()
     fetchConfig()
+    fetchPaiementsEnAttente()
   }
 })
 </script>
