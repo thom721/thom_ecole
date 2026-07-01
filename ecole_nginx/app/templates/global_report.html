@@ -33,8 +33,12 @@
                padding: 3px;
           }
 
-          thead { break-after: avoid; }
-          tbody tr { break-inside: avoid; }
+          /* Empêche une ligne d'en-tête de section de rester seule en bas de page */
+          tr.row-section-header { break-after: avoid; page-break-after: avoid; }
+          /* Empêche une ligne de total d'être séparée de la dernière ligne de données */
+          tr.row-total        { break-before: avoid; page-break-before: avoid; }
+          /* Les lignes de données individuelles ne doivent pas être coupées en deux */
+          tr.row-data         { break-inside: avoid; page-break-inside: avoid; }
 
          
                     .header-table {
@@ -125,7 +129,7 @@
                {% if type == 'Global' %}
                {% for level in getNivel %}
                {% set level_ns = namespace(totalDepot=0) %}
-               <tr>
+               <tr class="row-section-header">
                     <td colspan="3" style="font-weight: 900; text-align:center; font-size:14px">{{ level.name }}</td>
                </tr>
 
@@ -137,7 +141,7 @@
                {% set level_ns.totalDepot = level_ns.totalDepot + (item.depot | float)%}
                {% endif %}
 
-               <tr>
+               <tr class="row-data">
                     <td>
                          <span style="text-transform: uppercase; margin-right:8px">{{ item.nom }}</span> {{ item.prenom
                          }}
@@ -228,7 +232,7 @@
                {% endif %}
                {% endfor %}
 
-               <tr>
+               <tr class="row-total">
                     <td colspan="2" style="font-size: 14px;font-weight:bold">
                          Total Paiements <span style="margin-left: 10px;">{{ level.name }}</span>
                     </td>
@@ -247,7 +251,7 @@
                {% endif %}
                {% endfor %}
 
-               <tr>
+               <tr class="row-total">
                     <td colspan="2" style="font-size: 14px;font-weight:bold;background-color:#dfdede;">
                          TOTAL PAIEMENT DES ELEVES
                     </td>
@@ -260,15 +264,15 @@
 
                {# Section Inscriptions #}
                {% if type == 'Global' or type == 'Inscription' %}
-               <tr>
+               <tr class="row-section-header">
                     <td colspan="3" style="font-weight: 900; text-align:center; font-size:15px">INSCRIPTION</td>
                </tr>
                {% for key, item in inscription.items() %}
-               <tr>
+               <tr class="row-data">
                     <td colspan="2" style="font-size:15px">Incription {{ key }}</td>
                     <td style="text-align:center; font-size:15px">{{ item.total_inscrit }}</td>
                </tr>
-               <tr style="font-weight: bold">
+               <tr class="row-total">
                     <td colspan="2" style="font-size:15px">Total Incription {{ key }}</td>
                     <td style="text-align:center; font-size:15px;background-color:#dfdede">
                          {{ item.frais_total }} GDES
@@ -279,12 +283,12 @@
                {% endif %}
 
                {# Section Vente Matériel #}
-               <tr>
+               <tr class="row-section-header">
                     <td colspan="3" style="font-weight: 900; text-align:center; font-size:14px">VENTE DE MATÉRIEL</td>
                </tr>
                {% for key, item in sales.items() %}
                {% if type == 'Global' or type == key %}
-               <tr>
+               <tr class="row-section-header">
                     <td colspan="3" style="text-align: center">---------------------------- <span
                               style="font-size: 16px; font-weight:300">{{ key }}{{ 's' if key == 'Arriéré' }}</span>
                          -------------------------</td>
@@ -308,7 +312,7 @@
                </tr>
                {% endfor %}
                {% endif %}
-               <tr style="font-weight: bold">
+               <tr class="row-total">
                     <td colspan="2" style="font-size:15px">{{ 'Total' if key == 'Arriéré' else 'Total des ventes' }}
                     </td>
                     <td style="text-align:center; font-size:15px;background-color:#dfdede">
@@ -321,20 +325,20 @@
 
                {# Section Prêts #}
                {% if type == 'Global' or type == 'Prêt' %}
-               <tr>
+               <tr class="row-section-header">
                     <td colspan="3"
                          style="font-weight: 900; text-align:center; font-size:15px; text-transform:uppercase">Prêt
                          accordé</td>
                </tr>
                {% for item in loans %}
-               <tr>
+               <tr class="row-data">
                     <td style="font-size:15px">{{ item.user_name }}</td>
                     <td style="font-size:15px">{{ item.amount }}</td>
                     <td style="text-align:center; font-size:15px">{{ item.amount }}</td>
                </tr>
                {% set ns.total_pret_accorder = ns.total_pret_accorder + item.amount %}
                {% endfor %}
-               <tr style="font-weight: bold">
+               <tr class="row-total">
                     <td colspan="2" style="font-size:15px">Total des Prêts accordés</td>
                     <td style="text-align:center; font-size:15px;background-color:#dfdede">{{ ns.total_pret_accorder }}
                          GDES</td>
@@ -344,13 +348,13 @@
 
                {# Section Remboursements #}
                {% if type == 'Global' or type == 'Remboursement' %}
-               <tr>
+               <tr class="row-section-header">
                     <td colspan="3"
                          style="font-weight: 900; text-align:center; font-size:15px; text-transform:uppercase">
                          Remboursement</td>
                </tr>
                {% for item in repayment %}
-               <tr>
+               <tr class="row-data">
                     <td style="font-size:15px">{{ item.loan_user_name }}</td>
                     <td style="font-size:15px">{{ item.paid_amount }}</td>
                     <td style="text-align:center; font-size:15px">{{ item.paid_amount }}</td>
@@ -359,7 +363,7 @@
                {{ item.keys() }}
                {% set ns.total_remboursement = ns.total_remboursement + (item['paid_amount'] | default(0) | float) %}
                {% endfor %}
-               <tr style="font-weight: bold">
+               <tr class="row-total">
                     <td colspan="2" style="font-size:15px">Total des Remboursements</td>
                     <td style="text-align:center; font-size:15px;background-color:#dfdede">{{ ns.total_remboursement }}
                          GDES</td>
@@ -369,12 +373,12 @@
 
                {# Section Autres Transactions #}
                {% if type == 'Global' %}
-               <tr>
+               <tr class="row-section-header">
                     <td colspan="3" style="font-weight: 900; text-align:center; font-size:15px; text-transform:uppercase">Autres Transactions
                     </td>
                </tr>
                {% for item in autres_transactions %}
-               <tr>
+               <tr class="row-data">
                     <td style="font-size:15px;width: 50%;">Description :{{ item.description }} | {{item.description_supplementaire}} <br>
                     {% if item.nom_complet %}
                     <span class="ml-1 font-bold">Nom : {{ item.nom_complet }}
@@ -385,7 +389,7 @@
                     <td style="text-align:center; font-size:15px">{{ item.montant }}</td>
                </tr>
                {% endfor %}
-               <tr style="font-weight: bold">
+               <tr class="row-total">
                     <td colspan="2" style="font-size:15px">Total </td>
                     <td style="text-align:center; font-size:15px;background-color:#dfdede">{{ total_autres }} GDES
                     </td>
@@ -395,19 +399,19 @@
 
                {# Section Dépenses #}
                {% if type == 'Global' or type == 'Depenses' %}
-               <tr>
+               <tr class="row-section-header">
                     <td colspan="3"
                          style="font-weight: 900; text-align:center; font-size:15px; text-transform:uppercase">dépenses
                     </td>
                </tr>
                {% for item in depenses %}
-               <tr>
+               <tr class="row-data">
                     <td colspan="2" style="font-size:15px">{{ item.description }}</td>
                     <td style="text-align:center; font-size:15px">{{ item.prix }}</td>
                </tr>
                {% set ns.total_depense = ns.total_depense + item.prix %}
                {% endfor %}
-               <tr style="font-weight: bold">
+               <tr class="row-total">
                     <td colspan="2" style="font-size:15px">Total des dépenses</td>
                     <td style="text-align:center; font-size:15px;background-color:#dfdede">{{ ns.total_depense }} GDES
                     </td>
@@ -417,15 +421,15 @@
                <tr>
                     <td colspan="3" style="text-align:center">.</td>
                </tr>
-               <tr>
+               <tr class="row-section-header">
                     <td colspan="3" style="font-weight: 900; text-align:center; font-size:14px">GRAND TOTAL</td>
                </tr>
-               <tr style="font-weight: bold">
+               <tr class="row-total">
                     <td colspan="2" style="font-size:15px">Total des rentrées</td>
                     <td style="text-align:center; font-size:15px;background-color:#dfdede">{{ ns.total_final }} GDES
                     </td>
                </tr>
-               <tr style="font-weight: bold">
+               <tr class="row-total">
                     <td colspan="2" style="font-size:15px">Rentrées - Sortie</td>
                     <td style="text-align:center; font-size:15px;background-color:#dfdede">{{ ns.total_final -
                          ns.total_depense }} GDES</td>
