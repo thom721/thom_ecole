@@ -72,7 +72,7 @@ def _candidate_configs():
     if platform.system() == "Windows":
         ssl_args = _windows_ssl_args()
         candidates += [
-            {"user": "root", "db": "lemignon", "pw": "@@@@@@@@", "host": "localhost", "port": "3307", "ssl": ssl_args},
+            {"user": "root", "db": "lemignon", "pw": "@@@@@@@@@@", "host": "localhost", "port": "3307", "ssl": ssl_args},
             {"user": "user_pyside", "db": "lekol360", "pw": "@#Janvier21", "host": "localhost", "port": "3307", "ssl": ssl_args},
         ]
     elif not candidates:
