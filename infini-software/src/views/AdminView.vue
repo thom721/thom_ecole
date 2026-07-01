@@ -203,19 +203,43 @@
                     <p class="text-xs uppercase tracking-wider text-[#64748b] mb-2">Historique des clés</p>
                     <p v-if="!historiqueDetail?.licence_keys?.length" class="text-sm text-[#64748b]">Aucune clé générée</p>
                     <ul v-else class="space-y-1 text-sm mb-3">
-                      <li v-for="k in historiqueDetail.licence_keys" :key="k.id" class="flex gap-4 items-center">
+                      <li v-for="k in historiqueDetail.licence_keys" :key="k.id" class="flex gap-4 items-center flex-wrap">
                         <span class="text-[#64748b]">{{ formatDate(k.created_at) }}</span>
-                        <span>expire le {{ k.expiration_date }}</span>
-                        <span class="text-[#64748b]">({{ k.days_valid }} jours)</span>
-                        <button
-                          class="ml-auto text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded p-1 transition-colors"
-                          title="Supprimer cette clé et le paiement associé"
-                          @click.stop="supprimerHistorique(k.id, ouvert)"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
+
+                        <template v-if="editingKey?.id === k.id">
+                          <input
+                            type="date"
+                            v-model="editingDate"
+                            class="bg-[#0f1923] border border-[#1e2a38] text-white rounded px-2 py-0.5 text-sm"
+                          />
+                          <button class="text-emerald-400 hover:text-emerald-300 text-xs font-semibold" @click.stop="sauvegarderExpiration(k.id, ouvert)">Sauvegarder</button>
+                          <button class="text-[#64748b] hover:text-white text-xs" @click.stop="editingKey = null">Annuler</button>
+                        </template>
+                        <template v-else>
+                          <span>expire le {{ k.expiration_date }}</span>
+                          <span class="text-[#64748b]">({{ k.days_valid }} jours)</span>
+                        </template>
+
+                        <div class="ml-auto flex gap-1">
+                          <button
+                            class="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded p-1 transition-colors"
+                            title="Modifier la date d'expiration"
+                            @click.stop="editingKey = k; editingDate = k.expiration_date"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.828a2 2 0 01-1.414.586H8v-2.414a2 2 0 01.586-1.414z" />
+                            </svg>
+                          </button>
+                          <button
+                            class="text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded p-1 transition-colors"
+                            title="Supprimer cette clé et le paiement associé"
+                            @click.stop="supprimerHistorique(k.id, ouvert)"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
                       </li>
                     </ul>
                     <p class="text-xs uppercase tracking-wider text-[#64748b] mb-2">Paiements</p>
@@ -271,6 +295,9 @@ const paiementsEnAttente = ref([])
 const activatingPayment = ref(null)
 const activerPaiementError = ref('')
 const activerPaiementSuccess = ref(null)
+
+const editingKey = ref(null)
+const editingDate = ref('')
 
 const authHeaders = () => ({ Authorization: `Bearer ${token.value}` })
 
@@ -349,6 +376,21 @@ const activer = async (c) => {
 const suspendre = async (c) => {
   const res = await fetch(`${API_BASE}/api/admin/clients/${c.id}/suspendre`, { method: 'POST', headers: authHeaders() })
   if (res.ok) c.suspended = true
+}
+
+const sauvegarderExpiration = async (keyId, clientId) => {
+  if (!editingDate.value) return
+  const res = await fetch(`${API_BASE}/api/admin/historique/${keyId}`, {
+    method: 'PATCH',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ expiration_date: editingDate.value }),
+  })
+  if (res.ok) {
+    editingKey.value = null
+    const detail = await fetch(`${API_BASE}/api/admin/clients/${clientId}`, { headers: authHeaders() })
+    historiqueDetail.value = detail.ok ? await detail.json() : null
+    await fetchClients()
+  }
 }
 
 const supprimerHistorique = async (keyId, clientId) => {

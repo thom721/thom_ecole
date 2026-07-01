@@ -1,6 +1,11 @@
+import base64
+import hashlib
+import hmac as _hmac
+import os
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -181,6 +186,40 @@ def activer_paiement(payment_id: int, db: Session = Depends(get_db), _admin: Adm
     if not payment:
         raise HTTPException(status_code=404, detail="Paiement introuvable ou déjà activé.")
     return _valider_paiement(payment, db)
+
+
+class EditExpirationIn(BaseModel):
+    expiration_date: str  # format YYYY-MM-DD
+
+
+def _regenerer_cle(mac: str, expiration_date: str, days_valid_key: int) -> str:
+    """Régénère le HMAC de la clé pour un mac/date/days_valid donnés."""
+    secret = os.environ.get("KEY_SECRET", "CLE_SECRETE_PERSO")
+    raw_data = f"{mac}-{expiration_date}-{days_valid_key}-{secret}".encode()
+    hashed = _hmac.new(secret.encode(), raw_data, hashlib.sha256).digest()
+    encoded = base64.b32encode(hashed).decode().upper()
+    clean = ''.join(filter(str.isalnum, encoded))[:16]
+    return '-'.join(clean[i:i+4] for i in range(0, len(clean), 4))
+
+
+@router.patch("/historique/{key_id}")
+def modifier_expiration(key_id: int, data: EditExpirationIn, db: Session = Depends(get_db), _admin: AdminUser = Depends(get_current_admin)):
+    """Modifie la date d'expiration d'une clé et régénère son HMAC en conséquence."""
+    key = db.query(LicenceKey).filter(LicenceKey.id == key_id).first()
+    if not key:
+        raise HTTPException(status_code=404, detail="Clé introuvable.")
+    try:
+        new_date = datetime.strptime(data.expiration_date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Format de date invalide (YYYY-MM-DD attendu).")
+    client = db.query(Client).filter(Client.id == key.client_id).first()
+    days_valid_key = (new_date - datetime.utcnow().date()).days
+    key.expiration_date = data.expiration_date
+    key.days_valid_key = days_valid_key
+    key.key = _regenerer_cle(client.mac, data.expiration_date, days_valid_key)
+    db.commit()
+    db.refresh(key)
+    return {"id": key.id, "expiration_date": key.expiration_date, "key": key.key}
 
 
 @router.delete("/historique/{key_id}", status_code=204)
