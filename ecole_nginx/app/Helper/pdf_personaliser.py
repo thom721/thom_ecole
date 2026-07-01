@@ -411,7 +411,7 @@ class PDFGenerator:
             template = env.get_template(template_file)
             
             html_out = template.render(data)
-            
+
             # Création du buffer PDF
             pdf_buffer = io.BytesIO()
 
