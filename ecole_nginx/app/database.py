@@ -26,13 +26,19 @@ DB_CONNECT_RETRY_DELAY = int(os.getenv("DB_CONNECT_RETRY_DELAY", "3"))
 
 
 def _windows_ssl_args() -> str:
-    """Le MySQL embarqué sur Windows (Controllers/Main_run.py, self.ssl_dir)
-    exige l'authentification par certificat client. Les certs sont générés à
-    l'installation dans <ProgramFiles>/ecole-serve/mysql-8.0.41-winx64/certs —
-    chemin dérivé de %PROGRAMFILES% (pas hardcodé "C:\\Program Files") pour
-    rester correct même sur une install 32 bits ou un lecteur différent.
-    Si les fichiers n'existent pas (Mac/Linux, ou Windows pas encore installé),
-    retourne une chaîne vide : pas de SSL, comme avant."""
+    """Retourne les paramètres SSL pour la connexion MySQL.
+    Priorité 1 : DB_SSL_CA / DB_SSL_CERT / DB_SSL_KEY dans l'env / .env.
+    Priorité 2 : chemin par défaut de l'installation Windows embarquée
+                 (<ProgramFiles>/ecole-serve/mysql-8.0.41-winx64/certs).
+    Retourne "" si aucun cert trouvé → connexion sans SSL."""
+    env_ca   = os.getenv("DB_SSL_CA", "")
+    env_cert = os.getenv("DB_SSL_CERT", "")
+    env_key  = os.getenv("DB_SSL_KEY", "")
+    if env_ca and env_cert and env_key:
+        ca, cert, key = Path(env_ca), Path(env_cert), Path(env_key)
+        if ca.exists() and cert.exists() and key.exists():
+            return f"?ssl_ca={ca.as_posix()}&ssl_cert={cert.as_posix()}&ssl_key={key.as_posix()}"
+
     if platform.system() != "Windows":
         return ""
     program_files = os.environ.get("PROGRAMFILES", r"C:\Program Files")
@@ -66,7 +72,7 @@ def _candidate_configs():
     if platform.system() == "Windows":
         ssl_args = _windows_ssl_args()
         candidates += [
-            {"user": "root", "db": "lemignon", "pw": "@#1900", "host": "localhost", "port": "3307", "ssl": ssl_args},
+            {"user": "root", "db": "lemignon", "pw": "@@@@@@@@", "host": "localhost", "port": "3307", "ssl": ssl_args},
             {"user": "user_pyside", "db": "lekol360", "pw": "@#Janvier21", "host": "localhost", "port": "3307", "ssl": ssl_args},
         ]
     elif not candidates:
