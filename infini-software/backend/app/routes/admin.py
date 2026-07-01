@@ -181,3 +181,19 @@ def activer_paiement(payment_id: int, db: Session = Depends(get_db), _admin: Adm
     if not payment:
         raise HTTPException(status_code=404, detail="Paiement introuvable ou déjà activé.")
     return _valider_paiement(payment, db)
+
+
+@router.delete("/historique/{key_id}", status_code=204)
+def supprimer_historique(key_id: int, db: Session = Depends(get_db), _admin: AdminUser = Depends(get_current_admin)):
+    """Supprime une entrée de l'historique des clés et le paiement associé."""
+    key = db.query(LicenceKey).filter(LicenceKey.id == key_id).first()
+    if not key:
+        raise HTTPException(status_code=404, detail="Clé introuvable.")
+    payment_id = key.payment_id
+    db.delete(key)
+    db.flush()
+    if payment_id:
+        payment = db.query(Payment).filter(Payment.id == payment_id).first()
+        if payment:
+            db.delete(payment)
+    db.commit()
