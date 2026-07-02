@@ -10,7 +10,7 @@ from fastapi import Body
 from app.Schemas.SMain import NiveauResponse
 from app.Schemas.Etudiants import EtudiantResponseLive
 from app.database import get_db
-from app.Models.MSystems import Personnel,LogActive
+from app.Models.MSystems import Personnel,LogActive,Role,ModelHasRole
 from app.Models.MModels import (
     AnneeAcademique, Classe, Etudiant, 
     Cours, Professeur, Faculte, Niveau,User
@@ -501,15 +501,34 @@ def get_last_license_key(db: Session = Depends(get_db)):
     }
 
 
+def _user_accessible_tabs(user: User, db: Session):
+    """Union des accessible_tabs de tous les rôles de l'utilisateur (même
+    calcul que RAuth.py:168-181, dupliqué ici faute d'un helper partagé) :
+    None = aucune restriction (accès total à tous les onglets)."""
+    role_objects = db.query(Role).join(ModelHasRole, ModelHasRole.role_id == Role.id).filter(
+        ModelHasRole.model_id == user.id
+    ).all()
+    tab_ids = None
+    for r in role_objects:
+        if r.accessible_tabs is None:
+            return None
+        tab_ids = set(r.accessible_tabs) if tab_ids is None else tab_ids | set(r.accessible_tabs)
+    return tab_ids
+
+
 @router.get("/abonnement")
 def get_abonnement(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     Statut de l'abonnement/licence (table log_actives, alimentée par
-    POST /log-activate) + historique complet des activations. Réservé aux
-    administrateurs.
+    POST /log-activate) + historique complet des activations. Accessible aux
+    admins, et à tout rôle auquel l'onglet "abonnement" a été explicitement
+    autorisé via Vues par rôle (accessible_tabs, voir RRolePermission.py) —
+    avant cette correction, seul le rôle 'admin' pouvait y accéder, quelle
+    que soit la configuration de Vues.
     """
-    if not user_has_role(current_user, ['admin'], db):
-        raise HTTPException(status_code=403, detail="Réservé aux administrateurs.")
+    tabs = _user_accessible_tabs(current_user, db)
+    if not user_has_role(current_user, ['admin'], db) and tabs is not None and 'abonnement' not in tabs:
+        raise HTTPException(status_code=403, detail="Vous n'avez pas accès à cette page.")
 
     historique = db.query(LogActive).order_by(desc(LogActive.created_at)).all()
     if not historique:

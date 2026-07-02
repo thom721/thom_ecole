@@ -246,7 +246,13 @@ const shouldShowMenuItem = (itemName) => {
     case 'Paramètres':
       return authStore.canAccessParametres;
     case 'Abonnement':
-      return authStore.isAdmin;
+      // Le contrôle d'accès réel est déjà fait plus haut via accessible_tabs
+      // (Vues par rôle) : si on atteint ce switch, soit le rôle n'a aucune
+      // restriction (admin, typiquement), soit "abonnement" a été
+      // explicitement autorisé pour ce rôle. Un true en dur ici respectait
+      // avant seulement le rôle admin, empêchant Vues de jamais donner accès
+      // à un autre rôle (ex: Comptable) à cette page.
+      return true;
     case 'Communauté':
     case 'calendrier':
     case 'statistiques':
