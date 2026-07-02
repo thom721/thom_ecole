@@ -4,27 +4,32 @@ import hmac as _hmac
 import os
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_admin
 from app.models import AdminUser, Client, LicenceKey, Payment
 from app.pricing import calculer_montant, get_or_create_pricing_config
+from app.receipt import construire_recu, generer_recu_pdf
 from app.routes.licence import _valider_paiement
 from app.schemas import (
     ActiverPlanIn,
     AdminLoginIn,
     AdminLoginOut,
+    ClientCreateIn,
     ClientHistoriqueOut,
     ClientListOut,
     ClientOut,
     PaymentPendingOut,
     PricingConfigIn,
     PricingConfigOut,
+    RecuOut,
 )
 from app.security import create_access_token, verify_password
+from app.utils import normaliser_mac
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
@@ -61,6 +66,26 @@ def liste_clients(db: Session = Depends(get_db), _admin: AdminUser = Depends(get
             licence_active=licence_active,
         ))
     return resultats
+
+
+@router.post("/clients", response_model=ClientOut, status_code=201)
+def creer_client(data: ClientCreateIn, db: Session = Depends(get_db), _admin: AdminUser = Depends(get_current_admin)):
+    """Enregistrement manuel d'un client par l'admin (mêmes champs que
+    l'installation automatique via /api/save-data), pour un client dont
+    l'installation n'a pas pu s'enregistrer elle-même (pas de réseau, etc.)."""
+    mac = normaliser_mac(data.mac)
+    existant = db.query(Client).filter(Client.mac == mac).first()
+    if existant:
+        raise HTTPException(status_code=409, detail="Un client avec cette adresse MAC existe déjà.")
+    client = Client(nom=data.nom, prenom=data.prenom, email=data.email, mac=mac)
+    db.add(client)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Un client avec cette adresse MAC existe déjà.")
+    db.refresh(client)
+    return client
 
 
 @router.get("/clients/{client_id}", response_model=ClientHistoriqueOut)
@@ -104,7 +129,7 @@ def activer_plan(data: ActiverPlanIn, db: Session = Depends(get_db), _admin: Adm
     if data.months < 1:
         raise HTTPException(status_code=422, detail="Le nombre de mois doit être d'au moins 1.")
 
-    client = db.query(Client).filter(Client.mac == data.mac).first()
+    client = db.query(Client).filter(Client.mac == normaliser_mac(data.mac)).first()
     if not client or client.email.strip().lower() != data.email.strip().lower():
         raise HTTPException(
             status_code=404,
@@ -186,6 +211,33 @@ def activer_paiement(payment_id: int, db: Session = Depends(get_db), _admin: Adm
     if not payment:
         raise HTTPException(status_code=404, detail="Paiement introuvable ou déjà activé.")
     return _valider_paiement(payment, db)
+
+
+@router.get("/paiements/{payment_id}/recu", response_model=RecuOut)
+def recu_paiement(payment_id: int, db: Session = Depends(get_db), _admin: AdminUser = Depends(get_current_admin)):
+    """Détail (JSON) d'un reçu — utilisé pour l'aperçu avant téléchargement du
+    PDF (voir /recu.pdf ci-dessous)."""
+    payment = db.query(Payment).filter(Payment.id == payment_id, Payment.status == "success").first()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Reçu introuvable pour ce paiement.")
+    return construire_recu(payment, db)
+
+
+@router.get("/paiements/{payment_id}/recu.pdf")
+def recu_paiement_pdf(payment_id: int, db: Session = Depends(get_db), _admin: AdminUser = Depends(get_current_admin)):
+    """Reçu imprimable (PDF) d'un paiement déjà activé (statut 'success'),
+    qu'il ait été payé en ligne (MonCash/NatCash/Stripe) ou activé
+    manuellement par un admin — utilisé juste après activation et pour
+    retélécharger un reçu depuis l'historique du client."""
+    payment = db.query(Payment).filter(Payment.id == payment_id, Payment.status == "success").first()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Reçu introuvable pour ce paiement.")
+    pdf = generer_recu_pdf(construire_recu(payment, db))
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="recu-{payment_id}.pdf"'},
+    )
 
 
 class EditExpirationIn(BaseModel):

@@ -19,6 +19,12 @@ def _run_migrations():
         if "auto_release" not in existing:
             conn.execute(text("ALTER TABLE pricing_config ADD COLUMN auto_release BOOLEAN NOT NULL DEFAULT 0"))
             conn.commit()
+        # Normalise les mac existants (espaces + casse) pour que l'index UNIQUE
+        # sur clients.mac (sensible à la casse en SQLite) empêche vraiment les
+        # doublons — voir app.utils.normaliser_mac, appliqué désormais à toute
+        # écriture/lecture de mac.
+        conn.execute(text("UPDATE clients SET mac = UPPER(TRIM(mac))"))
+        conn.commit()
 
 _run_migrations()
 

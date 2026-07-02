@@ -2,14 +2,16 @@ import os
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Client, LicenceKey, Payment
 from app.payments.base import get_provider
 from app.pricing import calculer_montant, get_or_create_pricing_config
+from app.receipt import construire_recu, generer_recu_pdf
 from app.schemas import PaiementCreateIn, PricingConfigOut
+from app.utils import normaliser_mac
 from genere_key import generate_activation_key
 
 router = APIRouter(prefix="/api/licence", tags=["Licence"])
@@ -56,7 +58,13 @@ def _valider_paiement(payment: Payment, db: Session) -> dict:
     db.add(licence_key)
     db.commit()
 
-    return {"status": "success", "key": key, "expiration_date": expiration_date, "days_valid": jours_valid_ajustes}
+    return {
+        "status": "success",
+        "key": key,
+        "expiration_date": expiration_date,
+        "days_valid": jours_valid_ajustes,
+        "payment_id": payment.id,
+    }
 
 
 @router.get("/tarif", response_model=PricingConfigOut)
@@ -73,7 +81,7 @@ def verifier_mac(mac: str = Query(...), db: Session = Depends(get_db)):
     renvoie aucune donnée personnelle (nom/prénom/email) — juste l'existence
     et le statut, pour que la page de renouvellement puisse valider le champ
     mac (lecture seule côté client) avant d'afficher le formulaire de paiement."""
-    client = db.query(Client).filter(Client.mac == mac).first()
+    client = db.query(Client).filter(Client.mac == normaliser_mac(mac)).first()
     return {"exists": client is not None, "suspended": client.suspended if client else False}
 
 
@@ -85,7 +93,7 @@ def derniere_cle(mac: str = Query(...), db: Session = Depends(get_db)):
     s'il existe une clé plus récente que celle qu'il a en local et l'appliquer
     lui-même (modèle "pull" : infini-software ne peut pas appeler directement
     un serveur derrière un réseau local/NAT)."""
-    client = db.query(Client).filter(Client.mac == mac).first()
+    client = db.query(Client).filter(Client.mac == normaliser_mac(mac)).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client introuvable.")
     derniere = (
@@ -116,7 +124,7 @@ async def initier_paiement(data: PaiementCreateIn, db: Session = Depends(get_db)
     Le montant n'est jamais fourni par l'appelant : il est calculé côté serveur
     à partir du prix mensuel configuré par l'admin et du nombre de mois choisi
     (carte -> USD ; MonCash/NatCash -> converti en HTG au taux du jour)."""
-    client = db.query(Client).filter(Client.mac == data.mac).first()
+    client = db.query(Client).filter(Client.mac == normaliser_mac(data.mac)).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client introuvable. L'installation doit s'enregistrer d'abord.")
     if client.suspended:
@@ -212,3 +220,32 @@ async def confirmer_paiement(
         return {"status": "paid", "message": "Votre paiement a bien été reçu. Contactez l'administrateur pour obtenir votre clé d'activation."}
 
     return _valider_paiement(payment, db)
+
+
+@router.get("/recu")
+def recu(mac: str = Query(...), key: str = Query(...), db: Session = Depends(get_db)):
+    """Reçu PDF téléchargeable par le client final, identifié par mac + clé de
+    licence (les deux seules infos que le serveur local ecole_nginx connaît
+    déjà — voir 'Historique des activations' dans l'app Lekol360). Public
+    comme /derniere-cle et /verifier-mac : pas de données plus sensibles
+    exposées que ce que la clé elle-même donne déjà accès."""
+    client = db.query(Client).filter(Client.mac == normaliser_mac(mac)).first()
+    if not client:
+        raise HTTPException(status_code=404, detail="Client introuvable.")
+    licence_key = (
+        db.query(LicenceKey)
+        .filter(LicenceKey.client_id == client.id, LicenceKey.key == key)
+        .order_by(LicenceKey.created_at.desc())
+        .first()
+    )
+    if not licence_key or not licence_key.payment_id:
+        raise HTTPException(status_code=404, detail="Aucun reçu disponible pour cette activation.")
+    payment = db.query(Payment).filter(Payment.id == licence_key.payment_id, Payment.status == "success").first()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Aucun reçu disponible pour cette activation.")
+    pdf = generer_recu_pdf(construire_recu(payment, db))
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="recu-{payment.id}.pdf"'},
+    )

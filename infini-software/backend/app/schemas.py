@@ -104,6 +104,31 @@ class ActiverPlanIn(BaseModel):
     months: int = 1
 
 
+class ClientCreateIn(BaseModel):
+    """Enregistrement manuel d'un client par l'admin — mêmes champs que ceux
+    envoyés automatiquement par l'installation (voir SaveDataIn / /api/save-data),
+    pour un client dont l'installation n'a pas pu s'enregistrer elle-même."""
+    nom: str
+    prenom: str
+    email: str
+    mac: str
+
+
+class RecuOut(BaseModel):
+    """Reçu affiché/imprimable après l'activation d'un paiement (en ligne ou manuel)."""
+    payment_id: int
+    client_nom: str
+    client_prenom: str
+    client_email: str
+    client_mac: str
+    provider: str
+    amount: float
+    currency: str
+    days_valid: int
+    expiration_date: str
+    created_at: datetime
+
+
 class PaymentPendingOut(BaseModel):
     """Paiement confirmé par le fournisseur mais en attente d'activation admin (auto_release=False)."""
     id: int

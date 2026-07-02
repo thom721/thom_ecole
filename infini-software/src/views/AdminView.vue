@@ -78,6 +78,49 @@
           </form>
         </div>
 
+        <!-- Enregistrement manuel d'un client -->
+        <div class="card p-6 mb-8">
+          <div class="flex items-center justify-between mb-1">
+            <h2 class="font-syne text-lg font-bold">Enregistrer un client manuellement</h2>
+            <button type="button" class="btn-outline !px-3 !py-1.5 !text-xs" @click="showCreerClient = !showCreerClient">
+              {{ showCreerClient ? 'Fermer' : '+ Nouveau client' }}
+            </button>
+          </div>
+          <p class="text-xs text-[#64748b] mb-4">
+            Mêmes informations que celles envoyées automatiquement à la première installation. À utiliser si
+            l'installation n'a pas pu s'enregistrer elle-même (pas de connexion, etc.).
+          </p>
+          <form v-if="showCreerClient" @submit.prevent="creerClient" class="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+            <div>
+              <label class="block text-xs text-[#64748b] mb-1">Prénom</label>
+              <input v-model="creerForm.prenom" type="text" required
+                     class="w-full bg-[#080c10] border border-[#1e2a38] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#06b6d4]" />
+            </div>
+            <div>
+              <label class="block text-xs text-[#64748b] mb-1">Nom</label>
+              <input v-model="creerForm.nom" type="text" required
+                     class="w-full bg-[#080c10] border border-[#1e2a38] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#06b6d4]" />
+            </div>
+            <div>
+              <label class="block text-xs text-[#64748b] mb-1">Email</label>
+              <input v-model="creerForm.email" type="email" required
+                     class="w-full bg-[#080c10] border border-[#1e2a38] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#06b6d4]" />
+            </div>
+            <div>
+              <label class="block text-xs text-[#64748b] mb-1">Adresse MAC du serveur</label>
+              <input v-model="creerForm.mac" type="text" placeholder="AA:BB:CC:DD:EE:FF" required
+                     class="w-full bg-[#080c10] border border-[#1e2a38] rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#06b6d4]" />
+            </div>
+            <div class="sm:col-span-4">
+              <button type="submit" class="btn-gold" :disabled="creerLoading">
+                {{ creerLoading ? 'Enregistrement...' : 'Enregistrer le client' }}
+              </button>
+            </div>
+          </form>
+          <p v-if="creerError" class="text-sm text-red-400 mt-3">{{ creerError }}</p>
+          <p v-if="creerSuccess" class="text-sm text-emerald-400 mt-3">Client enregistré ✓</p>
+        </div>
+
         <!-- Activation manuelle d'un plan -->
         <div class="card p-6 mb-8">
           <h2 class="font-syne text-lg font-bold mb-4">Activer un plan manuellement</h2>
@@ -106,9 +149,12 @@
             </button>
           </form>
           <p v-if="activerError" class="text-sm text-red-400 mt-3">{{ activerError }}</p>
-          <p v-if="activerSuccess" class="text-sm text-emerald-400 mt-3">
-            Clé générée : <span class="font-mono">{{ activerSuccess.key }}</span> — expire le {{ activerSuccess.expiration_date }}
-          </p>
+          <div v-if="activerSuccess" class="flex items-center gap-3 mt-3">
+            <p class="text-sm text-emerald-400">
+              Clé générée : <span class="font-mono">{{ activerSuccess.key }}</span> — expire le {{ activerSuccess.expiration_date }}
+            </p>
+            <button class="text-xs text-[#06b6d4] hover:underline" @click="voirRecu(activerSuccess.payment_id)">Voir le reçu</button>
+          </div>
         </div>
 
         <!-- Paiements en attente d'activation (auto_release=false) -->
@@ -152,9 +198,12 @@
             </table>
           </div>
           <p v-if="activerPaiementError" class="text-sm text-red-400 mt-3">{{ activerPaiementError }}</p>
-          <p v-if="activerPaiementSuccess" class="text-sm text-emerald-400 mt-3">
-            Clé générée : <span class="font-mono">{{ activerPaiementSuccess.key }}</span> — expire le {{ activerPaiementSuccess.expiration_date }}
-          </p>
+          <div v-if="activerPaiementSuccess" class="flex items-center gap-3 mt-3">
+            <p class="text-sm text-emerald-400">
+              Clé générée : <span class="font-mono">{{ activerPaiementSuccess.key }}</span> — expire le {{ activerPaiementSuccess.expiration_date }}
+            </p>
+            <button class="text-xs text-[#06b6d4] hover:underline" @click="voirRecu(activerPaiementSuccess.payment_id)">Voir le reçu</button>
+          </div>
         </div>
 
         <h2 class="font-syne text-xl font-bold mb-4">Clients</h2>
@@ -245,13 +294,15 @@
                     <p class="text-xs uppercase tracking-wider text-[#64748b] mb-2">Paiements</p>
                     <p v-if="!historiqueDetail?.payments?.length" class="text-sm text-[#64748b]">Aucun paiement</p>
                     <ul v-else class="space-y-1 text-sm">
-                      <li v-for="p in historiqueDetail.payments" :key="p.id" class="flex gap-4">
+                      <li v-for="p in historiqueDetail.payments" :key="p.id" class="flex gap-4 items-center">
                         <span class="text-[#64748b]">{{ formatDate(p.created_at) }}</span>
                         <span>{{ p.provider }}</span>
                         <span>{{ p.amount }} {{ p.currency }}</span>
                         <span :class="p.status === 'success' ? 'text-emerald-400' : p.status === 'failed' ? 'text-red-400' : 'text-amber-400'">
                           {{ p.status }}
                         </span>
+                        <button v-if="p.status === 'success'" class="text-xs text-[#06b6d4] hover:underline ml-auto"
+                                @click.stop="voirRecu(p.id)">Reçu</button>
                       </li>
                     </ul>
                   </td>
@@ -264,6 +315,25 @@
           </table>
         </div>
       </div>
+
+      <!-- Reçu de paiement (PDF) -->
+      <div v-if="recuUrl || recuLoading" class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" @click.self="fermerRecu">
+        <div class="card p-6 max-w-2xl w-full">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="font-syne text-lg font-bold">Reçu de paiement</h2>
+            <button class="text-[#64748b] hover:text-white text-xl leading-none" @click="fermerRecu">&times;</button>
+          </div>
+          <div v-if="recuLoading" class="h-[60vh] flex items-center justify-center text-sm text-[#64748b]">
+            Génération du reçu...
+          </div>
+          <iframe v-else :src="recuUrl" class="w-full h-[60vh] bg-white rounded-lg border border-[#1e2a38]"></iframe>
+          <div v-if="!recuLoading" class="flex gap-3 mt-4">
+            <button class="btn-gold flex-1 justify-center" @click="telechargerRecu">Télécharger</button>
+            <button class="btn-outline flex-1 justify-center" @click="fermerRecu">Fermer</button>
+          </div>
+        </div>
+      </div>
+      <p v-if="recuError" class="fixed bottom-6 right-6 bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-2 rounded-lg">{{ recuError }}</p>
     </div>
   </main>
 </template>
@@ -286,10 +356,21 @@ const configForm = ref({ monthly_price: 0, currency: 'USD', exchange_rate_usd_ht
 const configSaving = ref(false)
 const configSaved = ref(false)
 
+const showCreerClient = ref(false)
+const creerForm = ref({ nom: '', prenom: '', email: '', mac: '' })
+const creerLoading = ref(false)
+const creerError = ref('')
+const creerSuccess = ref(false)
+
 const activerForm = ref({ mac: '', email: '', months: 1 })
 const activerLoading = ref(false)
 const activerError = ref('')
 const activerSuccess = ref(null)
+
+const recuUrl = ref('')
+const recuPaymentId = ref(null)
+const recuLoading = ref(false)
+const recuError = ref('')
 
 const paiementsEnAttente = ref([])
 const activatingPayment = ref(null)
@@ -449,6 +530,63 @@ const activerPaiement = async (p) => {
     activerPaiementError.value = e.message
   } finally {
     activatingPayment.value = null
+  }
+}
+
+const voirRecu = async (paymentId) => {
+  recuError.value = ''
+  recuLoading.value = true
+  recuPaymentId.value = paymentId
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/paiements/${paymentId}/recu.pdf`, { headers: authHeaders() })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.detail || 'Reçu introuvable')
+    }
+    const blob = await res.blob()
+    recuUrl.value = URL.createObjectURL(blob)
+  } catch (e) {
+    recuError.value = e.message
+    recuPaymentId.value = null
+    setTimeout(() => { recuError.value = '' }, 4000)
+  } finally {
+    recuLoading.value = false
+  }
+}
+
+const fermerRecu = () => {
+  if (recuUrl.value) URL.revokeObjectURL(recuUrl.value)
+  recuUrl.value = ''
+  recuPaymentId.value = null
+}
+
+const telechargerRecu = () => {
+  const a = document.createElement('a')
+  a.href = recuUrl.value
+  a.download = `recu-${recuPaymentId.value}.pdf`
+  a.click()
+}
+
+const creerClient = async () => {
+  creerLoading.value = true
+  creerError.value = ''
+  creerSuccess.value = false
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/clients`, {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(creerForm.value),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.detail || 'Enregistrement impossible')
+    creerSuccess.value = true
+    creerForm.value = { nom: '', prenom: '', email: '', mac: '' }
+    showCreerClient.value = false
+    await fetchClients()
+  } catch (e) {
+    creerError.value = e.message
+  } finally {
+    creerLoading.value = false
   }
 }
 
