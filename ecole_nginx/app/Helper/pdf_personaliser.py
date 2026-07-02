@@ -4,6 +4,15 @@ import sys
 import subprocess
 import tempfile
 from pathlib import Path
+
+# Capturé une seule fois, à l'import, AVANT toute mutation de tempfile.tempdir
+# par generate_pdf_for_api_html() ci-dessous — sert de base fixe pour le
+# dossier "weasyprint_lemignon". Sans ça, comme cette méthode réassigne
+# tempfile.tempdir à chaque appel, tempfile.gettempdir() renvoie le chemin
+# déjà modifié de l'appel précédent et se réempile dedans à chaque nouveau
+# PDF généré (weasyprint_lemignon\weasyprint_lemignon\weasyprint_lemignon\...)
+# jusqu'à dépasser la limite de longueur de chemin Windows (WinError 206).
+_WEASYPRINT_BASE_TEMPDIR = tempfile.gettempdir()
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, StreamingResponse
 from jinja2 import Environment, FileSystemLoader
@@ -337,13 +346,19 @@ class PDFGenerator:
         # Configuration du dossier temporaire pour WeasyPrint
         # tempfile.gettempdir() retourne le bon dossier selon l'OS
         # (/tmp sur Linux/Mac, %TEMP% sur Windows) au lieu d'un chemin Unix fixe.
+        # Base fixe (_WEASYPRINT_BASE_TEMPDIR, capturée à l'import) plutôt que
+        # tempfile.gettempdir() : sinon, comme cette méthode réassigne
+        # tempfile.tempdir plus bas, chaque appel se réempile dans le résultat
+        # du précédent (weasyprint_lemignon\weasyprint_lemignon\...) jusqu'à
+        # dépasser la limite de longueur de chemin Windows (WinError 206).
         BASE_DIR = Path(__file__).resolve().parent
-        temp_dir = os.path.join(tempfile.gettempdir(), 'weasyprint_lemignon')
+        temp_dir = os.path.join(_WEASYPRINT_BASE_TEMPDIR, 'weasyprint_lemignon')
         os.makedirs(temp_dir, exist_ok=True)
-        os.environ['TMPDIR'] = temp_dir
-        os.environ['TEMP'] = temp_dir
-        os.environ['TMP'] = temp_dir
-        tempfile.tempdir = temp_dir
+        if tempfile.tempdir != temp_dir:
+            os.environ['TMPDIR'] = temp_dir
+            os.environ['TEMP'] = temp_dir
+            os.environ['TMP'] = temp_dir
+            tempfile.tempdir = temp_dir
         print(f"📁 Dossier temporaire WeasyPrint: {temp_dir}")
 
         css_content = """
