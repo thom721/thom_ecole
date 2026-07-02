@@ -54,6 +54,12 @@ class _AbonnementScreenState extends State<AbonnementScreen> {
     }
   }
 
+  Future<void> _printRecu(AbonnementState state, AbonnementHistoriqueEntry entry) async {
+    final error = await state.printRecu(entry);
+    if (!mounted || error == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+  }
+
   Future<void> _syncFromInfini(AbonnementState state) async {
     final error = await state.syncFromInfini();
     if (!mounted) return;
@@ -142,12 +148,14 @@ class _AbonnementScreenState extends State<AbonnementScreen> {
                           DataColumn(label: Text('ACTIVÉ LE')),
                           DataColumn(label: Text('EXPIRE LE')),
                           DataColumn(label: Text('STATUT')),
+                          DataColumn(label: Text('')),
                         ],
                         rows: state.historique.isEmpty
                             ? [
                                 DataRow(cells: [
                                   DataCell(Text('Aucune activation trouvée',
                                       style: TextStyle(color: AppColors.textMuted))),
+                                  const DataCell(Text('')),
                                   const DataCell(Text('')),
                                   const DataCell(Text('')),
                                 ]),
@@ -166,6 +174,22 @@ class _AbonnementScreenState extends State<AbonnementScreen> {
                                       color: h.actif ? const Color(0xFF34D399) : const Color(0xFFFB7185),
                                     ),
                                   )),
+                                  DataCell(
+                                    h.nouvelleCle == null
+                                        ? const SizedBox.shrink()
+                                        : TextButton.icon(
+                                            onPressed: state.printingRecuId == h.id ? null : () => _printRecu(state, h),
+                                            icon: state.printingRecuId == h.id
+                                                ? const SizedBox(
+                                                    width: 14,
+                                                    height: 14,
+                                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                                  )
+                                                : const Icon(Icons.receipt_long_outlined, size: 16),
+                                            label: const Text('Reçu'),
+                                            style: TextButton.styleFrom(foregroundColor: AppColors.textMuted),
+                                          ),
+                                  ),
                                 ]);
                               }).toList(),
                       ),

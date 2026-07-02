@@ -29,8 +29,15 @@ class RolePermissionState extends ChangeNotifier {
   bool isAssigningRoles = false;
   bool isAssigningPermissions = false;
 
+  /// Rechargée à chaque fois que l'écran "Vues"/Rôles/Permissions est ouvert
+  /// (TabConfigTab/RoleAssignmentTab/PermissionAssignmentTab la rappellent
+  /// dans initState, qui se redéclenche à chaque navigation puisque
+  /// ProfileScreen recrée le widget de section à chaque switch). Pas de
+  /// cache ici volontairement : role.accessible_tabs peut avoir été modifié
+  /// entre-temps depuis le web (même backend/DB, voir tab_config_tab.dart),
+  /// et ces deux endpoints (/role, /permission) sont de petites listes de
+  /// référence — le recharger est négligeable en coût.
   Future<void> loadLists() async {
-    if (roles.isNotEmpty && permissions.isNotEmpty) return;
     isLoadingLists = true;
     notifyListeners();
     try {

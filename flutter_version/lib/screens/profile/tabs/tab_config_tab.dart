@@ -71,7 +71,16 @@ class _TabConfigTabState extends State<TabConfigTab> {
     final subs = kSubNavItems[parentId] ?? [];
     setState(() {
       if (allVisible) {
-        _checkedTabIds!.removeWhere((id) => id.startsWith('$parentId.'));
+        // Ne retirer que les sous-onglets connus de Flutter (kSubNavItems) —
+        // un id "parentId.xxx" ajouté depuis un autre client (web) et absent
+        // de cette map ne doit jamais être effacé silencieusement ici : le
+        // backend (PATCH /roles/{id}/tabs) remplace toute la liste, un
+        // removeWhere(startsWith) aurait donc supprimé pour de bon un réglage
+        // que cet écran ne montre même pas.
+        for (final sub in subs) {
+          _checkedTabIds!.remove(sub.id);
+        }
+        _checkedTabIds!.remove(_noneMarker(parentId));
       } else {
         _checkedTabIds!.remove(_noneMarker(parentId));
         for (final sub in subs) {
@@ -134,8 +143,14 @@ class _TabConfigTabState extends State<TabConfigTab> {
                 _checkedTabIds!.add(item.id);
               } else {
                 _checkedTabIds!.remove(item.id);
-                // Retirer les sous-onglets quand le parent est caché
-                _checkedTabIds!.removeWhere((id) => id.startsWith('${item.id}.'));
+                // Retirer les sous-onglets connus quand le parent est caché
+                // (même remarque que _toggleSubAll : jamais de wildcard sur
+                // le préfixe, pour ne pas effacer un sous-onglet inconnu de
+                // Flutter mais réglé depuis le web).
+                for (final sub in kSubNavItems[item.id] ?? const []) {
+                  _checkedTabIds!.remove(sub.id);
+                }
+                _checkedTabIds!.remove(_noneMarker(item.id));
               }
             }),
           ),

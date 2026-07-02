@@ -137,18 +137,21 @@ class AuthState extends ChangeNotifier {
   bool get isBaseUser => roles.length == 1 && roles.contains('user');
 
   /// Retourne les IDs de sous-onglets visibles pour un onglet parent (ex:
-  /// 'vente', 'profile', 'settings'). null = pas de restriction (tout visible).
-  /// Quand accessible_tabs contient au moins une entrée "parentId.sousId", seuls
-  /// ces sous-onglets sont montrés ; si aucune entrée de ce préfixe n'existe le
-  /// parent est entièrement libre (aucune restriction de sous-onglets).
+  /// 'vente', 'profile', 'settings'). null = pas de restriction du tout sur
+  /// le rôle (accessible_tabs == null, tout visible). Dès que le rôle a la
+  /// moindre restriction, chaque sous-onglet doit être explicitement listé
+  /// pour être visible — même convention que canSeeSubTab() côté web
+  /// (ecole_nginx/frontend/src/stores/auth.js:221-224) : une absence
+  /// d'entrée "parentId.*" ne signifie PAS "ce parent est libre", elle
+  /// masque tous ses sous-onglets, pour que le même rôle se comporte
+  /// identiquement sur les deux clients.
   Set<String>? visibleSubItems(String parentId) {
     if (_accessibleTabs == null) return null;
     final prefix = '$parentId.';
-    final sub = _accessibleTabs!
+    return _accessibleTabs!
         .where((id) => id.startsWith(prefix))
         .map((id) => id.substring(prefix.length))
         .toSet();
-    return sub.isEmpty ? null : sub;
   }
 
   Set<String> get visibleNavItems {

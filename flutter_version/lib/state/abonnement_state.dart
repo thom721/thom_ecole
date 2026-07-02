@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../core/api_client.dart';
@@ -9,6 +11,7 @@ class AbonnementHistoriqueEntry {
     required this.id,
     required this.dateActivation,
     required this.dateExpiration,
+    required this.nouvelleCle,
   });
 
   factory AbonnementHistoriqueEntry.fromJson(Map<String, dynamic> json) {
@@ -16,12 +19,17 @@ class AbonnementHistoriqueEntry {
       id: json['id']?.toString() ?? '',
       dateActivation: json['date_activation']?.toString(),
       dateExpiration: json['date_expiration']?.toString(),
+      nouvelleCle: json['nouvelle_cle']?.toString(),
     );
   }
 
   final String id;
   final String? dateActivation;
   final String? dateExpiration;
+  /// Clé de licence appliquée à cette activation (LogActive.new_key côté
+  /// ecole_nginx) — c'est le seul identifiant commun avec infini-software,
+  /// qui n'a jamais connaissance des id locaux : voir printRecu() ci-dessous.
+  final String? nouvelleCle;
 
   /// Équivalent de isEntryActif() (Abonnement.vue:77-85).
   bool get actif {
@@ -62,6 +70,11 @@ class AbonnementState extends ChangeNotifier {
 
   bool isSyncing = false;
   String? syncMessage;
+
+  /// id (AbonnementHistoriqueEntry.id) de la ligne dont le reçu est en cours
+  /// de téléchargement — permet de désactiver seulement le bouton de cette
+  /// ligne pendant l'opération, comme printingKey dans PaiementState.
+  String? printingRecuId;
 
   /// URL de renouvellement infini-software, pré-remplie avec le mac du serveur.
   /// Équivalent de _ouvrir_renouvellement() (Main.py:4286-4295).
@@ -151,6 +164,50 @@ class AbonnementState extends ChangeNotifier {
       return syncMessage;
     } finally {
       isSyncing = false;
+      notifyListeners();
+    }
+  }
+
+  /// Télécharge le reçu PDF d'une activation d'abonnement (GET
+  /// infini-software.cloud/api/licence/recu, identifié par mac + clé — les
+  /// seules infos communes aux deux systèmes, voir nouvelleCle ci-dessus) et
+  /// l'ouvre avec le lecteur par défaut du système, comme printRecu()
+  /// (PaiementState) pour les reçus de paiement scolaire.
+  Future<String?> printRecu(AbonnementHistoriqueEntry entry) async {
+    if (mac == null) return 'Adresse MAC du serveur introuvable.';
+    if (entry.nouvelleCle == null) return 'Aucune clé associée à cette activation.';
+    printingRecuId = entry.id;
+    notifyListeners();
+    try {
+      final infiniDio = Dio();
+      final response = await infiniDio.get(
+        '$_infiniBaUrl/api/licence/recu',
+        queryParameters: {'mac': mac, 'key': entry.nouvelleCle},
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final file = File('${Directory.systemTemp.path}/recu_abonnement_${entry.id}.pdf');
+      await file.writeAsBytes(response.data as List<int>);
+      ProcessResult result;
+      if (Platform.isMacOS) {
+        result = await Process.run('open', [file.path]);
+      } else if (Platform.isWindows) {
+        result = await Process.run('cmd', ['/c', 'start', '', file.path]);
+      } else {
+        result = await Process.run('xdg-open', [file.path]);
+      }
+      if (result.exitCode != 0) {
+        return 'Impossible d\'ouvrir le reçu : ${result.stderr}'.trim();
+      }
+      return null;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        return 'Aucun reçu disponible pour cette activation.';
+      }
+      return 'Impossible de joindre infini-software.cloud.';
+    } catch (_) {
+      return 'Erreur inattendue lors du téléchargement du reçu.';
+    } finally {
+      printingRecuId = null;
       notifyListeners();
     }
   }
