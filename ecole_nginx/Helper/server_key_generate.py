@@ -139,6 +139,20 @@ def apply_remote_licence(key: str, expiration_date: str, days_valid: int = None)
     else:
         settings.remove("days_valid")
 
+    # QSettings ne lève JAMAIS d'exception Python en cas d'échec d'écriture
+    # (registre verrouillé, permissions insuffisantes, appel depuis le thread
+    # uvicorn lancé par app_gui.py plutôt que le thread Qt principal). Sans
+    # sync() + vérification de status(), un échec passait complètement
+    # inaperçu : /api/v1/licence/appliquer (RClientInfos.py) renvoyait
+    # {"success": true} et créait la ligne log_actives alors que rien
+    # n'avait réellement été écrit dans HKCU\Software\MonAppServer\Licence.
+    settings.sync()
+    if settings.status() != QSettings.NoError:
+        raise RuntimeError(
+            f"Échec de l'écriture dans le registre HKCU\\Software\\MonAppServer\\Licence "
+            f"(QSettings status={settings.status()}) — vérifiez les droits d'écriture sur cette clé."
+        )
+
 
 def show_activation_key():
     activation_key, expiration_date = save_key_to_settings()
