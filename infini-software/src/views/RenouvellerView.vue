@@ -104,26 +104,26 @@
 
         <!-- Étape 2 : redirection envoyée, en attente de confirmation -->
         <div v-else class="text-center space-y-5">
-          <p v-if="!resultKey" class="text-sm text-[#64748b]">
+          <p v-if="!resultKey && !resultPending" class="text-sm text-[#64748b]">
             Une fenêtre de paiement {{ provider }} a été ouverte. Une fois le paiement terminé, cliquez ci-dessous
             pour récupérer votre nouvelle clé.
           </p>
 
-          <button v-if="redirectUrl && !resultKey" class="btn-outline w-full justify-center" @click="ouvrirPaiement">
+          <button v-if="redirectUrl && !resultKey && !resultPending" class="btn-outline w-full justify-center" @click="ouvrirPaiement">
             Rouvrir la page de paiement
           </button>
 
-          <button v-if="!resultKey" class="btn-gold w-full justify-center" :disabled="confirming" @click="confirmer">
+          <button v-if="!resultKey && !resultPending" class="btn-gold w-full justify-center" :disabled="confirming" @click="confirmer">
             {{ confirming ? 'Vérification...' : 'J\'ai terminé le paiement' }}
           </button>
 
           <p v-if="confirmError" class="text-sm text-red-400">{{ confirmError }}</p>
 
           <div v-if="resultPending" class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-5 text-left">
-            <p class="text-amber-400 font-semibold mb-2">Paiement reçu — activation en attente</p>
+            <p class="text-amber-400 font-semibold mb-2">Demande de renouvellement enregistrée</p>
             <p class="text-sm text-[#cbd5e1]">
-              Votre paiement a bien été enregistré. La clé d'activation sera générée par un administrateur.
-              Contactez le support pour finaliser l'activation de votre licence.
+              Votre demande de renouvellement de licence a bien été enregistrée. Un administrateur activera
+              votre licence après réception du paiement.
             </p>
           </div>
 

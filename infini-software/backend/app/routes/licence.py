@@ -150,15 +150,25 @@ async def initier_paiement(data: PaiementCreateIn, db: Session = Depends(get_db)
 
     order_id = f"licence-{client.id}-{payment.id}-{uuid.uuid4().hex[:8]}"
 
+    # Livraison manuelle : le paiement se règle hors-ligne (espèces...) avec
+    # l'admin, qui l'active depuis "Paiements en attente d'activation" une
+    # fois l'argent reçu. On n'appelle jamais le fournisseur en ligne dans ce
+    # cas (ni en mode test ni en réel) : pas de redirection MonCash, pas de
+    # confirmation à faire par le client — le paiement passe direct en "paid".
+    if not config.auto_release:
+        payment.provider_reference = order_id
+        payment.status = "paid"
+        db.commit()
+        return {
+            "payment_id": payment.id, "redirect_url": None, "provider_reference": order_id,
+            "status": "paid",
+            "message": "Votre demande de renouvellement de licence a bien été enregistrée. "
+                       "Un administrateur activera votre licence après réception du paiement.",
+        }
+
     if PAYMENT_TEST_MODE:
         payment.provider_reference = order_id
         db.commit()
-        config = get_or_create_pricing_config(db)
-        if not config.auto_release:
-            payment.status = "paid"
-            db.commit()
-            return {"payment_id": payment.id, "redirect_url": None, "provider_reference": order_id,
-                    "status": "paid", "message": "Votre paiement a bien été reçu. Contactez l'administrateur pour obtenir votre clé d'activation."}
         resultat = _valider_paiement(payment, db)
         return {"payment_id": payment.id, "redirect_url": None, "provider_reference": order_id, **resultat}
 

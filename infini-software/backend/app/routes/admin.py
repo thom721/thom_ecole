@@ -213,6 +213,20 @@ def activer_paiement(payment_id: int, db: Session = Depends(get_db), _admin: Adm
     return _valider_paiement(payment, db)
 
 
+@router.delete("/paiements/{payment_id}", status_code=204)
+def supprimer_paiement(payment_id: int, db: Session = Depends(get_db), _admin: AdminUser = Depends(get_current_admin)):
+    """Supprime un paiement non encore traité (statut 'pending', 'paid' ou
+    'failed' — pas 'success', qui a une clé associée et se supprime via
+    /historique/{key_id} pour rester cohérent avec l'historique du client)."""
+    payment = db.query(Payment).filter(Payment.id == payment_id).first()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Paiement introuvable.")
+    if payment.status == "success":
+        raise HTTPException(status_code=409, detail="Ce paiement est déjà activé — supprimez-le depuis l'historique du client.")
+    db.delete(payment)
+    db.commit()
+
+
 @router.get("/paiements/{payment_id}/recu", response_model=RecuOut)
 def recu_paiement(payment_id: int, db: Session = Depends(get_db), _admin: AdminUser = Depends(get_current_admin)):
     """Détail (JSON) d'un reçu — utilisé pour l'aperçu avant téléchargement du

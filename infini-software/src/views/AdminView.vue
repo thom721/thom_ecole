@@ -187,10 +187,15 @@
                   <td class="px-4 py-3">{{ p.amount }} {{ p.currency }}</td>
                   <td class="px-4 py-3">{{ p.days_valid }} jours</td>
                   <td class="px-4 py-3 text-[#64748b]">{{ formatDate(p.created_at) }}</td>
-                  <td class="px-4 py-3 text-right">
-                    <button class="btn-gold !px-3 !py-1.5 !text-xs" :disabled="activatingPayment === p.id"
+                  <td class="px-4 py-3 text-right whitespace-nowrap">
+                    <button class="btn-gold !px-3 !py-1.5 !text-xs" :disabled="activatingPayment === p.id || deletingPayment === p.id"
                             @click="activerPaiement(p)">
                       {{ activatingPayment === p.id ? '...' : 'Activer' }}
+                    </button>
+                    <button class="bg-red-500/10 text-red-400 border border-red-500/30 rounded-full px-3 py-1.5 text-xs font-semibold hover:bg-red-500/20 ml-2 disabled:opacity-50"
+                            :disabled="activatingPayment === p.id || deletingPayment === p.id"
+                            @click="supprimerPaiement(p)">
+                      {{ deletingPayment === p.id ? '...' : 'Supprimer' }}
                     </button>
                   </td>
                 </tr>
@@ -376,6 +381,7 @@ const paiementsEnAttente = ref([])
 const activatingPayment = ref(null)
 const activerPaiementError = ref('')
 const activerPaiementSuccess = ref(null)
+const deletingPayment = ref(null)
 
 const editingKey = ref(null)
 const editingDate = ref('')
@@ -530,6 +536,27 @@ const activerPaiement = async (p) => {
     activerPaiementError.value = e.message
   } finally {
     activatingPayment.value = null
+  }
+}
+
+const supprimerPaiement = async (p) => {
+  if (!confirm(`Supprimer ce paiement de ${p.client_prenom} ${p.client_nom} (${p.amount} ${p.currency}) ? Cette action est irréversible.`)) return
+  deletingPayment.value = p.id
+  activerPaiementError.value = ''
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/paiements/${p.id}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    })
+    if (!res.ok && res.status !== 204) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.detail || 'Suppression impossible')
+    }
+    paiementsEnAttente.value = paiementsEnAttente.value.filter(x => x.id !== p.id)
+  } catch (e) {
+    activerPaiementError.value = e.message
+  } finally {
+    deletingPayment.value = null
   }
 }
 
