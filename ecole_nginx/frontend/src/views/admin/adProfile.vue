@@ -169,6 +169,10 @@ const ALL_NAV = [
     { id: 'settings.paiements',    label: 'Paiements' },
     { id: 'settings.frais',        label: 'Frais' },
     { id: 'settings.frais_divers', label: 'Frais Divers' },
+    { id: 'settings.ajouter',      label: 'Ajouter' },
+    { id: 'settings.modifier',     label: 'Modifier' },
+    { id: 'settings.supprimer',    label: 'Supprimer' },
+    { id: 'settings.voir',         label: 'Voir détails' },
   ]},
   { id: 'log',        label: 'Log',           subs: [] },
   { id: 'abonnement', label: 'Abonnement',    subs: [] },
@@ -211,6 +215,24 @@ const toggleSub = (subId) => {
     vuesChecked.value = vuesChecked.value.filter(t => t !== subId)
   else
     vuesChecked.value = [...vuesChecked.value, subId]
+}
+
+// "Tous les sous-onglets" (équivalent de _toggleSubAll / _subAllChecked côté
+// Flutter, tab_config_tab.dart) — ici on coche/décoche explicitement chaque
+// sous-id connu plutôt que de s'appuyer sur une absence d'entrée : contrairement
+// à Flutter (visibleSubItems : aucune entrée "parentId.*" = tout visible),
+// authStore.canSeeSubTab() exige que chaque sous-id soit listé explicitement
+// dès qu'un rôle a une restriction (stores/auth.js:221-224).
+const allSubsChecked = (subs) => subs.length > 0 && subs.every(s => vuesChecked.value.includes(s.id))
+
+const toggleAllSubs = (subs, checked) => {
+  const subIds = subs.map(s => s.id)
+  if (checked) {
+    const missing = subIds.filter(id => !vuesChecked.value.includes(id))
+    vuesChecked.value = [...vuesChecked.value, ...missing]
+  } else {
+    vuesChecked.value = vuesChecked.value.filter(t => !subIds.includes(t))
+  }
 }
 
 const submitVues = async () => {
@@ -644,6 +666,16 @@ onMounted(async () => {
                 <!-- Sous-onglets (si parent coché et a des sous-items) -->
                 <div v-if="vuesChecked.includes(item.id) && item.subs.length"
                   class="ml-8 pl-3 border-l border-white/[0.05] mb-1">
+                  <label class="flex items-center gap-2 py-1.5 cursor-pointer select-none">
+                    <input type="checkbox" :checked="allSubsChecked(item.subs)"
+                      @change="toggleAllSubs(item.subs, $event.target.checked)" class="sr-only" />
+                    <span class="relative w-6 h-3 rounded-full transition-colors shrink-0"
+                      :class="allSubsChecked(item.subs) ? 'bg-sky-500' : 'bg-white/[0.08]'">
+                      <span class="absolute top-[1px] w-[10px] h-[10px] bg-white rounded-full shadow transition-all"
+                        :class="allSubsChecked(item.subs) ? 'left-[13px]' : 'left-[1px]'"></span>
+                    </span>
+                    <span class="text-[11px] font-semibold text-[#7c83a0] uppercase tracking-wide">Tous les sous-onglets</span>
+                  </label>
                   <div class="flex flex-wrap gap-2 py-2">
                     <label v-for="sub in item.subs" :key="sub.id"
                       class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border cursor-pointer transition-all text-[11px]"
