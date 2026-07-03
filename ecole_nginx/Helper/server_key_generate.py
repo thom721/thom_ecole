@@ -114,6 +114,20 @@ def save_key_to_settings():
     # revérifier le HMAC de cette clé ensuite (voir _key_for_expiration_graphic).
     settings.setValue("days_valid", encrypt_value(str(days_valid), encryption_key))
 
+    # Sans sync(), une lecture immédiate (ask_for_activation_key() ->
+    # verify_activation_key(), appelé juste après show_activation_key() dans
+    # Main_run.py) peut retomber sur des valeurs vides/non flushées, faisant
+    # échouer decrypt_value() ("Aucune clé enregistrée côté serveur") alors
+    # qu'une licence d'essai vient pourtant d'être générée avec succès —
+    # bloquant toute première installation. Voir apply_remote_licence() plus
+    # bas pour le même correctif appliqué au flux de renouvellement distant.
+    settings.sync()
+    if settings.status() != QSettings.NoError:
+        raise RuntimeError(
+            f"Échec de l'écriture dans le registre HKCU\\Software\\MonAppServer\\Licence "
+            f"(QSettings status={settings.status()}) — vérifiez les droits d'écriture sur cette clé."
+        )
+
     return activation_key, expiration_date
 
 # activation_key, expiration_date = save_key_to_settings()
