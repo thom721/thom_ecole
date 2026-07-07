@@ -492,8 +492,43 @@ class _CartPanel extends StatelessWidget {
   }
 }
 
-String _formatQty(double v) =>
-    v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(2);
+const List<(double, String)> _commonFractions = [
+  (0.25, '1/4'),
+  (0.5, '1/2'),
+  (0.75, '3/4'),
+];
+
+String _formatQty(double v) {
+  if (v == v.roundToDouble()) return v.toStringAsFixed(0);
+  final whole = v.truncate();
+  final frac = v - whole;
+  for (final (value, label) in _commonFractions) {
+    if ((frac - value).abs() < 0.001) {
+      return whole == 0 ? label : '$whole $label';
+    }
+  }
+  return v.toStringAsFixed(2);
+}
+
+/// Accepte un nombre décimal ("2.5", "2,5") ou une fraction ("1/4",
+/// "1 1/2") — utile pour la vente au détail de tissus (aune, demi-aune...).
+double? _parseQtyInput(String raw) {
+  final text = raw.trim().replaceAll(',', '.');
+  if (text.isEmpty) return null;
+  final mixed = RegExp(r'^(\d+)\s+(\d+)/(\d+)$').firstMatch(text);
+  if (mixed != null) {
+    final den = int.parse(mixed.group(3)!);
+    if (den == 0) return null;
+    return int.parse(mixed.group(1)!) + int.parse(mixed.group(2)!) / den;
+  }
+  final fraction = RegExp(r'^(\d+)/(\d+)$').firstMatch(text);
+  if (fraction != null) {
+    final den = int.parse(fraction.group(2)!);
+    if (den == 0) return null;
+    return int.parse(fraction.group(1)!) / den;
+  }
+  return double.tryParse(text);
+}
 
 class _CartLine extends StatelessWidget {
   const _CartLine({required this.item});
@@ -510,8 +545,10 @@ class _CartLine extends StatelessWidget {
         content: TextField(
           controller: controller,
           autofocus: true,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(labelText: 'Quantité (ex: 2.5)'),
+          keyboardType: TextInputType.text,
+          decoration: const InputDecoration(
+            labelText: 'Quantité (ex: 2.5 ou 1/4)',
+          ),
         ),
         actions: [
           TextButton(
@@ -521,7 +558,7 @@ class _CartLine extends StatelessWidget {
           FilledButton(
             onPressed: () => Navigator.of(
               context,
-            ).pop(double.tryParse(controller.text.trim())),
+            ).pop(_parseQtyInput(controller.text)),
             child: const Text('OK'),
           ),
         ],

@@ -66,6 +66,43 @@ class PDFGenerator:
         suffix = "er" if index == 1 else "eme"
         return f"{index}{suffix} {versement_type}"
     
+    def format_qty(self, value) -> str:
+        """Affiche une quantité en fraction (1/4, 1/2, 3/4) quand elle
+        correspond à une valeur courante utilisée pour la vente de tissus
+        au détail (aune, demi-aune...), sinon en décimal.
+        """
+        try:
+            v = float(value)
+        except (TypeError, ValueError):
+            return str(value)
+        if v == int(v):
+            return str(int(v))
+        whole = int(v)
+        frac = round(v - whole, 4)
+        common_fractions = {0.25: "1/4", 0.5: "1/2", 0.75: "3/4"}
+        for dec, label in common_fractions.items():
+            if abs(frac - dec) < 0.001:
+                return label if whole == 0 else f"{whole} {label}"
+        return f"{v:.2f}"
+
+    def format_line_description(self, item) -> str:
+        """Description d'une ligne de vente avec la quantité ajoutée devant
+        (ex: "1/2 Tissus Aune vert uni") si elle n'y figure pas déjà —
+        utile quand le nom du produit n'encode plus la fraction lui-même.
+        """
+        category = (getattr(item, "category", "") or "").strip()
+        nom = (getattr(item, "nom", "") or "").strip()
+        desc = f"{category} {nom}".strip()
+
+        quantite = getattr(item, "quantite", None)
+        if quantite in (None, ""):
+            return desc
+
+        qty_label = self.format_qty(quantite)
+        if not qty_label or qty_label in desc:
+            return desc
+        return f"{qty_label} {desc}"
+
     def date_formated(self, value) -> str:
         if not value:
             return "N/A"
@@ -165,6 +202,8 @@ class PDFGenerator:
             import json
             env.filters['from_json'] = json.loads
             env.filters["format_versement"] = self.format_versement
+            env.filters["format_qty"] = self.format_qty
+            env.filters["format_line_description"] = self.format_line_description
             # templates.env.add_extension('jinja2.ext.do')
             template = env.get_template(template_file)
             
@@ -290,6 +329,8 @@ class PDFGenerator:
         env.filters["format_versement"] = self.format_versement
         env.filters["date_formated"] = self.date_formated
         env.filters["statut_echeance"] = self.statut_echeance
+        env.filters["format_qty"] = self.format_qty
+        env.filters["format_line_description"] = self.format_line_description
         
         try:
             print(template_file)
@@ -420,6 +461,8 @@ class PDFGenerator:
         env.filters["format_versement"] = self.format_versement
         env.filters["date_formated"] = self.date_formated
         env.filters["statut_echeance"] = self.statut_echeance
+        env.filters["format_qty"] = self.format_qty
+        env.filters["format_line_description"] = self.format_line_description
         
         try:
             print(f"📄 Chargement du template: {template_file}")

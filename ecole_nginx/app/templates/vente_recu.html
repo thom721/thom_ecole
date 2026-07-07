@@ -146,8 +146,8 @@
                          {% set ns_total = namespace(total=0) %}
                          {% for item in vente.order_items %}
                          <tr>
-                              <td>{{ item.category }} {{ item.nom }}</td>
-                              <td style="text-align:center">{{ item.quantite }}</td>
+                              <td>{{ item|format_line_description }}</td>
+                              <td style="text-align:center">{{ item.quantite|format_qty }}</td>
                               <td style="text-align:center">{{ item.prix }}</td>
                               <td style="text-align:center">{{ item.total }}</td>
                          </tr>
