@@ -37,6 +37,8 @@ class RapportState extends ChangeNotifier {
   bool isPrintingDecision = false;
   bool isPrintingFinancier = false;
   bool isPrintingPresence = false;
+  bool isPrintingPayroll = false;
+  bool isPrintingSalaireHistorique = false;
 
   /// Équivalent de print_global_report() → POST v1/print-global-repport.
   Future<String?> printGlobalReport({
@@ -183,6 +185,52 @@ class RapportState extends ChangeNotifier {
       fileName: 'rapport_presence.xlsx',
     ).whenComplete(() {
       isPrintingPresence = false;
+      notifyListeners();
+    });
+  }
+
+  /// Nouveau (demande explicite) : rapport Payroll pour une intervalle de
+  /// dates arbitraire, filtré Global/Professeur/Personnel → POST
+  /// v1/print-payroll-report (PayrollReport.py).
+  Future<String?> printPayrollReport({
+    required String type,
+    required DateTime dateDebut,
+    required DateTime dateFin,
+  }) {
+    isPrintingPayroll = true;
+    notifyListeners();
+    return _downloadAndOpen(
+      endpoint: 'print-payroll-report',
+      data: {
+        'date_debut': _formatDate(dateDebut),
+        'date_fin': _formatDate(dateFin),
+        'type': type,
+      },
+      fileName: 'rapport_payroll.pdf',
+    ).whenComplete(() {
+      isPrintingPayroll = false;
+      notifyListeners();
+    });
+  }
+
+  /// Nouveau (demande explicite) : état de tous les changements de
+  /// salaire_fixe (augmentations et baisses) pour une intervalle de dates
+  /// → POST v1/print-salaire-historique-report (SalaireHistoriqueReport.py).
+  Future<String?> printSalaireHistoriqueReport({
+    required DateTime dateDebut,
+    required DateTime dateFin,
+  }) {
+    isPrintingSalaireHistorique = true;
+    notifyListeners();
+    return _downloadAndOpen(
+      endpoint: 'print-salaire-historique-report',
+      data: {
+        'date_debut': _formatDate(dateDebut),
+        'date_fin': _formatDate(dateFin),
+      },
+      fileName: 'historique_salaires.pdf',
+    ).whenComplete(() {
+      isPrintingSalaireHistorique = false;
       notifyListeners();
     });
   }

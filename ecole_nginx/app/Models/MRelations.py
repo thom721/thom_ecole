@@ -1,5 +1,5 @@
 # app/models/relations.py
-from sqlalchemy import Column, String, Date, Boolean, DateTime, Integer, Numeric, Text, JSON, ForeignKey,Enum
+from sqlalchemy import Column, String, Date, Boolean, DateTime, Integer, Numeric, Text, JSON, ForeignKey,Enum, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.dialects.mysql import CHAR
@@ -144,6 +144,32 @@ class Presence(Base):
     etudiant = relationship("Etudiant", back_populates="presences")
     classe = relationship("Classe", back_populates="presences")
     annee_academique = relationship("AnneeAcademique", back_populates="presences")
+
+class Pointage(Base):
+    """Pointage (heure d'arrivée/départ) du personnel (Professeur ou
+    Personnel, via User) — une ligne par personne par jour, saisie par
+    l'admin/réception (pas de self-service), sert de source d'heures
+    fiable pour le payroll horaire (voir MFinancials.py:Payroll)."""
+    __tablename__ = "pointages"
+    __table_args__ = (
+        UniqueConstraint('user_id', 'date', name='uq_pointage_user_date'),
+        {
+            'mysql_collate': 'utf8mb4_unicode_ci',
+            'mysql_charset': 'utf8mb4',
+            'mysql_engine': 'InnoDB'
+        }
+    )
+
+    id = Column(CHAR(36), primary_key=True, default=generate_uuid)
+    user_id = Column(CHAR(36), ForeignKey("users.id"), nullable=False)
+    date = Column(Date, nullable=False)
+    heure_arrivee = Column(DateTime, nullable=True)
+    heure_depart = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relations
+    user = relationship("User")
 
 class Programme(Base):
     __tablename__ = "programmes"

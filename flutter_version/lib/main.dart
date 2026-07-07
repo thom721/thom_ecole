@@ -12,9 +12,11 @@ import 'state/loan_state.dart';
 import 'state/log_state.dart';
 import 'state/paiement_state.dart';
 import 'state/parametres_state.dart';
+import 'state/parametre_payroll_state.dart';
 import 'state/note_state.dart';
 import 'state/payroll_state.dart';
 import 'state/personnel_state.dart';
+import 'state/pointage_state.dart';
 import 'state/presence_state.dart';
 import 'state/produit_state.dart';
 import 'state/professeur_state.dart';
@@ -68,6 +70,8 @@ class SchoolClientApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => DepenseState(apiClient)),
         ChangeNotifierProvider(create: (_) => LoanState(apiClient)),
         ChangeNotifierProvider(create: (_) => PayrollState(apiClient)),
+        ChangeNotifierProvider(create: (_) => ParametrePayrollState(apiClient)),
+        ChangeNotifierProvider(create: (_) => PointageState(apiClient)),
         ChangeNotifierProvider(create: (_) => TransactionState(apiClient)),
         ChangeNotifierProvider(create: (_) => PresenceState(apiClient)),
         ChangeNotifierProvider(create: (_) => AbonnementState(apiClient)),

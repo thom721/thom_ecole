@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+     <meta charset="utf-8" />
+     <style>
+          @page { margin: 30px; }
+
+          body {
+               font-family: 'Helvetica', 'Arial', sans-serif;
+               font-size: 14px;
+               color: #333;
+               line-height: 1.3;
+          }
+
+          .header-table { width: 100%; border: none; margin-bottom: 10px; }
+          .header-table td { border: none; padding: 0; vertical-align: middle; }
+          .school_logo { width: 70px; height: 70px; object-fit: contain; }
+          .school-info { text-align: center; }
+          .school-info h1 { margin: 0; color: #1a2a6c; font-size: 22px; text-transform: uppercase; }
+          .school-info p { margin: 2px 0; font-size: 14px; }
+          hr { border: 0; border-top: 1px solid #ccc; margin: 8px 0; }
+
+          .section-title {
+               background: #f0f0f0;
+               padding: 5px 10px;
+               font-weight: bold;
+               border-left: 5px solid #333;
+               margin-top: 16px;
+               margin-bottom: 10px;
+          }
+
+          table.data { width: 100%; border-collapse: collapse; }
+          table.data th {
+               background-color: #333;
+               color: white;
+               text-align: left;
+               padding: 8px;
+               font-size: 12.5px;
+          }
+          table.data td { border: 1px solid #ddd; padding: 6px; font-size: 12.5px; }
+          table.data tr:nth-child(even) { background-color: #f9f9f9; }
+
+          .hausse { color: #1a7f37; font-weight: bold; }
+          .baisse { color: #c0392b; font-weight: bold; }
+
+          .empty { text-align: center; color: #777; padding: 20px; font-style: italic; }
+     </style>
+</head>
+
+<body>
+     <table class="header-table">
+          <tr>
+               <td style="width: 15%;">
+                    {% if info and info.logo_image_base64 %}
+                    <img src="{{ info.logo_image_base64 }}" class="school_logo">
+                    {% endif %}
+               </td>
+               <td class="school-info">
+                    <h1>{{ info.nom or "NOM DE L'INSTITUTION" }}</h1>
+                    <p><strong>{{ info.adresse or "Adresse de l'école" }}</strong></p>
+               </td>
+               <td style="width: 15%; text-align: right;">
+                    <p style="font-size: 10px;">Date: {{ date }}</p>
+               </td>
+          </tr>
+     </table>
+     <hr />
+
+     <div class="section-title">
+          Historique des salaires — du {{ date_debut }} au {{ date_fin }}
+     </div>
+
+     {% if rows %}
+     <table class="data">
+          <thead>
+               <tr>
+                    <th>Employé</th>
+                    <th>Type</th>
+                    <th>Ancien montant</th>
+                    <th>Nouveau montant</th>
+                    <th>Écart</th>
+                    <th>Date du changement</th>
+               </tr>
+          </thead>
+          <tbody>
+               {% for r in rows %}
+               <tr>
+                    <td>{{ r.nom }}</td>
+                    <td>{{ r.type }}</td>
+                    <td>{{ '%.2f'|format(r.ancien_montant) if r.ancien_montant is not none else '—' }}</td>
+                    <td>{{ '%.2f'|format(r.nouveau_montant) }}</td>
+                    <td class="{{ 'hausse' if r.ecart > 0 else ('baisse' if r.ecart < 0 else '') }}">
+                         {{ '+' if r.ecart > 0 else '' }}{{ '%.2f'|format(r.ecart) }}
+                    </td>
+                    <td>{{ r.date }}</td>
+               </tr>
+               {% endfor %}
+          </tbody>
+     </table>
+     {% else %}
+     <p class="empty">Aucun changement de salaire enregistré sur cette période.</p>
+     {% endif %}
+</body>
+
+</html>

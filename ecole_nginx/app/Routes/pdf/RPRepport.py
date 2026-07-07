@@ -21,10 +21,11 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime
 from app.database import get_db
-from app.Models.MModels import Etudiant, AnneeAcademique
+from app.Models.MModels import Etudiant, AnneeAcademique, User
 from app.Models.MFinancials import Paiement
 from app.Models.MRelations import ClasseEtudiant
 from app.Models.MSystems import  Profile
+from app.dependencies.Dependencie import check_permission
 # Importez votre helper de génération PDF (WeasyPrint ou Jinja2 + pdfkit)
 # from .helpers.pdf_generator import generate_pdf 
 
@@ -80,7 +81,11 @@ def calculate_payments(payments_json, data_students, req: PaymentReportRequest, 
     return list(resultat.values())
 
 @router.post("/print-payment-report")
-def print_payment_report(req: PaymentReportRequest, db: Session = Depends(get_db)):
+def print_payment_report(
+    req: PaymentReportRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(check_permission("Imprimer rapport")),
+):
     # 1. Obtenir l'année académique active
     annee = db.query(AnneeAcademique).filter(AnneeAcademique.status == 1).first()
     if not annee:

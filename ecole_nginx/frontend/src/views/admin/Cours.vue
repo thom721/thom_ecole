@@ -10,7 +10,7 @@ import Pagination from '@/components/Pagination.vue';
 import InputLabel from "@/components/InputLabel.vue";
  
 const schoolStore = useSchoolStore();
-const { niveau, annee,classes,faculte,cours} = storeToRefs(schoolStore);
+const { niveau, annee,classes,faculte,cours,professeur} = storeToRefs(schoolStore);
 
 const url = import.meta.env.VITE_APP_BASE_URL;
 defineOptions({ layout: AdminLayout });
@@ -32,6 +32,7 @@ const search_programme   = ref(props.filtersP?.search_programme || "");
 const pages_cours        = ref(1);
 const pages_prog         = ref(1);
 const isModalHoraireOpen = ref(false);
+const isModalChargeOpen  = ref(false);
 const fetch_actual_class = ref([]);
 const choseNiveau        = ref({});
 
@@ -43,6 +44,8 @@ const formHoraire = ref({
   niveau_id: "", faculte_id: "",
   annee_academique: "", class: "", session: "",
 });
+
+const formCharge = ref({ professeur_id: "", annee_academique: "" });
 
 const TABS = [
   { id: 'cours',      label: 'Cours',      icon: '📖' },
@@ -82,9 +85,41 @@ const fetchNiveauDetails = async () => {
   } catch (e) { console.error(e); }
 };
 
-const handlePrintHoraire = () => {
-  const query = new URLSearchParams(formHoraire.value).toString();
-  window.open(`${url}/print-horaire?${query}`, '_blank');
+// Récupère un PDF protégé par permission (RHoraireReport.py exige désormais
+// "Imprimer rapport pedagogique") via un GET авec Authorization en en-tête,
+// puis l'ouvre en blob — un simple window.open(url) direct ne joint jamais
+// le token et échouerait en 401/403 (motif déjà utilisé par
+// Rapport.vue:submitPdf pour les routes POST ; ici en GET avec params).
+const fetchAndOpenPdf = async (endpoint, params) => {
+  try {
+    const token = localStorage.getItem("auth-token");
+    const response = await axios.get(`${url}${endpoint}`, {
+      params,
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/pdf" },
+      responseType: 'blob',
+    });
+    const blobUrl = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+    window.open(blobUrl, '_blank');
+    setTimeout(() => window.URL.revokeObjectURL(blobUrl), 100);
+  } catch (e) {
+    console.error(e);
+    Swal.fire({
+      title: 'Erreur',
+      text: "Impossible de générer le PDF (permission manquante ou erreur serveur).",
+      icon: 'error',
+      background: '#13171f', color: '#e8eaf0',
+    });
+  }
+};
+
+const handlePrintHoraire = () => fetchAndOpenPdf('/print-horaire', formHoraire.value);
+
+// Équivalent de _openChargeEnseignement (flutter_version, cours_screen.dart)
+// → GET v1/print-programme-professeur (RHoraireReport.py) : cours/classes
+// assignés à un professeur pour une année académique.
+const handlePrintCharge = () => {
+  if (!formCharge.value.professeur_id || !formCharge.value.annee_academique) return;
+  fetchAndOpenPdf('/print-programme-professeur', formCharge.value);
 };
 
 const deleteCours = (id) => {
@@ -239,6 +274,22 @@ getClassesByNiveau(programme_niveau_id.value)
             <path fill-rule="evenodd" d="M4 2a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2h.5A2.5 2.5 0 0 1 15 6.5v4A2.5 2.5 0 0 1 12.5 13H12v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h-.5A2.5 2.5 0 0 1 1 10.5v-4A2.5 2.5 0 0 1 3.5 4H4V2Zm2 0v2h4V2H6Zm-1 9v3h6v-3H5Zm8-4.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Z" clip-rule="evenodd" />
           </svg>
           Imprimer horaire
+        </button>
+
+        <!-- Charge d'enseignement -->
+        <button
+          @click="isModalChargeOpen = true"
+          class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium text-white
+                 bg-gradient-to-r from-[#2d5dd4] to-[#4a7cff] border border-white/10
+                 shadow-[0_2px_10px_rgba(45,93,212,.28)]
+                 hover:from-[#3568e8] hover:to-[#5a8cff]
+                 hover:shadow-[0_4px_16px_rgba(45,93,212,.4)] hover:-translate-y-px
+                 transition-all duration-150"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3.5 h-3.5">
+            <path fill-rule="evenodd" d="M4 2a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2h.5A2.5 2.5 0 0 1 15 6.5v4A2.5 2.5 0 0 1 12.5 13H12v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h-.5A2.5 2.5 0 0 1 1 10.5v-4A2.5 2.5 0 0 1 3.5 4H4V2Zm2 0v2h4V2H6Zm-1 9v3h6v-3H5Zm8-4.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Z" clip-rule="evenodd" />
+          </svg>
+          Charge d'enseignement
         </button>
       </div>
     </div>
@@ -643,6 +694,96 @@ getClassesByNiveau(programme_niveau_id.value)
                  shadow-[0_2px_10px_rgba(45,93,212,.28)]
                  hover:from-[#3568e8] hover:to-[#5a8cff]
                  hover:shadow-[0_4px_14px_rgba(45,93,212,.4)] hover:-translate-y-px
+                 transition-all duration-150"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3.5 h-3.5">
+            <path fill-rule="evenodd" d="M4 2a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2h.5A2.5 2.5 0 0 1 15 6.5v4A2.5 2.5 0 0 1 12.5 13H12v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h-.5A2.5 2.5 0 0 1 1 10.5v-4A2.5 2.5 0 0 1 3.5 4H4V2Zm2 0v2h4V2H6Zm-1 9v3h6v-3H5Zm8-4.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Z" clip-rule="evenodd" />
+          </svg>
+          Générer le PDF
+        </button>
+      </template>
+
+    </StyleModal>
+
+    <!-- ── Modal Charge d'enseignement ──────────────────────────── -->
+    <StyleModal :show="isModalChargeOpen" @close="isModalChargeOpen = false" max-width="lg">
+
+      <template #icon>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4">
+          <path fill-rule="evenodd" d="M4 2a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2h.5A2.5 2.5 0 0 1 15 6.5v4A2.5 2.5 0 0 1 12.5 13H12v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h-.5A2.5 2.5 0 0 1 1 10.5v-4A2.5 2.5 0 0 1 3.5 4H4V2Zm2 0v2h4V2H6Zm-1 9v3h6v-3H5Zm8-4.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Z" clip-rule="evenodd" />
+        </svg>
+      </template>
+      <template #title>Charge d'enseignement</template>
+      <template #subtitle>Cours/classes assignés à un professeur pour une année académique.</template>
+
+      <template #content>
+        <form id="charge-form" @submit.prevent="handlePrintCharge" class="flex flex-col gap-4">
+
+          <!-- Professeur -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-[11px] font-medium uppercase tracking-[0.06em] text-[#3d4d62]">Professeur</label>
+            <div class="relative">
+              <select
+                v-model="formCharge.professeur_id"
+                class="w-full bg-[#0d1017] border border-white/[0.08] rounded-lg
+                       px-3 py-2 pr-8 text-[13px] text-[#c9d1d9] appearance-none cursor-pointer
+                       outline-none focus:border-[#4a7cff]/40 focus:ring-2 focus:ring-[#4a7cff]/[0.08]
+                       transition-all duration-150"
+              >
+                <option value="" disabled>Sélectionner un professeur</option>
+                <option v-for="p in professeur" :key="p.id" :value="p.id" class="bg-[#13171f]">{{ p.nom }} {{ p.prenom }}</option>
+              </select>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"
+                class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#2e3a4a] pointer-events-none">
+                <path fill-rule="evenodd" d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
+              </svg>
+            </div>
+          </div>
+
+          <!-- Année académique -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-[11px] font-medium uppercase tracking-[0.06em] text-[#3d4d62]">Année académique</label>
+            <div class="relative">
+              <select
+                v-model="formCharge.annee_academique"
+                class="w-full bg-[#0d1017] border border-white/[0.08] rounded-lg
+                       px-3 py-2 pr-8 text-[13px] text-[#c9d1d9] appearance-none cursor-pointer
+                       outline-none focus:border-[#4a7cff]/40 focus:ring-2 focus:ring-[#4a7cff]/[0.08]
+                       transition-all duration-150"
+              >
+                <option value="" disabled>Sélectionner</option>
+                <option v-for="a in annee" :key="a.id" :value="a.id" class="bg-[#13171f]">{{ a.annee_academique }}</option>
+              </select>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"
+                class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#2e3a4a] pointer-events-none">
+                <path fill-rule="evenodd" d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
+              </svg>
+            </div>
+          </div>
+
+        </form>
+      </template>
+
+      <template #footer>
+        <button
+          type="button"
+          @click="isModalChargeOpen = false"
+          class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[13px] font-medium
+                 bg-white/[0.04] text-[#5c6880] border border-white/[0.07]
+                 hover:bg-white/[0.07] hover:text-[#8a95a8] transition-all duration-150"
+        >
+          Annuler
+        </button>
+        <button
+          type="submit"
+          form="charge-form"
+          :disabled="!formCharge.professeur_id || !formCharge.annee_academique"
+          class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[13px] font-medium text-white
+                 bg-gradient-to-r from-[#2d5dd4] to-[#4a7cff] border border-white/10
+                 shadow-[0_2px_10px_rgba(45,93,212,.28)]
+                 hover:from-[#3568e8] hover:to-[#5a8cff]
+                 hover:shadow-[0_4px_14px_rgba(45,93,212,.4)] hover:-translate-y-px
+                 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0
                  transition-all duration-150"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3.5 h-3.5">

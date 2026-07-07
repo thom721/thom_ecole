@@ -42,6 +42,7 @@ Les établissements scolaires gèrent manuellement ou via des outils disparates 
 - En tant que caissier, j'enregistre une vente d'articles (uniforme, fournitures) avec plusieurs lignes.
 - En tant que comptable, j'enregistre une dépense ou une autre transaction ponctuelle.
 - En tant qu'administrateur, je peux gérer des prêts (loans) avec taux d'intérêt et suivi de remboursement.
+- En tant qu'administrateur, je gère la paie du personnel — salaire fixe ou calculé à l'heure par cours/année académique, versements partiels, bilan mensuel (§7 quater).
 
 ### 4.5 Promotions de fin d'année
 - En tant que direction, je déclenche la promotion en masse des étudiants vers la classe/année supérieure, avec calcul automatique de la moyenne pondérée par coefficients.
@@ -108,6 +109,26 @@ Les établissements scolaires gèrent manuellement ou via des outils disparates 
 
 - `ALL_NAV` (`adProfile.vue`) et `NAV_TAB_ID` / `ROUTE_TAB_ID` (`AdminLayout.vue`, `router/index.js`) : `'Communauté'` ajouté avec ses 3 sous-items (`evenements`, `actualites`, `annonces`).
 - Flutter : `NavItem('communaute', ...)` ajouté à `kMainNavItems` ; `'communaute': [3 sous-items]` ajouté à `kSubNavItems`.
+
+## 7 quater. Mise à jour — Payroll horaire, Pointage et double rôle Personnel/Professeur (livré)
+
+Fonctionnalité ajoutée sur demande explicite (absente de `school_client` et du web) — voir `docs/ecole_nginx.md` §9 pour le détail technique complet.
+
+- En tant qu'administrateur, je verse un salaire fixe (préremplissable depuis le profil de l'employé) ou calculé à l'heure (cours × taux configuré par année académique, `ParametrePayroll`), avec versements partiels possibles et un solde restant suivi automatiquement.
+- En tant qu'administrateur, je pointe l'arrivée/le départ du personnel (Professeur et Personnel) et je consulte un total d'heures de référence par mois — affiché mais jamais injecté automatiquement dans le calcul de salaire, puisqu'un professeur peut enseigner plusieurs cours à des taux différents.
+- En tant qu'administrateur, si un membre du Personnel a aussi le rôle `teacher`/`Enseignant` (assigné depuis le formulaire Personnel **ou** depuis l'onglet Rôles de Profile), il devient automatiquement assignable dans Programme comme un professeur — sans compte de connexion supplémentaire — et peut recevoir soit son salaire fixe Personnel, soit une rémunération liée à ses cours, au choix au moment du versement.
+- En tant qu'administrateur, si un Professeur avec son propre compte reçoit un rôle non-enseignant (Comptable, Secrétaire général, Responsable pédagogique...) depuis l'onglet Rôles, il apparaît automatiquement aussi dans la liste Personnel (fiche "casquette administrative" liée, symétrique du cas précédent) avec un salaire fixe Personnel distinct de sa paie de professeur — toujours sans compte de connexion supplémentaire.
+- En tant qu'administrateur, je consulte un bilan mensuel tous professeurs (montant dû/versé/solde par mois) et un historique de tous les changements de salaire fixe (augmentations/baisses) sur une période donnée.
+- En tant qu'administrateur, j'imprime l'emploi du temps d'une classe (fonctionnalité reconstruite depuis zéro — le bouton existait sur le web mais appelait une route inexistante côté serveur) et la charge d'enseignement d'un professeur (décompte de cours/classes assignés, pas une durée en heures — donnée non fiable dans `Programme.heure` aujourd'hui).
+
+## 7 quinquies. Mise à jour — permissions d'impression et parité web (livré)
+
+Voir `docs/ecole_nginx.md` §10 pour le détail technique complet (bug racine du dropdown Programme, bug de journalisation, mapping exact des permissions).
+
+- En tant qu'administrateur, je restreins qui peut imprimer quoi (reçus de paiement/vente, bulletins, registres d'inscription, rapports pédagogiques, autres rapports) via 6 permissions dédiées (Profile → Permissions) — ces permissions existaient déjà dans le système mais n'étaient vérifiées nulle part ; désormais appliquées côté serveur (toute route PDF/Excel) et côté client (chaque bouton Imprimer).
+- En tant qu'administrateur, toute création/modification de versement de salaire (Payroll) est désormais journalisée dans l'historique des actions (Log), comme les paiements, ventes et dépenses le sont déjà.
+- En tant qu'administrateur, je retrouve sur le web les mêmes fonctionnalités de gestion du personnel/professeurs que sur le bureau : activer/désactiver un compte et réinitialiser un mot de passe directement depuis le formulaire de modification, salaire fixe (et type de paiement pour un professeur), et un indicateur visuel quand une fiche Personnel/Professeur est une "casquette" liée à l'autre (double rôle).
+- En tant qu'administrateur, je gère un catalogue de produits (ajout, catégories) depuis Trésorerie → Produits sur le web, et j'imprime la charge d'enseignement d'un professeur ainsi que le rapport Payroll/l'historique des salaires depuis les pages Cours et Rapport du web — fonctionnalités déjà disponibles côté bureau, absentes du web jusqu'ici.
 
 ## 7. Mise à jour — installation multiplateforme (livré)
 

@@ -64,9 +64,9 @@ class _AbonnementScreenState extends State<AbonnementScreen> {
     final error = await state.syncFromInfini();
     if (!mounted) return;
     if (error == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Licence synchronisée avec succès.'),
-        backgroundColor: Color(0xFF34D399),
+        backgroundColor: AppColors.cardPalette['emerald']!.text,
       ));
     } else if (state.syncMessage != null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -114,7 +114,7 @@ class _AbonnementScreenState extends State<AbonnementScreen> {
                           _statCard(
                             'Statut',
                             state.actif ? 'Actif' : 'Expiré / invalide',
-                            state.actif ? const Color(0xFF34D399) : const Color(0xFFFB7185),
+                            state.actif ? AppColors.cardPalette['emerald']!.text : AppColors.cardPalette['rose']!.text,
                           ),
                           _statCard('Clé actuelle', state.cleActuelle ?? '—', AppColors.textPrimary, mono: true),
                           _statCard(
@@ -126,7 +126,7 @@ class _AbonnementScreenState extends State<AbonnementScreen> {
                                 : state.joursRestants! >= 0
                                     ? '${state.joursRestants} jour(s) restant(s)'
                                     : 'Expiré depuis ${state.joursRestants!.abs()} jour(s)',
-                            subColor: state.actif ? const Color(0xFF34D399) : const Color(0xFFFB7185),
+                            subColor: state.actif ? AppColors.cardPalette['emerald']!.text : AppColors.cardPalette['rose']!.text,
                           ),
                         ],
                       );
@@ -171,7 +171,7 @@ class _AbonnementScreenState extends State<AbonnementScreen> {
                                     style: TextStyle(
                                       fontSize: 12.5,
                                       fontWeight: FontWeight.w600,
-                                      color: h.actif ? const Color(0xFF34D399) : const Color(0xFFFB7185),
+                                      color: h.actif ? AppColors.cardPalette['emerald']!.text : AppColors.cardPalette['rose']!.text,
                                     ),
                                   )),
                                   DataCell(
@@ -210,13 +210,13 @@ class _AbonnementScreenState extends State<AbonnementScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFB7185).withValues(alpha: 0.08),
-        border: Border.all(color: const Color(0xFFFB7185).withValues(alpha: 0.4)),
+        color: AppColors.cardPalette['rose']!.text.withValues(alpha: 0.08),
+        border: Border.all(color: AppColors.cardPalette['rose']!.text.withValues(alpha: 0.4)),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
-          const Icon(Icons.warning_amber_rounded, color: Color(0xFFFB7185), size: 18),
+          Icon(Icons.warning_amber_rounded, color: AppColors.cardPalette['rose']!.text, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(

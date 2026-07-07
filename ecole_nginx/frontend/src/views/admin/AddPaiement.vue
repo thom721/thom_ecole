@@ -75,7 +75,7 @@
             Paiement : {{ studentDataList[selectedIndex].annee_academique }}
           </h3>
            
-             <PaymentDetails :details="dataFromBackend" :key="selectedIndex" @paiement-valide="submitPayment" :waiting="isWaiting"/>
+             <PaymentDetails :details="dataFromBackend" :key="selectedIndex" @paiement-valide="submitPayment" @verifier="verifierMontant" :waiting="isWaiting"/>
              
         </div>
         <div v-else class="flex flex-col items-center justify-center h-full text-gray-400 gap-4">
@@ -195,6 +195,79 @@ const showInfoToPay = (data, index) => {
     const input = document.querySelector('#montant_verser');
     if (input) input.focus();
   }, 50);
+};
+
+// Équivalent EXPLICITE (déclenché par le caissier, pas silencieux) de la
+// réconciliation de l'original (school_client/Controllers/Main.py:13008-
+// 13017, self.valider_paiement(data) déclenché tout seul quand aide_financiere
+// a changé). Un simple GET /next-payment-step (l'ancienne implémentation)
+// ne change rien : le décalage détecté par PaymentDetails.vue compare
+// l'aide financière ACTUELLE de l'élève à celle enregistrée sur le DERNIER
+// versement encaissé (figée dans info_paiement[date]) — cette dernière ne
+// bouge jamais tant qu'aucun paiement n'est (re)soumis. Il faut donc POST
+// /post-payment-save avec depot=null + must_refresh_paiement=true : le
+// backend (RSavePaiement.py, bloc "Gestion du changement de type de
+// bourse") recalcule alors les échéances/le récapitulatif contre l'aide
+// financière actuelle, sans encaisser de nouveau montant.
+const verifierMontant = () => {
+  if (selectedIndex.value === null) return;
+  const detail = dataFromBackend.value;
+  if (!detail) return;
+  const index = selectedIndex.value;
+  load_data_paiement.value = index;
+  isWaiting.value = true;
+  axios.post('/post-payment-save', {
+    identifiant: detail.identifiant,
+    niveau_id: detail.id_niveau,
+    nom: detail.nom,
+    prenom: detail.prenom,
+    etudiant_id: detail.studentId,
+    classe: detail.classeId,
+    annee_academique: detail.annee_academique,
+    devise: detail.devise,
+    echeance: detail.echeance,
+    must_refresh_paiement: true,
+    paiement_details: {
+      depot: null,
+      depot_et_avance: 0,
+      montant: 0,
+      devise: 0,
+      employer: '',
+      total_verse: 0,
+      total_annuel: 0,
+      balance: 0,
+      avance: 0,
+    },
+    mois: {},
+    accessoires: {},
+  })
+    .then(() => {
+      const [startYear, endYear] = detail.annee_academique.split('/');
+      const anneFormat = startYear + '-' + endYear;
+      return axios.get('/next-payment-step', {
+        params: {
+          niveau: detail.id_niveau,
+          classe: detail.classeId,
+          annee_a: studentDataList.value[index]?.anneeId,
+          etudiant: props.etudiantId,
+          annee_academique: anneFormat,
+          faculte: studentDataList.value[index]?.faculte_id,
+        },
+      });
+    })
+    .then((response) => {
+      if (response && response.statusText == 'OK') {
+        dataFromBackend.value = response.data.data;
+        success("Statut vérifié — échéances et récapitulatif mis à jour avec l'aide financière actuelle.");
+      }
+    })
+    .catch((e) => {
+      if (e.response?.data?.detail) { error(e.response.data.detail, false); } else { error("Impossible de vérifier le statut."); }
+    })
+    .finally(() => {
+      load_data_paiement.value = null;
+      isWaiting.value = false;
+    });
 };
 
 // Cycle de vie : chargement automatique

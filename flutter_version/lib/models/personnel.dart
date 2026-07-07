@@ -12,6 +12,8 @@ class Personnel {
     this.userStatus,
     this.roleId,
     this.roleName,
+    this.salaireFixe,
+    this.professeurId,
   });
 
   factory Personnel.fromJson(Map<String, dynamic> json) {
@@ -31,6 +33,8 @@ class Personnel {
       userStatus: rawStatus is num ? rawStatus.toInt() : null,
       roleId: firstRole?['id']?.toString(),
       roleName: firstRole?['name']?.toString(),
+      salaireFixe: json['salaire_fixe'] == null ? null : (json['salaire_fixe'] as num).toDouble(),
+      professeurId: json['professeur_id']?.toString(),
     );
   }
 
@@ -47,4 +51,11 @@ class Personnel {
   // .vue:109) qui pré-remplit formPersonnel.role avec user.roles[0].id.
   final String? roleId;
   final String? roleName;
+  final double? salaireFixe;
+  // Non-null si cette fiche est la "casquette administrative" d'un
+  // Professeur avec son propre compte de connexion (voir
+  // RAcademic.py:_sync_shadow_personnel) — symétrique de
+  // ProfesseurCombo/Professeur.personnelId.
+  final String? professeurId;
+  bool get isLinkedToProfesseur => professeurId != null;
 }

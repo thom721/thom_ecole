@@ -121,8 +121,8 @@ const _dark = _Palette(
   cardBg: Color(0xFF161B26),
   panelBg: Color(0xFF1E2335),
   inputBg: Color(0xFF161B22),
-  borderSubtle: Color(0x12FFFFFF), // white 7%
-  borderHover: Color(0x1FFFFFFF), // white 12%
+  borderSubtle: Color(0x26FFFFFF), // white 15% — plus visible sur fond sombre
+  borderHover: Color(0x38FFFFFF), // white 22%
   hoverOverlay: Color(0x0DFFFFFF), // white 5%
   textPrimary: Color(0xFFE8EAF0),
   textMuted: Color(0xFF7C83A0),
@@ -136,8 +136,8 @@ const _light = _Palette(
   cardBg: Color(0xFFFFFFFF),
   panelBg: Color(0xFFEEF0F5),
   inputBg: Color(0xFFFFFFFF),
-  borderSubtle: Color(0x14000000), // black 8% (contenu principal)
-  borderHover: Color(0x21000000), // black 13%
+  borderSubtle: Color(0x26000000), // black 15% — plus contrasté sur fond clair
+  borderHover: Color(0x38000000), // black 22%
   hoverOverlay: Color(0x0A000000), // black 4%
   textPrimary: Color(0xFF0D1117),
   textMuted: Color(0xFF4B5565), // plus foncé pour lisibilité
@@ -214,6 +214,19 @@ class AppTheme {
           if (states.contains(WidgetState.hovered)) return AppColors.hoverOverlay;
           return Colors.transparent;
         }),
+      ),
+      // Ascenseurs bleus dans toute l'app — un seul réglage central, propagé
+      // à chaque ScrollView/ListView via ScrollBehavior par défaut sur
+      // desktop (pas besoin d'un Scrollbar explicite par écran).
+      scrollbarTheme: ScrollbarThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.dragged)) return AppColors.accent;
+          if (states.contains(WidgetState.hovered)) return AppColors.accent.withValues(alpha: 0.8);
+          return AppColors.accent.withValues(alpha: 0.5);
+        }),
+        trackColor: WidgetStateProperty.all(Colors.transparent),
+        radius: const Radius.circular(8),
+        thickness: WidgetStateProperty.all(8),
       ),
     );
   }

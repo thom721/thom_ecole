@@ -7,7 +7,7 @@ import '../shell/app_shell.dart';
 const _gold = Color(0xFFC9A84C);
 const _bg = Color(0xFF0D0D14);
 const _inputBg = Color(0xFF111111);
-const _inputBorder = Color(0xFF222222);
+const _inputBorder = Color(0xFF3D3D48); // plus clair pour rester visible sur _bg
 
 /// Équivalent IDENTIQUE de la page "reset_password" (Resources/
 /// main_school1.ui : label_89 "Réinitialiser Votre mot de passe",

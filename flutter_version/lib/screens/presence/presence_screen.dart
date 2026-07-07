@@ -3,6 +3,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/section_header.dart';
 import 'appel_tab.dart';
 import 'historique_tab.dart';
+import 'pointage_tab.dart';
 import 'stats_tab.dart';
 
 /// Équivalent de Presences.vue (ecole_nginx/frontend/src/views/admin/
@@ -18,7 +19,7 @@ class PresenceScreen extends StatefulWidget {
   State<PresenceScreen> createState() => _PresenceScreenState();
 }
 
-enum _Tab { appel, historique, stats }
+enum _Tab { appel, historique, stats, pointage }
 
 class _PresenceScreenState extends State<PresenceScreen> {
   _Tab _tab = _Tab.appel;
@@ -78,6 +79,7 @@ class _PresenceScreenState extends State<PresenceScreen> {
           pill(_Tab.appel, 'Appel du jour', Icons.fact_check_outlined),
           pill(_Tab.historique, 'Historique', Icons.history),
           pill(_Tab.stats, 'Statistiques', Icons.insights_outlined),
+          pill(_Tab.pointage, 'Pointage', Icons.access_time),
         ],
       ),
     );
@@ -104,6 +106,7 @@ class _PresenceScreenState extends State<PresenceScreen> {
               _Tab.appel => AppelTab(),
               _Tab.historique => HistoriqueTab(),
               _Tab.stats => StatsTab(),
+              _Tab.pointage => const PointageTab(),
             },
           ),
         ],

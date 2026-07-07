@@ -1,5 +1,5 @@
 # app/models/system.py
-from sqlalchemy import Column, String, Boolean, DateTime, Integer, Text, JSON, ForeignKey, TIMESTAMP,Index
+from sqlalchemy import Column, String, Boolean, DateTime, Integer, Numeric, Text, JSON, ForeignKey, TIMESTAMP,Index
 from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import CHAR
@@ -220,6 +220,9 @@ class Profile(Base):
     # Si True : un paiement pour l'année N est refusé tant que tous les
     # versements de l'année N-1 ne sont pas soldés.
     is_receive_arriere = Column(Boolean, nullable=False, default=False)
+    # Âge minimum (en années) exigé pour inscrire un élève — voir
+    # Routes/Etudiants.py validate_date_naissance().
+    age_minimum_inscription = Column(Integer, nullable=False, default=1)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -237,6 +240,15 @@ class Personnel(Base):
     email = Column(String(255), nullable=False)
     telephone = Column(String(255), nullable=False)
     adresse = Column(String(255), nullable=False)
+    salaire_fixe = Column(Numeric(10, 2), nullable=True)
+    # Marque cette fiche comme la "casquette administrative" d'un Professeur
+    # (rôle non-enseignant assigné en plus de son rôle de professeur, ex.
+    # Comptable, Secrétaire général — voir RRolePermission.py:assign_role_to_user)
+    # — aucun User propre (le Professeur garde son seul compte de
+    # connexion) : cette fiche existe seulement pour apparaître dans la
+    # liste Personnel et porter un salaire_fixe distinct de la paie de
+    # professeur. Symétrique de Professeur.personnel_id (MModels.py).
+    professeur_id = Column(CHAR(36), ForeignKey("professeurs.id"), nullable=True, unique=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

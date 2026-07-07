@@ -178,7 +178,7 @@ class _CoursFormScreenState extends State<CoursFormScreen> {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppColors.sidebarBg,
+                  color: AppColors.cardBg,
                   border: Border.all(color: AppColors.borderSubtle),
                   borderRadius: BorderRadius.circular(16),
                 ),

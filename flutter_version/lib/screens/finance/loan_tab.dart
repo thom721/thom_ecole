@@ -175,7 +175,7 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isPending = status == 'pending';
-    final color = isPending ? AppColors.accent : const Color(0xFF34D399);
+    final color = isPending ? AppColors.accent : AppColors.cardPalette['emerald']!.text;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(

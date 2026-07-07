@@ -64,7 +64,7 @@ class _ProfesseurScreenState extends State<ProfesseurScreen> {
   }
 
   Color _statusColor(Professeur p) {
-    if (p.userStatus == 1) return const Color(0xFF34D399);
+    if (p.userStatus == 1) return AppColors.cardPalette['emerald']!.text;
     if (p.userStatus == 0) return const Color(0xFFF59E0B);
     return AppColors.danger;
   }
@@ -137,20 +137,41 @@ class _ProfesseurScreenState extends State<ProfesseurScreen> {
                       final color = _statusColor(p);
                       return DataRow(cells: [
                         DataCell(
-                          isToggling
-                              ? const SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                              : InkWell(
-                                  onTap: () => _toggleActive(p),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              isToggling
+                                  ? const SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                                  : InkWell(
+                                      onTap: () => _toggleActive(p),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: color.withValues(alpha: 0.1),
+                                          border: Border.all(color: color.withValues(alpha: 0.3)),
+                                          borderRadius: BorderRadius.circular(999),
+                                        ),
+                                        child: Text(p.nom, style: TextStyle(fontSize: 12.5, color: color)),
+                                      ),
+                                    ),
+                              if (p.isLinkedToPersonnel) ...[
+                                const SizedBox(width: 6),
+                                Tooltip(
+                                  message: "Casquette enseignante d'un membre du Personnel — "
+                                      "pas de compte de connexion propre.",
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: color.withValues(alpha: 0.1),
-                                      border: Border.all(color: color.withValues(alpha: 0.3)),
+                                      color: AppColors.cardPalette['amber']!.bar.withValues(alpha: 0.12),
                                       borderRadius: BorderRadius.circular(999),
                                     ),
-                                    child: Text(p.nom, style: TextStyle(fontSize: 12.5, color: color)),
+                                    child: Text('via Personnel',
+                                        style: TextStyle(fontSize: 10.5, color: AppColors.cardPalette['amber']!.text)),
                                   ),
                                 ),
+                              ],
+                            ],
+                          ),
                         ),
                         DataCell(Text(p.prenom)),
                         DataCell(Text(p.telephone)),
@@ -195,6 +216,10 @@ class _ProfesseurFormDialogState extends State<_ProfesseurFormDialog> {
   late final _email = TextEditingController(text: widget.professeur?.email);
   late final _adresse = TextEditingController(text: widget.professeur?.adresse);
   late final _matiere = TextEditingController(text: widget.professeur?.matiereEnseignee);
+  late String _typePaiement = widget.professeur?.typePaiement ?? 'fixe';
+  late final _salaireFixe = TextEditingController(
+    text: widget.professeur?.salaireFixe?.toString(),
+  );
   String _sexe = 'M';
   bool _notification = false;
   String? _error;
@@ -226,6 +251,7 @@ class _ProfesseurFormDialogState extends State<_ProfesseurFormDialog> {
     _email.dispose();
     _adresse.dispose();
     _matiere.dispose();
+    _salaireFixe.dispose();
     _newPassword.dispose();
     _confirmPassword.dispose();
     super.dispose();
@@ -298,6 +324,10 @@ class _ProfesseurFormDialogState extends State<_ProfesseurFormDialog> {
       'adresse': _adresse.text.trim(),
       'matiere_enseignee': _matiere.text.trim().isEmpty ? null : _matiere.text.trim(),
       'notification': _notification,
+      'type_paiement': _typePaiement,
+      'salaire_fixe': _typePaiement == 'fixe'
+          ? double.tryParse(_salaireFixe.text.trim())
+          : null,
     });
     if (!mounted) return;
     if (error != null) {
@@ -384,6 +414,30 @@ class _ProfesseurFormDialogState extends State<_ProfesseurFormDialog> {
                 TextField(controller: _adresse, decoration: const InputDecoration(labelText: 'Adresse')),
                 const SizedBox(height: 12),
                 TextField(controller: _matiere, decoration: const InputDecoration(labelText: 'Matière enseignée')),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _typePaiement,
+                      decoration: const InputDecoration(labelText: 'Type de paiement'),
+                      items: const [
+                        DropdownMenuItem(value: 'fixe', child: Text('Salaire fixe')),
+                        DropdownMenuItem(value: 'horaire', child: Text('À l\'heure')),
+                      ],
+                      onChanged: (v) => setState(() => _typePaiement = v ?? _typePaiement),
+                    ),
+                  ),
+                  if (_typePaiement == 'fixe') ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _salaireFixe,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: 'Salaire fixe (mensuel)'),
+                      ),
+                    ),
+                  ],
+                ]),
                 const SizedBox(height: 14),
                 Row(
                   children: [
@@ -433,7 +487,7 @@ class _ProfesseurFormDialogState extends State<_ProfesseurFormDialog> {
                   ],
                   if (_passwordSuccess != null) ...[
                     const SizedBox(height: 8),
-                    Text(_passwordSuccess!, style: const TextStyle(color: Color(0xFF34D399), fontSize: 12)),
+                    Text(_passwordSuccess!, style: TextStyle(color: AppColors.cardPalette['emerald']!.text, fontSize: 12)),
                   ],
                 ],
                 const SizedBox(height: 20),

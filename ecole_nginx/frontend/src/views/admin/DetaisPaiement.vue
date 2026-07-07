@@ -46,6 +46,17 @@ function getNumFromLabel(label) {
   return m ? parseInt(m[1]) : null;
 }
 
+// Numéro d'échéance annoncé par la 1ère entrée "Acqt: Nème Versement" ou
+// "Avns: Nème Versement" de status_paiement (peu importe l'orthographe du
+// suffixe ordinal — "er"/"ème"/"eme" selon le point d'écriture serveur).
+function numeroDepuisStatusPaiement(statusPaiement) {
+  for (const s of statusPaiement) {
+    const m = String(s).match(/^(?:Acqt|Avns):\s*(\d+)/);
+    if (m) return parseInt(m[1]);
+  }
+  return null;
+}
+
 // "03-06-2026 07:57" → Date triable. info_paiement vient d'une colonne JSON
 // MySQL : l'ordre des clés n'est PAS garanti d'être l'ordre chronologique
 // d'insertion, d'où le besoin de trier explicitement plutôt que de se fier à
@@ -64,8 +75,21 @@ const versementsInfo = computed(() => {
     (a, b) => parseDateKey(a[0]) - parseDateKey(b[0])
   );
   return sortedEntries.map(([dateKey, details], index) => {
+    const statusPaiement = Array.isArray(details.status_paiement) ? details.status_paiement : [];
+
+    // "Versement_N_xxx" n'existe dans les détails de CETTE entrée que si ce
+    // dépôt a complété l'échéance N (RSavePaiement.py:989-1023/821-855) — un
+    // dépôt partiel ("Avns") n'en pose pas. Avant, le repli était index+1
+    // (position chronologique), sans rapport avec l'échéance réellement en
+    // cours de règlement — d'où le badge "1er → 2ème → 1er → 2ème"
+    // incohérent constaté en prod. status_paiement (calculé côté serveur à
+    // partir du solde réel) fait foi : on y lit le numéro de l'échéance
+    // "Acqt"/"Avns" de cette entrée avant de retomber sur index+1 en tout
+    // dernier recours.
     const versementKey = Object.keys(details).find((k) => k.startsWith("Versement_"));
-    const versementNum = versementKey ? parseInt(versementKey.split("_")[1]) : index + 1;
+    const versementNum = versementKey
+      ? parseInt(versementKey.split("_")[1])
+      : numeroDepuisStatusPaiement(statusPaiement) ?? index + 1;
     const versementLabel = `${ordinal(versementNum)} Versement`;
     const montantDu = echeances.value[versementLabel] ?? 0;
 
@@ -80,7 +104,7 @@ const versementsInfo = computed(() => {
 
     return {
       dateKey, details, index, versementNum, versementLabel, montantDu, avanceVal,
-      statusPaiement: Array.isArray(details.status_paiement) ? details.status_paiement : [],
+      statusPaiement,
       isRetourne: !!(details.return_by && details.return_by !== ""),
       isFinalAcquitte: details.status === "Acquitte",
       depot: details.depot ?? 0,

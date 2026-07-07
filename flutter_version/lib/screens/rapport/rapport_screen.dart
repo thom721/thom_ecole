@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/print_gate.dart';
+import '../../core/print_permission.dart';
 import '../../models/student.dart';
 import '../../state/parametres_state.dart';
 import '../../state/rapport_state.dart';
@@ -53,6 +54,17 @@ class _RapportScreenState extends State<RapportScreen> {
   String _globalType = 'Global';
   DateTime _globalDateDebut = DateTime.now();
   DateTime _globalDateFin = DateTime.now();
+
+  // Payroll (demande explicite) — intervalle de dates arbitraire,
+  // Global/Professeur/Personnel.
+  String _payrollType = 'Global';
+  DateTime _payrollDateDebut = DateTime.now();
+  DateTime _payrollDateFin = DateTime.now();
+
+  // Historique des salaires (demande explicite) — état des augmentations/
+  // baisses de salaire_fixe pour une intervalle de dates.
+  DateTime _salaireHistDateDebut = DateTime.now();
+  DateTime _salaireHistDateFin = DateTime.now();
 
   // Financier — le champ "classe" est comparé au TEXTE de la classe (pas à
   // son id), cf. combo_financier_classe.currentText() dans Main.py.
@@ -126,8 +138,9 @@ class _RapportScreenState extends State<RapportScreen> {
   String _fmt(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-  Future<void> _run(Future<String?> Function() action) async {
+  Future<void> _run(Future<String?> Function() action, {required String permission}) async {
     if (!canPrintNonReceipt(context)) return;
+    if (!canPrintPermission(context, permission)) return;
     final error = await action();
     if (!mounted) return;
     if (error != null) {
@@ -209,6 +222,25 @@ class _RapportScreenState extends State<RapportScreen> {
                   Expanded(child: administratif),
                   const SizedBox(width: 16),
                   Expanded(child: disciplinaire),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final twoCols = constraints.maxWidth >= 760;
+              final payroll = _buildPayrollCard(rapport);
+              final salaireHist = _buildSalaireHistoriqueCard(rapport);
+              if (!twoCols) {
+                return Column(children: [payroll, const SizedBox(height: 16), salaireHist]);
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: payroll),
+                  const SizedBox(width: 16),
+                  Expanded(child: salaireHist),
                 ],
               );
             },
@@ -335,11 +367,142 @@ class _RapportScreenState extends State<RapportScreen> {
                   child: _printButton(
                     label: 'Imprimer',
                     loading: rapport.isPrintingGlobal,
-                    onPressed: () => _run(() => rapport.printGlobalReport(
-                          type: _globalType,
-                          dateDebut: _globalDateDebut,
-                          dateFin: _globalDateFin,
-                        )),
+                    onPressed: () => _run(
+                      () => rapport.printGlobalReport(
+                        type: _globalType,
+                        dateDebut: _globalDateDebut,
+                        dateFin: _globalDateFin,
+                      ),
+                      permission: 'Imprimer rapport',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Rapport Payroll (demande explicite) ─────────────────────────────
+  Widget _buildPayrollCard(RapportState rapport) {
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _cardHeader('Rapport Payroll', 'Versements de salaire sur une intervalle de dates',
+              Icons.payments_outlined, 'cyan'),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _label('Type'),
+                DropdownButtonFormField<String>(
+                  initialValue: _payrollType,
+                  items: const ['Global', 'Professeur', 'Personnel']
+                      .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                      .toList(),
+                  onChanged: (v) => setState(() => _payrollType = v ?? _payrollType),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _label('Début'),
+                          _dateField('Début', _payrollDateDebut, (d) => _payrollDateDebut = d),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _label('Fin'),
+                          _dateField('Fin', _payrollDateFin, (d) => _payrollDateFin = d),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: _printButton(
+                    label: 'Imprimer',
+                    loading: rapport.isPrintingPayroll,
+                    onPressed: () => _run(
+                      () => rapport.printPayrollReport(
+                        type: _payrollType,
+                        dateDebut: _payrollDateDebut,
+                        dateFin: _payrollDateFin,
+                      ),
+                      permission: 'Imprimer rapport',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Historique des salaires (demande explicite) ─────────────────────
+  Widget _buildSalaireHistoriqueCard(RapportState rapport) {
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _cardHeader('Historique des salaires', 'Augmentations et baisses de salaire fixe sur une période',
+              Icons.trending_up, 'violet'),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _label('Début'),
+                          _dateField('Début', _salaireHistDateDebut, (d) => _salaireHistDateDebut = d),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _label('Fin'),
+                          _dateField('Fin', _salaireHistDateFin, (d) => _salaireHistDateFin = d),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: _printButton(
+                    label: 'Imprimer',
+                    loading: rapport.isPrintingSalaireHistorique,
+                    onPressed: () => _run(
+                      () => rapport.printSalaireHistoriqueReport(
+                        dateDebut: _salaireHistDateDebut,
+                        dateFin: _salaireHistDateFin,
+                      ),
+                      permission: 'Imprimer rapport',
+                    ),
                   ),
                 ),
               ],
@@ -404,12 +567,15 @@ class _RapportScreenState extends State<RapportScreen> {
                     loading: rapport.isPrintingFinancier,
                     onPressed: _financierAnneeId == null
                         ? null
-                        : () => _run(() => rapport.printFinancierReport(
+                        : () => _run(
+                            () => rapport.printFinancierReport(
                               classe: _financierClasse,
                               anneeAcademiqueId: _financierAnneeId!,
                               dateFin: _financierDateFin,
                               versement: _financierVersement,
-                            )),
+                            ),
+                            permission: 'Imprimer rapport',
+                          ),
                   ),
                 ),
               ],
@@ -464,13 +630,16 @@ class _RapportScreenState extends State<RapportScreen> {
                     icon: Icons.school_outlined,
                     onPressed: (_pedagoCycle == null || _pedagoAnneeId == null)
                         ? null
-                        : () => _run(() => rapport.printPedagogiqueReport(
+                        : () => _run(
+                            () => rapport.printPedagogiqueReport(
                               identifiant: false,
                               classe: _pedagoClasse,
                               anneeAc: _pedagoAnneeId!,
                               cycle: _pedagoCycle!,
                               mois: _pedagoMois,
-                            )),
+                            ),
+                            permission: 'Imprimer rapport pedagogique',
+                          ),
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -500,11 +669,14 @@ class _RapportScreenState extends State<RapportScreen> {
                       color: AppColors.cardPalette['emerald']!.bar,
                       onPressed: (_pedagoClasse == _sentinelToutesLesClasses || _pedagoAnneeId == null)
                           ? null
-                          : () => _run(() => rapport.printDecisionFinAnnee(
+                          : () => _run(
+                              () => rapport.printDecisionFinAnnee(
                                 classe: _pedagoClasse,
                                 anneeAc: _pedagoAnneeId!,
                                 isExcel: true,
-                              )),
+                              ),
+                              permission: 'Imprimer rapport pedagogique',
+                            ),
                     ),
                     const SizedBox(width: 10),
                     _printButton(
@@ -512,11 +684,14 @@ class _RapportScreenState extends State<RapportScreen> {
                       loading: rapport.isPrintingDecision,
                       onPressed: (_pedagoClasse == _sentinelToutesLesClasses || _pedagoAnneeId == null)
                           ? null
-                          : () => _run(() => rapport.printDecisionFinAnnee(
+                          : () => _run(
+                              () => rapport.printDecisionFinAnnee(
                                 classe: _pedagoClasse,
                                 anneeAc: _pedagoAnneeId!,
                                 isExcel: false,
-                              )),
+                              ),
+                              permission: 'Imprimer rapport pedagogique',
+                            ),
                     ),
                   ],
                 ),
@@ -674,12 +849,15 @@ class _RapportScreenState extends State<RapportScreen> {
                       color: AppColors.cardPalette['amber']!.bar,
                       onPressed: (_adminCycle == null || _adminAnneeId == null)
                           ? null
-                          : () => _run(() => rapport.printAdministratifReport(
+                          : () => _run(
+                              () => rapport.printAdministratifReport(
                                 identifiant: _adminIdentifiant,
                                 classe: _adminClasse,
                                 anneeAc: _adminAnneeId!,
                                 cycle: _adminCycle!,
-                              )),
+                              ),
+                              permission: 'Imprimer enregistrement',
+                            ),
                     ),
                   ],
                 ),
@@ -750,11 +928,14 @@ class _RapportScreenState extends State<RapportScreen> {
                     icon: Icons.grid_on_outlined,
                     loading: rapport.isPrintingPresence,
                     color: AppColors.cardPalette['sky']!.bar,
-                    onPressed: () => _run(() => rapport.printPresenceExcel(
-                          classe: _presenceClasse,
-                          dateDebut: _presenceDateDebut,
-                          dateFin: _presenceDateFin,
-                        )),
+                    onPressed: () => _run(
+                      () => rapport.printPresenceExcel(
+                        classe: _presenceClasse,
+                        dateDebut: _presenceDateDebut,
+                        dateFin: _presenceDateFin,
+                      ),
+                      permission: 'Imprimer rapport',
+                    ),
                   ),
                 ),
               ],

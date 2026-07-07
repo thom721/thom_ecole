@@ -10,10 +10,11 @@ from sqlalchemy import text, func
 from typing import List, Dict
 from datetime import date, datetime  
 # Supposons que vous avez votre configuration DB dans database.py
-from app.database import get_db 
-from app.Models.MModels import AnneeAcademique 
-from app.Models.MSystems import Profile  
-from app.Models.MRelations import CoursEtudiant  
+from app.database import get_db
+from app.Models.MModels import AnneeAcademique, User
+from app.Models.MSystems import Profile
+from app.Models.MRelations import CoursEtudiant
+from app.dependencies.Dependencie import check_permission
 
 
 class PedagogiqueRequest(BaseModel):
@@ -111,7 +112,11 @@ def calculer_moyenne_generale(data_etudiant_str, identifiant, max_coef, mois):
 # --- Route Principale ---
 
 @router.post("/print-repport-pedagogiques")
-def print_pedagogique_rapport(req: PedagogiqueRequest, db: Session = Depends(get_db)):
+def print_pedagogique_rapport(
+    req: PedagogiqueRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(check_permission("Imprimer rapport pedagogique")),
+):
 
     annee_obj = db.query(AnneeAcademique).filter(AnneeAcademique.id == req.annee_ac).first()
     if not annee_obj:
@@ -271,7 +276,11 @@ def print_pedagogique_rapport(req: PedagogiqueRequest, db: Session = Depends(get
      )
 
 @router.post("/print-repport-pedagogique")
-def print_pedagogique_rapport(req: PedagogiqueRequest, db: Session = Depends(get_db)):
+def print_pedagogique_rapport(
+    req: PedagogiqueRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(check_permission("Imprimer rapport pedagogique")),
+):
     # 1. Validation de l'année
     annee_obj = db.query(AnneeAcademique).filter(AnneeAcademique.id == req.annee_ac).first()
     if not annee_obj:

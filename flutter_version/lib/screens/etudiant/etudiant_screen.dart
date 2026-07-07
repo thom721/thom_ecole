@@ -184,6 +184,7 @@ class _EtudiantScreenState extends State<EtudiantScreen> {
               _ => EtudiantDetailScreen(
                   key: ValueKey(_selectedStudent?.id ?? 'new'),
                   student: _selectedStudent,
+                  onSaved: _backToList,
                 ),
             },
           ),
@@ -336,7 +337,7 @@ class _EtudiantScreenState extends State<EtudiantScreen> {
                           children: [
                             IconButton(
                               tooltip: 'Détails',
-                              icon: const Icon(Icons.visibility_outlined, size: 17, color: Color(0xFF34D399)),
+                              icon: Icon(Icons.visibility_outlined, size: 17, color: AppColors.cardPalette['emerald']!.text),
                               onPressed: () => _openEdit(s),
                             ),
                             if (canWrite)

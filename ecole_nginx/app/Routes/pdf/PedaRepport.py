@@ -18,6 +18,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 from app.Helper.pdf_personaliser import PDFGenerator
+from app.dependencies.Dependencie import check_permission
 router = APIRouter(prefix="/api/v1", tags=["PDF"])
 pdf_gen = PDFGenerator()
 
@@ -189,7 +190,11 @@ def moyenne_and_place(
 
 
 @router.post("/peda-repport")
-def impression_mas_bulletin(request: MassBulletinRequest, db: Session = Depends(get_db)):
+def impression_peda_repport(
+    request: MassBulletinRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(check_permission("Imprimer rapport pedagogique")),
+):
     """
     Endpoint pour l'impression en masse des bulletins d'une classe
     

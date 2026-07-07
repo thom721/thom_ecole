@@ -8,16 +8,55 @@ import '../../../widgets/section_header.dart';
 
 /// Les permissions n'ont pas de champ "module" en base (SPermission) mais
 /// suivent toutes la convention "Verbe Ressource" (cf. seed
-/// Initialisation.py : Ajouter/Modifier/Supprimer/Voir/Imprimer) — on colore
-/// donc par verbe d'action, qui correspond au type d'opération autorisée.
-String _permissionColorKey(String name) {
-  final n = name.trim().toLowerCase();
-  if (n.startsWith('ajouter')) return 'emerald';
-  if (n.startsWith('modifier')) return 'amber';
-  if (n.startsWith('supprimer')) return 'rose';
-  if (n.startsWith('voir')) return 'sky';
-  if (n.startsWith('imprimer')) return 'violet';
-  return 'purple';
+/// Initialisation.py : Ajouter/Modifier/Supprimer/Voir/Imprimer) — on
+/// regroupe donc par verbe d'action, qui correspond au type d'opération
+/// autorisée, plutôt que d'afficher une liste plate.
+
+/// Ordre d'affichage des catégories (une section par verbe d'action).
+const _categoryOrder = ['Ajouter', 'Modifier', 'Supprimer', 'Voir', 'Imprimer'];
+
+const _categoryColorKeys = {
+  'Ajouter': 'emerald',
+  'Modifier': 'amber',
+  'Supprimer': 'rose',
+  'Imprimer': 'violet',
+  'Voir': 'sky',
+  'Autre': 'purple',
+};
+
+/// Regroupe les permissions par verbe d'action (même convention que
+/// _permissionColorKey) — une permission qui ne suit pas le motif "Verbe
+/// Ressource" tombe dans une catégorie "Autre" plutôt que d'être perdue.
+Map<String, List<PermissionRecord>> _groupByCategory(List<PermissionRecord> all) {
+  final groups = <String, List<PermissionRecord>>{for (final c in _categoryOrder) c: []};
+  final autres = <PermissionRecord>[];
+  for (final p in all) {
+    final n = p.name.trim().toLowerCase();
+    final category = _categoryOrder.firstWhere(
+      (c) => n.startsWith(c.toLowerCase()),
+      orElse: () => '',
+    );
+    if (category.isEmpty) {
+      autres.add(p);
+    } else {
+      groups[category]!.add(p);
+    }
+  }
+  if (autres.isNotEmpty) groups['Autre'] = autres;
+  groups.removeWhere((_, v) => v.isEmpty);
+  return groups;
+}
+
+/// Nom de la ressource seul (sans le verbe déjà porté par l'en-tête de la
+/// section), ex. "Imprimer rapport pedagogique" → "Rapport pedagogique".
+String _resourceLabel(String permissionName, String category) {
+  final prefix = '$category '.toLowerCase();
+  final n = permissionName.trim();
+  if (n.toLowerCase().startsWith(prefix)) {
+    final rest = n.substring(prefix.length);
+    return rest.isEmpty ? n : '${rest[0].toUpperCase()}${rest.substring(1)}';
+  }
+  return n;
 }
 
 /// Équivalent de permission_page() (school_client, Controllers/Main.py:
@@ -255,52 +294,85 @@ class _PermissionAssignmentTabState extends State<PermissionAssignmentTab> {
               if (state.isLoadingLists || state.isLoadingRolePermissions)
                 const Center(child: CircularProgressIndicator())
               else
-                Wrap(
-                  spacing: 16,
-                  runSpacing: 8,
-                  children: state.permissions.map((p) {
-                    final checked = _checkedPermissionIds.contains(p.id);
-                    final color = AppColors
-                        .cardPalette[_permissionColorKey(p.name)]!
-                        .text;
-                    return SizedBox(
-                      width: 220,
-                      // CheckboxListTile peint son fond/ink splash sur le
-                      // Material ancestor le plus proche — sans ce Material
-                      // transparent, c'est le Container décoré englobant
-                      // (ligne ~154) qui s'en charge à la place et masque
-                      // l'effet (assertion "background color or ink
-                      // splashes may be invisible" en mode debug).
-                      child: Material(
-                        color: Colors.transparent,
-                        child: CheckboxListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          controlAffinity: ListTileControlAffinity.leading,
-                          value: checked,
-                          enabled: canEdit,
-                          activeColor: color,
-                          checkColor: AppColors.cardBg,
-                          side: BorderSide(color: color.withValues(alpha: 0.5)),
-                          title: Opacity(
-                            opacity: checked ? 1 : 0.55,
-                            child: BadgePill(
-                              label: p.name,
-                              colorKey: _permissionColorKey(p.name),
-                              showBorder: false,
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    const spacing = 16.0;
+                    const columns = 4;
+                    final cardWidth = (constraints.maxWidth - spacing * (columns - 1)) / columns;
+                    final groups = _groupByCategory(state.permissions);
+                    return Wrap(
+                      spacing: spacing,
+                      runSpacing: spacing,
+                      children: groups.entries.map((entry) {
+                        final category = entry.key;
+                        final items = entry.value;
+                        final color = AppColors.cardPalette[_categoryColorKeys[category] ?? 'purple']!.text;
+                        return SizedBox(
+                          width: cardWidth,
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.appBg,
+                              border: Border.all(color: color.withValues(alpha: 0.3)),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  category.toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    letterSpacing: 0.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: color,
+                                  ),
+                                ),
+                                const Divider(height: 14),
+                                ...items.map((p) {
+                                  final checked = _checkedPermissionIds.contains(p.id);
+                                  return Material(
+                                    // CheckboxListTile peint son fond/ink splash sur
+                                    // le Material ancestor le plus proche — sans ce
+                                    // Material transparent, c'est le Container décoré
+                                    // englobant qui s'en charge à la place et masque
+                                    // l'effet (assertion "background color or ink
+                                    // splashes may be invisible" en mode debug).
+                                    color: Colors.transparent,
+                                    child: CheckboxListTile(
+                                      dense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                      controlAffinity: ListTileControlAffinity.leading,
+                                      value: checked,
+                                      enabled: canEdit,
+                                      activeColor: color,
+                                      checkColor: AppColors.cardBg,
+                                      side: BorderSide(color: color.withValues(alpha: 0.5)),
+                                      title: Opacity(
+                                        opacity: checked ? 1 : 0.55,
+                                        child: BadgePill(
+                                          label: _resourceLabel(p.name, category),
+                                          colorKey: _categoryColorKeys[category] ?? 'purple',
+                                          showBorder: false,
+                                        ),
+                                      ),
+                                      onChanged: (v) => setState(() {
+                                        if (v == true) {
+                                          _checkedPermissionIds.add(p.id);
+                                        } else {
+                                          _checkedPermissionIds.remove(p.id);
+                                        }
+                                      }),
+                                    ),
+                                  );
+                                }),
+                              ],
                             ),
                           ),
-                          onChanged: (v) => setState(() {
-                            if (v == true) {
-                              _checkedPermissionIds.add(p.id);
-                            } else {
-                              _checkedPermissionIds.remove(p.id);
-                            }
-                          }),
-                        ),
-                      ),
+                        );
+                      }).toList(),
                     );
-                  }).toList(),
+                  },
                 ),
               if (_error != null) ...[
                 const SizedBox(height: 10),

@@ -304,6 +304,83 @@
         </div>
 
       </div>
+
+      <!-- ── Row 4: Payroll + Historique des salaires ── -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+
+        <!-- Rapport Payroll -->
+        <div class="bg-[#161b26] rounded-2xl border border-white/[0.07] overflow-hidden">
+          <div class="flex items-center gap-3 px-5 py-4 border-b border-white/[0.07]">
+            <span class="flex items-center justify-center w-8 h-8 rounded-xl bg-sky-500/10 text-sky-400 text-[16px]">🖨️</span>
+            <div>
+              <h2 class="text-[14px] font-semibold text-[#e8eaf0]">Rapport Payroll</h2>
+              <p class="text-[11px] text-[#7c83a0]">Versements de salaire sur une intervalle de dates</p>
+            </div>
+          </div>
+          <div class="px-5 py-4 space-y-3">
+            <div>
+              <label class="block text-[11px] font-medium text-[#7c83a0] uppercase tracking-wider mb-1.5">Type</label>
+              <select v-model="forms.payroll.type" class="dark-select">
+                <option value="Global">Global</option>
+                <option value="Professeur">Professeur</option>
+                <option value="Personnel">Personnel</option>
+              </select>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[11px] font-medium text-[#7c83a0] uppercase tracking-wider mb-1.5">Début</label>
+                <input type="date" v-model="forms.payroll.date_debut" class="dark-input" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-medium text-[#7c83a0] uppercase tracking-wider mb-1.5">Fin</label>
+                <input type="date" v-model="forms.payroll.date_fin" class="dark-input" />
+              </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-1">
+              <button @click="submitPdf('/print-payroll-report', forms.payroll)" class="print-btn" :disabled="error_loading['/print-payroll-report'] == true">
+                <span v-if="error_loading['/print-payroll-report']">Waiting…</span>
+                <span v-else class="inline-flex items-center gap-1.5">
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" class="w-3.5 h-3.5"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm1-4h4v4H10v-4z"/></svg>
+                  Imprimer
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Historique des salaires -->
+        <div class="bg-[#161b26] rounded-2xl border border-white/[0.07] overflow-hidden">
+          <div class="flex items-center gap-3 px-5 py-4 border-b border-white/[0.07]">
+            <span class="flex items-center justify-center w-8 h-8 rounded-xl bg-violet-500/10 text-violet-400 text-[16px]">📈</span>
+            <div>
+              <h2 class="text-[14px] font-semibold text-[#e8eaf0]">Historique des salaires</h2>
+              <p class="text-[11px] text-[#7c83a0]">Augmentations et baisses de salaire fixe sur une période</p>
+            </div>
+          </div>
+          <div class="px-5 py-4 space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[11px] font-medium text-[#7c83a0] uppercase tracking-wider mb-1.5">Début</label>
+                <input type="date" v-model="forms.salaireHist.date_debut" class="dark-input" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-medium text-[#7c83a0] uppercase tracking-wider mb-1.5">Fin</label>
+                <input type="date" v-model="forms.salaireHist.date_fin" class="dark-input" />
+              </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-1">
+              <button @click="submitPdf('/print-salaire-historique-report', forms.salaireHist)" class="print-btn" :disabled="error_loading['/print-salaire-historique-report'] == true">
+                <span v-if="error_loading['/print-salaire-historique-report']">Waiting…</span>
+                <span v-else class="inline-flex items-center gap-1.5">
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" class="w-3.5 h-3.5"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm1-4h4v4H10v-4z"/></svg>
+                  Imprimer
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   <AppToast :show="toast.show" :message="toast.message" :ok="toast.ok" />
   </div>
@@ -319,11 +396,13 @@ const { toast, error } = useToast();
 const baseUrl = import.meta.env.VITE_APP_BASE_URL || '';
 
 const forms = reactive({
-  global:   { type: '', date_debut: '', date_fin: '' },
-  payment:  { classe: 'All', date_debut: '', date_fin: '', versement: 'tous les Versements' },
-  pedago:   { cycle: 'All', classe: 'Toutes les classes', annee_ac: '', mois: '', identifiant: false },
-  admin:    { cycle: 'All', classe: 'All', annee_ac: '', identifiant: false },
-  presence: { date_debut: '', date_fin: '', classe: 'All' }
+  global:      { type: '', date_debut: '', date_fin: '' },
+  payment:     { classe: 'All', date_debut: '', date_fin: '', versement: 'tous les Versements' },
+  pedago:      { cycle: 'All', classe: 'Toutes les classes', annee_ac: '', mois: '', identifiant: false },
+  admin:       { cycle: 'All', classe: 'All', annee_ac: '', identifiant: false },
+  presence:    { date_debut: '', date_fin: '', classe: 'All' },
+  payroll:     { type: 'Global', date_debut: '', date_fin: '' },
+  salaireHist: { date_debut: '', date_fin: '' },
 });
 
 const versements = ["1er Versement", "2ème Versement", "3ème Versement", "4ème Versement"];

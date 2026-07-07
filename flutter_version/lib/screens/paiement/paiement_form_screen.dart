@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/paiement.dart';
+import '../../state/auth_state.dart';
 import '../../state/paiement_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/section_header.dart';
@@ -88,6 +89,19 @@ class _PaiementFormScreenState extends State<PaiementFormScreen> {
     super.dispose();
   }
 
+  /// True si le montant actuellement saisi est >= au solde restant dû —
+  /// avertit avant validation plutôt que de bloquer (le serveur alloue de
+  /// toute façon l'excédent, voir payment_save_info()).
+  bool _montantDepasseSolde(PaymentInfo info) {
+    final solde = info.soldeRestant;
+    if (solde == null || solde <= 0) return false;
+    final montant = double.tryParse(
+      _montantController.text.replaceAll(',', '.'),
+    );
+    if (montant == null || montant <= 0) return false;
+    return montant >= solde;
+  }
+
   Future<void> _submit() async {
     final montant = double.tryParse(
       _montantController.text.replaceAll(',', '.'),
@@ -112,11 +126,16 @@ class _PaiementFormScreenState extends State<PaiementFormScreen> {
       return;
     }
     _montantController.clear();
-    // Impression automatique du reçu après enregistrement réussi
+    // Impression automatique du reçu après enregistrement réussi — sautée
+    // silencieusement si l'utilisateur n'a pas la permission "Imprimer
+    // paiement" (l'API la refuserait de toute façon, RAcademic.py côté
+    // serveur ; pas la peine d'afficher une erreur pour un effet
+    // automatique, contrairement à un clic délibéré sur "Reçu").
     final state = context.read<PaiementState>();
     final receiptId = state.lastReceiptId;
     final receiptKey = state.lastReceiptKey;
-    if (receiptId != null && receiptKey != null) {
+    final canPrint = context.read<AuthState>().permissions.contains('Imprimer paiement');
+    if (receiptId != null && receiptKey != null && canPrint) {
       final printError = await state.printRecu(receiptId, receiptKey.toString());
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -133,6 +152,18 @@ class _PaiementFormScreenState extends State<PaiementFormScreen> {
         context,
       ).showSnackBar(const SnackBar(content: Text('Paiement enregistré.')));
     }
+  }
+
+  Future<void> _verifierStatut(PaiementState state) async {
+    final error = await state.verifierStatut();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          error ?? "Statut vérifié — échéances et récapitulatif mis à jour avec l'aide financière actuelle.",
+        ),
+      ),
+    );
   }
 
   @override
@@ -194,7 +225,7 @@ class _PaiementFormScreenState extends State<PaiementFormScreen> {
             children: [
               CircleAvatar(
                 radius: 36,
-                backgroundColor: AppColors.sidebarBg,
+                backgroundColor: AppColors.panelBg,
                 child: Icon(Icons.person, size: 36, color: AppColors.textMuted),
               ),
               const SizedBox(width: 24),
@@ -291,6 +322,7 @@ class _PaiementFormScreenState extends State<PaiementFormScreen> {
   }
 
   Widget _buildPaymentCard(PaymentInfo info) {
+    final state = context.read<PaiementState>();
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -313,6 +345,51 @@ class _PaiementFormScreenState extends State<PaiementFormScreen> {
             ),
           ),
           const SizedBox(height: 16),
+          if (info.statutModifie) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.cardPalette['blue']!.text.withValues(alpha: 0.1),
+                border: Border.all(
+                  color: AppColors.cardPalette['blue']!.text.withValues(alpha: 0.2),
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Le statut de cet élève a été modifié depuis son dernier paiement '
+                    '(aide financière). Vérifiez le montant avant de valider.',
+                    style: TextStyle(fontSize: 12, color: AppColors.cardPalette['blue']!.text),
+                  ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.cardPalette['blue']!.text,
+                        side: BorderSide(color: AppColors.cardPalette['blue']!.text),
+                        minimumSize: const Size(0, 32),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                      ),
+                      onPressed: state.isVerifying || state.selectedYearIndex == null
+                          ? null
+                          : () => _verifierStatut(state),
+                      child: state.isVerifying
+                          ? const SizedBox(
+                              height: 14,
+                              width: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Vérifier'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           if (info.aideFinanciere != 'Aucune') ...[
             const SizedBox(height: 6),
             Container(
@@ -337,30 +414,30 @@ class _PaiementFormScreenState extends State<PaiementFormScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFF34D399).withValues(alpha: 0.1),
+                color: AppColors.cardPalette['emerald']!.text.withValues(alpha: 0.1),
                 border: Border.all(
-                  color: const Color(0xFF34D399).withValues(alpha: 0.2),
+                  color: AppColors.cardPalette['emerald']!.text.withValues(alpha: 0.2),
                 ),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text(
+              child: Text(
                 '✓ Acquitté — paiement complet',
-                style: TextStyle(fontSize: 13, color: Color(0xFF34D399)),
+                style: TextStyle(fontSize: 13, color: AppColors.cardPalette['emerald']!.text),
               ),
             )
           else if (info.avanceSurLabel != null)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFD29922).withValues(alpha: 0.1),
+                color: AppColors.cardPalette['amber']!.text.withValues(alpha: 0.1),
                 border: Border.all(
-                  color: const Color(0xFFD29922).withValues(alpha: 0.2),
+                  color: AppColors.cardPalette['amber']!.text.withValues(alpha: 0.2),
                 ),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 info.avanceSurLabel!,
-                style: const TextStyle(fontSize: 13, color: Color(0xFFD29922)),
+                style: TextStyle(fontSize: 13, color: AppColors.cardPalette['amber']!.text),
               ),
             ),
           const SizedBox(height: 18),
@@ -418,6 +495,7 @@ class _PaiementFormScreenState extends State<PaiementFormScreen> {
           const SizedBox(height: 8),
           TextField(
             controller: _montantController,
+            enabled: !info.acquitte,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             style: TextStyle(color: AppColors.textPrimary, fontSize: 16),
             decoration: InputDecoration(
@@ -425,8 +503,17 @@ class _PaiementFormScreenState extends State<PaiementFormScreen> {
               suffixText: info.devise,
               suffixStyle: TextStyle(color: AppColors.textMuted),
             ),
+            onChanged: (_) => setState(() {}),
             onSubmitted: (_) => _submit(),
           ),
+          if (_montantDepasseSolde(info)) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Ce montant dépasse ce que l\'étudiant doit encore '
+              '(solde restant : ${info.soldeRestant} ${info.devise}).',
+              style: TextStyle(color: AppColors.cardPalette['amber']!.text, fontSize: 12),
+            ),
+          ],
           if (_submitError != null) ...[
             const SizedBox(height: 10),
             Text(
@@ -438,14 +525,14 @@ class _PaiementFormScreenState extends State<PaiementFormScreen> {
           SizedBox(
             height: 46,
             child: FilledButton(
-              onPressed: _submitting ? null : _submit,
+              onPressed: (_submitting || info.acquitte) ? null : _submit,
               child: _submitting
                   ? const SizedBox(
                       height: 18,
                       width: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Valider'),
+                  : Text(info.acquitte ? 'Déjà acquitté' : 'Valider'),
             ),
           ),
         ],
@@ -474,7 +561,7 @@ class _YearButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: selected
-          ? const Color(0xFF4F8EF7).withValues(alpha: 0.1)
+          ? AppColors.cardPalette['blue']!.bar.withValues(alpha: 0.1)
           : AppColors.cardBg,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
@@ -485,7 +572,7 @@ class _YearButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: selected
-                  ? const Color(0xFF4F8EF7)
+                  ? AppColors.cardPalette['blue']!.text
                   : AppColors.borderSubtle,
             ),
           ),
@@ -499,7 +586,7 @@ class _YearButton extends StatelessWidget {
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: selected
-                      ? const Color(0xFF4F8EF7)
+                      ? AppColors.cardPalette['blue']!.text
                       : AppColors.textMuted,
                 ),
               ),
@@ -532,7 +619,7 @@ class _EcheanceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const paidColor = Color(0xFF34D399);
+    final paidColor = AppColors.cardPalette['emerald']!.text;
     return Opacity(
       opacity: row.paid ? 0.55 : 1,
       child: Padding(
@@ -548,7 +635,7 @@ class _EcheanceTile extends StatelessWidget {
                     color: row.paid ? paidColor : AppColors.textPrimary,
                   ),
                   children: row.paid
-                      ? const [
+                      ? [
                           TextSpan(
                             text: '  ✓ payé',
                             style: TextStyle(fontSize: 11, color: paidColor),
@@ -563,7 +650,7 @@ class _EcheanceTile extends StatelessWidget {
               onChanged: onChanged,
               activeColor: paidColor,
               fillColor: row.paid
-                  ? const WidgetStatePropertyAll(paidColor)
+                  ? WidgetStatePropertyAll(paidColor)
                   : null,
               checkColor: Colors.white,
             ),

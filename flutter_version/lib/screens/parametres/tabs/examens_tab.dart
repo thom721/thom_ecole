@@ -104,7 +104,7 @@ class ExamensTab extends StatelessWidget {
               if (canVoir)
                 IconButton(
                   tooltip: 'Voir',
-                  icon: const Icon(Icons.remove_red_eye_outlined, size: 16, color: Color(0xFF34D399)),
+                  icon: Icon(Icons.remove_red_eye_outlined, size: 16, color: AppColors.cardPalette['emerald']!.text),
                   onPressed: () => _showDetail(context, e),
                 ),
               if (canModifier)

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/dual_auth.dart';
+import '../../core/print_permission.dart';
 import '../../models/paiement.dart';
 import '../../state/paiement_state.dart';
 import '../../theme/app_theme.dart';
@@ -632,6 +633,7 @@ class _VersementCard extends StatelessWidget {
   }
 
   Future<void> _printRecu(BuildContext context) async {
+    if (!canPrintPermission(context, 'Imprimer paiement')) return;
     // GeneratePDFRecuRequest.key (paiement_recu.py:20) est un INDEX entier
     // dans la liste triée chronologiquement (info_items[request.key]), pas
     // la clé date elle-même — contrairement à `index` côté Returns.py

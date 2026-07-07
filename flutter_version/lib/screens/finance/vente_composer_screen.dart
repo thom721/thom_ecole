@@ -80,10 +80,12 @@ class _VenteComposerScreenState extends State<VenteComposerScreen> {
       setState(() => _error = error);
       return;
     }
-    // Impression automatique du reçu de vente
+    // Impression automatique du reçu de vente — sautée silencieusement sans
+    // la permission "Imprimer vente" (même motif que PaiementFormScreen).
     final venteState = context.read<VenteState>();
     final venteId = venteState.lastVenteId;
-    if (venteId != null) {
+    final canPrint = context.read<AuthState>().permissions.contains('Imprimer vente');
+    if (venteId != null && canPrint) {
       final printError = await venteState.printRecu(venteId);
       if (!mounted) return;
       if (printError != null) {
@@ -307,7 +309,7 @@ class _CartPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.sidebarBg,
+        color: AppColors.cardBg,
         border: Border.all(color: AppColors.borderSubtle),
         borderRadius: BorderRadius.circular(16),
       ),

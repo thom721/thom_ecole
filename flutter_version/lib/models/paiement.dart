@@ -311,6 +311,43 @@ class PaymentInfo {
     return totalAnnuel > 0 && totalVerse >= totalAnnuel;
   }
 
+  /// Solde restant dû avant ce nouveau versement (total_annuel - total_verse
+  /// du dernier versement encaissé) — null si aucun historique ou si
+  /// total_annuel est inconnu. Sert à avertir si le montant en cours de
+  /// saisie dépasse ce qui est encore dû (PaiementFormScreen).
+  num? get soldeRestant {
+    final entry = _latestEntry;
+    if (entry == null) return null;
+    final value = entry.value;
+    if (value is! Map) return null;
+    final totalAnnuel = _toNum(value['total_annuel']);
+    if (totalAnnuel <= 0) return null;
+    final totalVerse = _toNum(value['total_verse']);
+    final solde = totalAnnuel - totalVerse;
+    return solde > 0 ? solde : 0;
+  }
+
+  /// True si l'aide financière actuelle de l'étudiant diffère de celle
+  /// enregistrée sur le dernier versement encaissé (chaque entrée
+  /// info_paiement[date] embarque son propre aide_financiere au moment de
+  /// l'enregistrement — voir RSavePaiement.py:918-919, paiement_details_dict
+  /// spread dans l'entrée) — équivalent de la vérification (school_client/
+  /// Controllers/Main.py:13008-13017) qui avertit que "le statut de cet
+  /// élève a été modifié" avant de valider un nouveau versement.
+  /// Contrairement à l'original (qui re-soumet silencieusement le paiement
+  /// pour réconcilier), on se contente ici d'avertir : une re-soumission
+  /// automatique invisible serait surprenante dans une UI pilotée par
+  /// l'utilisateur.
+  bool get statutModifie {
+    final entry = _latestEntry;
+    if (entry == null) return false;
+    final value = entry.value;
+    if (value is! Map) return false;
+    final aideEnregistree = value['aide_financiere']?.toString();
+    if (aideEnregistree == null || aideEnregistree.isEmpty) return false;
+    return aideEnregistree != aideFinanciere;
+  }
+
   /// Libellé de la bannière orange "Avance de X GDES sur le Nème Versement"
   /// (PaymentDetails.vue) — null si acquitté ou si aucun versement encaissé.
   /// Note : le "+2" dans le calcul de l'index n'est pas une faute de frappe
@@ -510,6 +547,17 @@ class PaymentDetail {
     return m != null ? int.parse(m.group(1)!) : null;
   }
 
+  /// Numéro d'échéance annoncé par la 1ère entrée "Acqt: Nème Versement" ou
+  /// "Avns: Nème Versement" de status_paiement (peu importe l'orthographe du
+  /// suffixe ordinal — "er"/"ème"/"eme" selon le point d'écriture serveur).
+  static int? _numeroDepuisStatusPaiement(List<String> statusPaiement) {
+    for (final s in statusPaiement) {
+      final m = RegExp(r'^(?:Acqt|Avns):\s*(\d+)').firstMatch(s);
+      if (m != null) return int.parse(m.group(1)!);
+    }
+    return null;
+  }
+
   /// Équivalent de `versementsInfo` (DetaisPaiement.vue:62-97) : historique
   /// trié chronologiquement (les clés JSON ne préservent pas l'ordre
   /// d'insertion), enrichi pour l'affichage.
@@ -525,13 +573,28 @@ class PaymentDetail {
           ? Map<String, dynamic>.from(detailsRaw)
           : <String, dynamic>{};
 
+      final statusPaiementRaw = details['status_paiement'];
+      final statusPaiement = statusPaiementRaw is List
+          ? statusPaiementRaw.map((e) => e.toString()).toList()
+          : <String>[];
+
+      // "Versement_N_xxx" n'existe dans les détails de CETTE entrée que si ce
+      // dépôt a complété l'échéance N (RSavePaiement.py:989-1023/821-855) —
+      // un dépôt partiel ("Avns") n'en pose pas. Avant, le repli était
+      // index+1 (position chronologique dans l'historique), sans rapport
+      // avec l'échéance réellement en cours de règlement — d'où le badge
+      // "1er → 2ème → 1er → 2ème" incohérent constaté en prod. status_paiement
+      // (calculé côté serveur à partir du solde réel) est la source qui fait
+      // foi : on y lit le numéro de l'échéance "Acqt"/"Avns" de cette entrée
+      // avant de retomber sur index+1 en tout dernier recours.
       final versementKey = details.keys.firstWhere(
         (k) => k.startsWith('Versement_'),
         orElse: () => '',
       );
-      final versementNum = versementKey.isNotEmpty
-          ? int.tryParse(versementKey.split('_')[1]) ?? (index + 1)
-          : index + 1;
+      final versementNum =
+          (versementKey.isNotEmpty ? int.tryParse(versementKey.split('_')[1]) : null) ??
+          _numeroDepuisStatusPaiement(statusPaiement) ??
+          (index + 1);
       final versementLabel = '${_ordinal(versementNum)} Versement';
       final montantDu = echeances[versementLabel] ?? 0;
 
@@ -544,11 +607,6 @@ class PaymentDetail {
       } else if (avanceRaw is num) {
         avanceVal = avanceRaw;
       }
-
-      final statusPaiementRaw = details['status_paiement'];
-      final statusPaiement = statusPaiementRaw is List
-          ? statusPaiementRaw.map((e) => e.toString()).toList()
-          : <String>[];
 
       return VersementInfo(
         dateKey: dateKey,

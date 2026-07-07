@@ -119,7 +119,7 @@ class _ClasseStudentsDialogState extends State<_ClasseStudentsDialog> {
         // en arrière — contrairement à l'usage normal d'EtudiantDetailScreen
         // (EtudiantScreen._Mode), qui fournit son propre bouton "Retour à la
         // liste" au-dessus, lui aussi absent ici.
-        builder: (_) => Scaffold(
+        builder: (routeContext) => Scaffold(
           backgroundColor: AppColors.appBg,
           appBar: AppBar(
             backgroundColor: AppColors.appBg,
@@ -136,6 +136,11 @@ class _ClasseStudentsDialogState extends State<_ClasseStudentsDialog> {
               dateDeNaissance: '',
               adresse: '',
             ),
+            // Cette route-ci est une vraie route poussée (contrairement à
+            // l'usage normal via EtudiantScreen._Mode, un simple switch de
+            // state) — c'est donc bien elle qui doit se dépiler après un
+            // enregistrement réussi.
+            onSaved: () => Navigator.of(routeContext).pop(),
           ),
         ),
       ),
@@ -262,6 +267,7 @@ class _ClasseStudentsDialogState extends State<_ClasseStudentsDialog> {
                                   ],
                                   rows: dashboard.classeStudents.map((s) {
                                     return DataRow(
+                                      mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
                                       onSelectChanged: (_) => _openStudent(s),
                                       cells: [
                                         DataCell(Text(s.id, style: const TextStyle(fontSize: 11, fontFamily: 'monospace'))),

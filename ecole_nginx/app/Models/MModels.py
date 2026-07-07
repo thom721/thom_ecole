@@ -219,9 +219,18 @@ class Professeur(Base, ObservableMixin):
     adresse = Column(String(255), nullable=False)
     matiere_enseignee = Column(String(255))
     status = Column(Boolean, nullable=False, default=False)
+    type_paiement = Column(String(20), nullable=False, default="fixe")
+    salaire_fixe = Column(Numeric(10, 2), nullable=True)
+    # Marque cette fiche comme la "casquette enseignante" d'un Personnel qui
+    # a le rôle teacher/Enseignant (voir RAcademic.py:store_personnel) —
+    # aucun User propre (pas de second compte de connexion) : cette fiche
+    # existe seulement pour être assignable dans Programme (professeur_id)
+    # et donc suivre ses cours/heures/payroll horaire comme un vrai
+    # professeur, sans dupliquer l'identité de connexion du Personnel.
+    personnel_id = Column(CHAR(36), ForeignKey("personnels.id"), nullable=True, unique=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Relations
     # user = relationship(
     #     "User",

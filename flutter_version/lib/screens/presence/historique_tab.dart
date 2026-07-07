@@ -175,7 +175,7 @@ class _HistoriqueTabState extends State<HistoriqueTab> {
                         ? const Color(0xFFFBBF24)
                         : AppColors.textPrimary;
                     final tauxColor = h.taux > 80
-                        ? const Color(0xFF34D399)
+                        ? AppColors.cardPalette['emerald']!.text
                         : h.taux > 60
                         ? const Color(0xFFFBBF24)
                         : AppColors.danger;

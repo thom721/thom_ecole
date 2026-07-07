@@ -20,6 +20,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 from app.Helper.pdf_personaliser import PDFGenerator
+from app.dependencies.Dependencie import check_permission
 router = APIRouter(prefix="/api/v1", tags=["PDF"])
 pdf_gen = PDFGenerator()
 
@@ -191,7 +192,11 @@ def moyenne_and_place(
 
 
 @router.post("/imprime-mas-bulletin")
-def impression_mas_bulletin(request: MassBulletinRequest, db: Session = Depends(get_db)):
+def impression_mas_bulletin(
+    request: MassBulletinRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(check_permission("Imprimer bulletin")),
+):
     """
     Endpoint pour l'impression en masse des bulletins d'une classe
     
@@ -428,7 +433,11 @@ def _naissance(date_de_naissance) -> str:
         return dt.strftime("%d %b %Y")
     return ""
 @router.post("/print-repport-decision")
-def impression_mas_bulletin(request: DecisionRequest, db: Session = Depends(get_db)):
+def impression_decision_fin_annee(
+    request: DecisionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(check_permission("Imprimer rapport pedagogique")),
+):
     annee_exists = db.query(AnneeAcademique).filter(
         AnneeAcademique.id == request.annee_ac
     ).first()

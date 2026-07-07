@@ -5,6 +5,7 @@ import '../../models/student.dart' show Niveau;
 import '../../state/programme_state.dart';
 import '../../state/reference_data_state.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/searchable_dropdown_field.dart';
 
 const _joursOptions = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 const _sessionOptions = ['1ère', '2ème'];
@@ -220,7 +221,7 @@ class _ProgrammeFormScreenState extends State<ProgrammeFormScreen> {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppColors.sidebarBg,
+                  color: AppColors.cardBg,
                   border: Border.all(color: AppColors.borderSubtle),
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -300,7 +301,12 @@ class _ProgrammeFormScreenState extends State<ProgrammeFormScreen> {
         ),
         _FieldGrid(fields: [
           DropdownButtonFormField<String>(
-            initialValue: row.niveauId,
+            // Même précaution que Cours/Professeur plus bas : sans cette Key,
+            // si ce champ se construit avant que ReferenceDataState.niveaux
+            // ait fini de charger, initialValue reste figé sur le mauvais
+            // état même après l'arrivée des données.
+            key: ValueKey('niveau-${row.niveauId}-${niveaux.length}'),
+            initialValue: niveaux.any((n) => n.id == row.niveauId) ? row.niveauId : null,
             decoration: const InputDecoration(labelText: 'Niveau'),
             items: niveaux.map((n) => DropdownMenuItem(value: n.id, child: Text(n.name))).toList(),
             onChanged: (v) => setState(() {
@@ -311,6 +317,13 @@ class _ProgrammeFormScreenState extends State<ProgrammeFormScreen> {
           progState.isLoadingCombos
               ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
               : DropdownButtonFormField<String>(
+                  // DropdownButtonFormField ne relit initialValue qu'à sa
+                  // création — sans cette Key qui change une fois la combo
+                  // chargée (longueur de la liste), un rebuild ultérieur
+                  // avec le bon initialValue est ignoré et le champ reste
+                  // vide en édition si la liste était encore vide au tout
+                  // premier build (course de vitesse avec loadCombos()).
+                  key: ValueKey('cours-${row.coursId}-${progState.cours.length}'),
                   initialValue: progState.cours.any((c) => c.id == row.coursId) ? row.coursId : null,
                   decoration: const InputDecoration(labelText: 'Cours'),
                   items: progState.cours.map((c) => DropdownMenuItem(value: c.id, child: Text(c.coursNom))).toList(),
@@ -318,15 +331,19 @@ class _ProgrammeFormScreenState extends State<ProgrammeFormScreen> {
                 ),
           progState.isLoadingCombos
               ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-              : DropdownButtonFormField<String>(
-                  initialValue: progState.professeurs.any((p) => p.id == row.professeurId) ? row.professeurId : null,
-                  decoration: const InputDecoration(labelText: 'Professeur'),
-                  items: progState.professeurs.map((p) => DropdownMenuItem(value: p.id, child: Text(p.fullName))).toList(),
-                  onChanged: (v) => setState(() => row.professeurId = v),
+              : SearchableDropdownField<ProfesseurCombo>(
+                  key: ValueKey('prof-${row.professeurId}-${progState.professeurs.length}'),
+                  options: progState.professeurs,
+                  idOf: (p) => p.id,
+                  displayStringForOption: (p) => p.fullName,
+                  selectedId: row.professeurId,
+                  labelText: 'Professeur',
+                  onSelected: (p) => setState(() => row.professeurId = p.id),
                 ),
           TextField(controller: row.coefficients, decoration: const InputDecoration(labelText: 'Coefficients')),
           if (isUniOuTech)
             DropdownButtonFormField<String>(
+              key: ValueKey('faculte-${row.faculteId}-${refData.facultes.length}'),
               initialValue: refData.facultes.any((f) => f.id == row.faculteId) ? row.faculteId : null,
               decoration: const InputDecoration(labelText: 'Faculté / Option'),
               items: refData.facultes.map((f) => DropdownMenuItem(value: f.id, child: Text(f.nom))).toList(),
@@ -342,13 +359,15 @@ class _ProgrammeFormScreenState extends State<ProgrammeFormScreen> {
           if (isUniversitaire)
             TextField(controller: row.noteDePassage, decoration: const InputDecoration(labelText: 'Note de passage')),
           DropdownButtonFormField<String>(
+            key: ValueKey('classe-${row.classeId}-${classes.length}'),
             initialValue: classes.any((c) => c.id == row.classeId) ? row.classeId : null,
             decoration: const InputDecoration(labelText: 'Classe'),
             items: classes.map((c) => DropdownMenuItem(value: c.id, child: Text(c.nomClasse))).toList(),
             onChanged: (v) => setState(() => row.classeId = v),
           ),
           DropdownButtonFormField<String>(
-            initialValue: row.anneeId,
+            key: ValueKey('annee-${row.anneeId}-${refData.annees.length}'),
+            initialValue: refData.annees.any((a) => a.id == row.anneeId) ? row.anneeId : null,
             decoration: const InputDecoration(labelText: 'Année académique'),
             items: refData.annees.map((a) => DropdownMenuItem(value: a.id, child: Text(a.nom))).toList(),
             onChanged: (v) => setState(() => row.anneeId = v),

@@ -6,10 +6,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from itertools import groupby
 from app.database import get_db  # Votre config DB
+from app.Models.MModels import User
 from app.Models.MSystems import Profile   # Votre modèle Profile
 
 from fastapi.responses import  StreamingResponse
 from app.Helper.pdf_personaliser import PDFGenerator
+from app.dependencies.Dependencie import check_permission
 
 class RegisterReportRequest(BaseModel):
     identifiant: Optional[bool] = None  # Reçoit "on" ou None du formulaire
@@ -27,7 +29,11 @@ router = APIRouter(prefix="/api/v1", tags=["PDF"])
 pdf_gen = PDFGenerator()
 
 @router.post("/print-repport-register")
-def print_register_report(report_req: RegisterReportRequest, db: Session = Depends(get_db)):
+def print_register_report(
+    report_req: RegisterReportRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(check_permission("Imprimer enregistrement")),
+):
     print(report_req)
     try:
         # 1. Construction de la requête avec Jointures

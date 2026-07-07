@@ -7,8 +7,10 @@ from pydantic import BaseModel, Field, UUID4
 from typing import Optional
 from app.database import get_db
 from app.Models.MFinancials import Paiement
+from app.Models.MModels import User
 from app.Models.MSystems import Profile
 from app.Helper.pdf_personaliser import PDFGenerator
+from app.dependencies.Dependencie import check_permission
 import logging
 import json
 logger = logging.getLogger(__name__)
@@ -39,7 +41,8 @@ def sa_to_dict(obj):
 @router.post("/print-recu")
 def generate_pdf_recu(
     request: GeneratePDFRecuRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(check_permission("Imprimer paiement")),
 ):
     """
     Génère un PDF de reçu de paiement

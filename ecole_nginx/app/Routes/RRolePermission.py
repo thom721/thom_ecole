@@ -12,6 +12,7 @@ from app.Schemas.SRolePermission import (
 from app.database import get_db
 from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role,first_or_update_safe
 from app.Models.MSystems import ModelHasPermission,ModelHasRole,RoleHasPermission
+from app.Routes.RAcademic import _sync_shadow_professeur, _role_is_enseignant, _sync_shadow_personnel, _role_is_personnel
 from pydantic import BaseModel, Field, field_validator, model_validator
 import logging
 
@@ -92,9 +93,33 @@ def assign_role_to_user(
                 model_id=request.user_id
             )
             db.add(new_role)
-        
+
         db.commit()
-    
+
+        # Les rôles peuvent aussi être modifiés ici (onglet Rôles de Profile),
+        # indépendamment du formulaire Personnel — il faut synchroniser la
+        # fiche Professeur "casquette enseignante" depuis ce chemin aussi
+        # (voir RAcademic.py:_sync_shadow_professeur), sinon un rôle
+        # teacher/Enseignant assigné uniquement depuis cet onglet ne
+        # rendrait jamais ce Personnel assignable dans Programme.
+        user = db.query(User).filter(User.id == request.user_id).first()
+        if user and user.userable_type == "App\\Models\\Personnel":
+            personnel = db.query(Personnel).filter(Personnel.id == user.userable_id).first()
+            if personnel:
+                is_enseignant = any(_role_is_enseignant(db, role_id) for role_id in valid_roles)
+                _sync_shadow_professeur(db, personnel, is_enseignant)
+                db.commit()
+        # Cas inverse (symétrique) : un Professeur avec son propre compte de
+        # connexion qui reçoit un rôle non-enseignant (Comptable, Secrétaire
+        # général...) doit aussi apparaître dans la liste Personnel — voir
+        # RAcademic.py:_sync_shadow_personnel.
+        elif user and user.userable_type == "App\\Models\\Professeur":
+            professeur = db.query(Professeur).filter(Professeur.id == user.userable_id).first()
+            if professeur:
+                is_personnel = any(_role_is_personnel(db, role_id) for role_id in valid_roles)
+                _sync_shadow_personnel(db, professeur, is_personnel)
+                db.commit()
+
         return {"success": "Le ou les rôles ont été assignés avec succès."}
     except HTTPException:
         db.rollback()

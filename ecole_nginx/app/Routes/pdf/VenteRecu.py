@@ -8,9 +8,11 @@ from io import BytesIO
 
 from app.database import get_db
 from app.Models.MFinancials import Vente
-from app.Models.MSystems import Profile  
+from app.Models.MModels import User
+from app.Models.MSystems import Profile
 
 from app.Helper.pdf_personaliser import PDFGenerator
+from app.dependencies.Dependencie import check_permission
 router = APIRouter(prefix="/api/v1", tags=["PDF"])
 pdf_gen = PDFGenerator()
 
@@ -18,7 +20,8 @@ pdf_gen = PDFGenerator()
 @router.get("/print-recu-vente/{id}")
 def generate_pdf_vente(
     id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(check_permission("Imprimer vente")),
 ):
     try: 
         vente = (

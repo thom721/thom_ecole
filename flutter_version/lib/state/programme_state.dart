@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../core/api_client.dart';
@@ -127,6 +128,92 @@ class ProgrammeState extends ChangeNotifier {
       return _extractError(e);
     } finally {
       deletingId = null;
+      notifyListeners();
+    }
+  }
+
+  bool isPrintingHoraire = false;
+  bool isPrintingCharge = false;
+
+  Future<String?> _downloadAndOpenPdf({
+    required String endpoint,
+    required Map<String, dynamic> query,
+    required String fileName,
+  }) async {
+    try {
+      final response = await _apiClient.dio.get(
+        endpoint,
+        queryParameters: query,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final file = File('${Directory.systemTemp.path}/$fileName');
+      await file.writeAsBytes(response.data as List<int>);
+      ProcessResult result;
+      if (Platform.isMacOS) {
+        result = await Process.run('open', [file.path]);
+      } else if (Platform.isWindows) {
+        result = await Process.run('cmd', ['/c', 'start', '', file.path]);
+      } else {
+        result = await Process.run('xdg-open', [file.path]);
+      }
+      if (result.exitCode != 0) {
+        return 'Impossible d\'ouvrir le PDF : ${result.stderr}'.trim();
+      }
+      return null;
+    } catch (e) {
+      return _extractError(e);
+    }
+  }
+
+  /// Équivalent (reconstruit — l'endpoint /print-horaire du web appelait une
+  /// route inexistante côté backend) du bouton "Imprimer horaire" de
+  /// Cours.vue : emploi du temps d'une classe pour une année académique.
+  Future<String?> printHoraire({
+    required String niveauId,
+    required String classeId,
+    required String anneeAcademiqueId,
+    String? faculteId,
+  }) async {
+    isPrintingHoraire = true;
+    notifyListeners();
+    try {
+      return await _downloadAndOpenPdf(
+        endpoint: 'print-horaire',
+        query: {
+          'niveau_id': niveauId,
+          'classe_id': classeId,
+          'annee_academique': anneeAcademiqueId,
+          if (faculteId != null) 'faculte_id': faculteId,
+        },
+        fileName: 'horaire.pdf',
+      );
+    } finally {
+      isPrintingHoraire = false;
+      notifyListeners();
+    }
+  }
+
+  /// "Charge d'enseignement" — nouveau bouton (demande explicite) : liste
+  /// des cours/classes assignés à un professeur pour une année académique
+  /// (décompte de cours, pas une durée en heures — Programme.heure n'a pas
+  /// de donnée fiable aujourd'hui, voir RHoraireReport.py).
+  Future<String?> printChargeEnseignement({
+    required String professeurId,
+    required String anneeAcademiqueId,
+  }) async {
+    isPrintingCharge = true;
+    notifyListeners();
+    try {
+      return await _downloadAndOpenPdf(
+        endpoint: 'print-programme-professeur',
+        query: {
+          'professeur_id': professeurId,
+          'annee_academique': anneeAcademiqueId,
+        },
+        fileName: 'charge-enseignement.pdf',
+      );
+    } finally {
+      isPrintingCharge = false;
       notifyListeners();
     }
   }

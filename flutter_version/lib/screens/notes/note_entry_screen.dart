@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/note.dart';
+import '../../models/programme.dart' show CoursCombo;
 import '../../models/student.dart' show Niveau;
 import '../../state/note_state.dart';
 import '../../state/reference_data_state.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/searchable_dropdown_field.dart';
 
 const _sessionOptions = ['1ère', '2ème'];
 
@@ -99,6 +101,13 @@ class _NoteEntryScreenState extends State<NoteEntryScreen> {
       _currentCoefficients = item.coefficients;
       _currentNoteDePassage = item.noteDePassage;
       _currentProfesseurId = item.professeurId ?? '';
+      // Les notes/évaluation affichées appartiennent au cours précédent —
+      // on repart de zéro pour éviter d'associer par erreur une note saisie
+      // pour un autre cours. Remettre _evaluationMonth/_evaluationControle
+      // à null change aussi la Key des TextFormField de la colonne Note
+      // (ci-dessous), ce qui force leur remount avec le initialValue vidé.
+      _evaluationMonth = null;
+      _evaluationControle = null;
       for (final s in _result!.students) {
         s.note = null;
       }
@@ -182,7 +191,9 @@ class _NoteEntryScreenState extends State<NoteEntryScreen> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),
-        child: _step == 1 ? _buildStep1(niveaux, refData, noteState, isUniOuTech, isUniversitaire) : _buildStep2(noteState),
+        child: _step == 1
+            ? _buildStep1(niveaux, refData, noteState, isUniOuTech, isUniversitaire)
+            : _buildStep2(noteState, isUniOuTech),
       ),
     );
   }
@@ -200,7 +211,7 @@ class _NoteEntryScreenState extends State<NoteEntryScreen> {
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: AppColors.sidebarBg,
+            color: AppColors.cardBg,
             border: Border.all(color: AppColors.borderSubtle),
             borderRadius: BorderRadius.circular(16),
           ),
@@ -230,13 +241,14 @@ class _NoteEntryScreenState extends State<NoteEntryScreen> {
                   Expanded(
                     child: noteState.isLoadingCombo
                         ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-                        : DropdownButtonFormField<String>(
-                            initialValue: noteState.coursCombo.any((c) => c.id == _coursId) ? _coursId : null,
-                            decoration: const InputDecoration(labelText: 'Cours / Matière'),
-                            items: noteState.coursCombo
-                                .map((c) => DropdownMenuItem(value: c.id, child: Text(c.coursNom)))
-                                .toList(),
-                            onChanged: (v) => setState(() => _coursId = v),
+                        : SearchableDropdownField<CoursCombo>(
+                            key: ValueKey('cours-matiere-${noteState.coursCombo.length}'),
+                            options: noteState.coursCombo,
+                            idOf: (c) => c.id,
+                            displayStringForOption: (c) => c.coursNom,
+                            selectedId: _coursId,
+                            labelText: 'Cours / Matière',
+                            onSelected: (c) => setState(() => _coursId = c.id),
                           ),
                   ),
                 ]),
@@ -313,7 +325,7 @@ class _NoteEntryScreenState extends State<NoteEntryScreen> {
     );
   }
 
-  Widget _buildStep2(NoteState noteState) {
+  Widget _buildStep2(NoteState noteState, bool isUniOuTech) {
     final result = _result!;
     final isUniversitaire = result.session != null;
 
@@ -323,7 +335,7 @@ class _NoteEntryScreenState extends State<NoteEntryScreen> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppColors.sidebarBg,
+            color: AppColors.cardBg,
             border: Border.all(color: AppColors.borderSubtle),
             borderRadius: BorderRadius.circular(16),
           ),
@@ -339,27 +351,34 @@ class _NoteEntryScreenState extends State<NoteEntryScreen> {
               const SizedBox(height: 4),
               Text('${result.cours.nomClasse ?? ''} · ${result.annee}',
                   style: TextStyle(fontSize: 12.5, color: AppColors.textMuted)),
-              const SizedBox(height: 6),
-              Wrap(spacing: 6, runSpacing: 6, children: [
-                Chip(label: Text('Coeff. ${_currentCoefficients ?? '—'}')),
-                Chip(label: Text('Passage ${_currentNoteDePassage ?? '—'}')),
-                Chip(label: Text(_currentTypeMatiere)),
-                Chip(label: Text('${result.students.length} étudiant${result.students.length > 1 ? 's' : ''}')),
-              ]),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
+              const SizedBox(height: 10),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Expanded(
+                    child: Wrap(spacing: 6, runSpacing: 6, children: [
+                      Chip(label: Text('Coeff. ${_currentCoefficients ?? '—'}')),
+                      // Note de passage : uniquement pertinente pour Technique/
+                      // Universitaire (barème différent du Fondamental).
+                      if (isUniOuTech) Chip(label: Text('Passage ${_currentNoteDePassage ?? '—'}')),
+                      Chip(label: Text(_currentTypeMatiere)),
+                      Chip(label: Text('${result.students.length} étudiant${result.students.length > 1 ? 's' : ''}')),
+                    ]),
+                  ),
+                  const SizedBox(width: 12),
                   SizedBox(
                     width: 200,
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _currentCoursId,
-                      decoration: const InputDecoration(labelText: 'Changer de matière', isDense: true),
-                      items: result.listCours.map((c) => DropdownMenuItem(value: c.id, child: Text(c.coursNom))).toList(),
-                      onChanged: _onCoursChange,
+                    child: SearchableDropdownField<NoteListCoursItem>(
+                      options: result.listCours,
+                      idOf: (c) => c.id,
+                      displayStringForOption: (c) => c.coursNom,
+                      selectedId: _currentCoursId,
+                      labelText: 'Changer de matière',
+                      isDense: true,
+                      onSelected: (c) => _onCoursChange(c.id),
                     ),
                   ),
+                  const SizedBox(width: 12),
                   SizedBox(
                     width: 180,
                     child: isUniversitaire
@@ -381,6 +400,11 @@ class _NoteEntryScreenState extends State<NoteEntryScreen> {
                             ],
                           )
                         : DropdownButtonFormField<String>(
+                            // DropdownButtonFormField ne relit initialValue qu'à sa
+                            // création : sans cette Key liée à _currentCoursId, la
+                            // remise à null de _evaluationMonth dans _onCoursChange
+                            // ne se reflète pas visuellement au changement de cours.
+                            key: ValueKey('evaluation-mois-$_currentCoursId'),
                             initialValue: _evaluationMonth,
                             decoration: const InputDecoration(labelText: 'Évaluation', isDense: true),
                             items: NoteState.moisAnneeScolaire.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
@@ -398,7 +422,7 @@ class _NoteEntryScreenState extends State<NoteEntryScreen> {
         Expanded(
           child: Container(
             decoration: BoxDecoration(
-              color: AppColors.sidebarBg,
+              color: AppColors.cardBg,
               border: Border.all(color: AppColors.borderSubtle),
               borderRadius: BorderRadius.circular(16),
             ),

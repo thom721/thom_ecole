@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/print_gate.dart';
+import '../../core/print_permission.dart';
 import '../../models/student.dart';
 import '../../models/student_detail.dart';
 import '../../state/reference_data_state.dart';
@@ -33,9 +34,15 @@ const _documentTypes = [
 /// consultation, par fidélité). Absent de school_client (formulaire simple,
 /// sans onglets ni parcours académique) — repris ici sur demande explicite.
 class EtudiantDetailScreen extends StatefulWidget {
-  const EtudiantDetailScreen({super.key, this.student});
+  const EtudiantDetailScreen({super.key, this.student, this.onSaved});
 
   final Student? student;
+
+  /// Appelé après un enregistrement réussi. Cet écran est affiché EN LIGNE
+  /// par un switch(_mode) dans etudiant_screen.dart, pas via Navigator.push
+  /// — Navigator.of(context).pop() n'a donc aucune route à dépiler ici et
+  /// finissait par vider l'écran (fond noir) au lieu de revenir à la liste.
+  final VoidCallback? onSaved;
 
   @override
   State<EtudiantDetailScreen> createState() => _EtudiantDetailScreenState();
@@ -117,6 +124,7 @@ class _EtudiantDetailScreenState extends State<EtudiantDetailScreen> {
     _niveauId = classeActuelle?.niveauId;
     _classeId = classeActuelle?.classesId;
     _anneeId = classeActuelle?.anneeAcademiqueId;
+    _aideFinanciere = (d.aideFinanciere?.isNotEmpty ?? false) ? d.aideFinanciere! : 'Aucune';
     setState(() {});
   }
 
@@ -244,7 +252,7 @@ class _EtudiantDetailScreenState extends State<EtudiantDetailScreen> {
     if (!mounted) return;
     if (error == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Étudiant enregistré.')));
-      Navigator.of(context).pop(true);
+      widget.onSaved?.call();
     } else {
       setState(() {
         _saving = false;
@@ -254,6 +262,7 @@ class _EtudiantDetailScreenState extends State<EtudiantDetailScreen> {
   }
 
   Future<void> _printRecu() async {
+    if (!canPrintPermission(context, 'Imprimer enregistrement')) return;
     final id = widget.student?.id;
     if (id == null) return;
     final error = await context.read<StudentsState>().printRecuInscription(id);
@@ -1008,7 +1017,7 @@ class _ParcoursTileState extends State<_ParcoursTile> {
 
   Color _moyenneColor(double m) {
     if (m >= 9) return const Color(0xFF3FB950);
-    if (m >= 7) return const Color(0xFFD29922);
+    if (m >= 7) return AppColors.cardPalette['amber']!.text;
     if (m >= 6) return AppColors.accentLight;
     return AppColors.danger;
   }

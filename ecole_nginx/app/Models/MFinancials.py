@@ -3,6 +3,7 @@ from sqlalchemy import Column, String, Date, Boolean, DateTime, Integer, Numeric
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import CHAR
+from sqlalchemy.dialects.mysql import DATETIME as MySQLDateTime
 from datetime import datetime
 # from app.database import Base
 from app.database import Base
@@ -250,11 +251,68 @@ class LoanRepayment(Base):
     # Relations
     loan = relationship("Loan", back_populates="repayments")
 
+class ParametrePayroll(Base, ObservableMixin):
+    """Taux horaire par cours et par année académique pour les professeurs
+    payés à l'heure (Professeur.type_paiement == 'horaire') — table séparée
+    (plutôt qu'un taux unique sur Professeur) pour garder l'historique
+    quand le taux d'un cours change d'une année à l'autre."""
+    __tablename__ = "parametre_payrolls"
+    __table_args__ = (
+        UniqueConstraint('cours_id', 'annee_academique', name='uq_parametre_payroll_cours_annee'),
+        {
+            'mysql_collate': 'utf8mb4_unicode_ci',
+            'mysql_charset': 'utf8mb4',
+            'mysql_engine': 'InnoDB'
+        }
+    )
+
+    id = Column(CHAR(36), primary_key=True, default=generate_uuid)
+    cours_id = Column(CHAR(36), ForeignKey("cours.id"), nullable=False)
+    taux_horaire = Column(Numeric(10, 2), nullable=False)
+    annee_academique = Column(String(255), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relations
+    cours = relationship("Cours")
+
+class SalaireHistorique(Base):
+    """Journal des changements de salaire_fixe (Professeur ou Personnel) —
+    table dédiée plutôt que l'audit générique (ObservableMixin/Log) : ce
+    dernier n'est pas branché pour Personnel et loggerait tous les champs
+    (nom, email...), pas seulement le salaire, ce qui compliquerait un
+    rapport "état des augmentations" pour une période. Une ligne par
+    changement effectif de valeur (pas de ligne si la valeur ne change pas)."""
+    __tablename__ = "salaire_historiques"
+    __table_args__ = {
+        'mysql_collate': 'utf8mb4_unicode_ci',
+        'mysql_charset': 'utf8mb4',
+         'mysql_engine':'InnoDB'
+    }
+
+    id = Column(CHAR(36), primary_key=True, default=generate_uuid)
+    employe_type = Column(String(20), nullable=False)  # 'professeur' | 'personnel'
+    employe_id = Column(CHAR(36), nullable=False)  # Professeur.id ou Personnel.id
+    ancien_montant = Column(Numeric(10, 2), nullable=True)
+    nouveau_montant = Column(Numeric(10, 2), nullable=False)
+    modifie_par = Column(CHAR(36), ForeignKey("users.id"), nullable=True)
+    # Précision microseconde : deux changements faits dans la même seconde
+    # doivent rester triables de façon fiable pour le rapport chronologique.
+    created_at = Column(MySQLDateTime(fsp=6), default=datetime.utcnow)
+
 class Payroll(Base, ObservableMixin):
-    """Versements de salaire ponctuels à un Professeur/Personnel — aucune
-    notion de salaire de base : chaque ligne est saisie à la main pour une
-    période (mois/année) donnée, comme demandé explicitement (pas de
-    référence bureau/web, fonctionnalité absente des deux)."""
+    """Versements de salaire à un Professeur/Personnel — pas de référence
+    bureau/web, fonctionnalité absente des deux, ajoutée sur demande
+    explicite. Deux modes (`type_calcul`) :
+    - 'fixe' : montant_du saisi/pré-rempli depuis Professeur.salaire_fixe.
+    - 'horaire' : montant_du = Σ heures × taux (ParametrePayroll), détail
+      figé dans `details_horaires` pour garder l'historique même si le
+      taux change ensuite.
+    Chaque ligne représente une PÉRIODE (mois/année) à payer, pas un
+    versement — les versements réels sont dans PayrollVersement (mirror de
+    Loan/LoanRepayment) ; `montant`/`remaining_balance` sont le total dû et
+    le solde restant, `statut` bascule En attente → Partiel → Payé au fil
+    des versements."""
     __tablename__ = "payrolls"
     __table_args__ = {
         'mysql_collate': 'utf8mb4_unicode_ci',
@@ -270,11 +328,39 @@ class Payroll(Base, ObservableMixin):
     methode_paiement = Column(String(20), nullable=False, default="Espèce")
     statut = Column(String(20), nullable=False, default="En attente")
     date_versement = Column(DateTime, nullable=True)
+    type_calcul = Column(String(20), nullable=False, default="fixe")
+    montant_du = Column(Numeric(10, 2), nullable=True)
+    remaining_balance = Column(Numeric(10, 2), nullable=True)
+    details_horaires = Column(JSON, nullable=True)
+    heures_pointees_ref = Column(Numeric(8, 2), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relations
     user = relationship("User", back_populates="payrolls")
+    versements = relationship("PayrollVersement", back_populates="payroll")
+
+class PayrollVersement(Base, ObservableMixin):
+    """Versement partiel ou intégral contre un Payroll — mirror exact de
+    LoanRepayment, mêmes garanties de précision Decimal côté route."""
+    __tablename__ = "payroll_versements"
+    __table_args__ = {
+        'mysql_collate': 'utf8mb4_unicode_ci',
+        'mysql_charset': 'utf8mb4',
+         'mysql_engine':'InnoDB'
+    }
+
+    id = Column(CHAR(36), primary_key=True, default=generate_uuid)
+    payroll_id = Column(CHAR(36), ForeignKey("payrolls.id"), nullable=False)
+    montant = Column(Numeric(10, 2), nullable=False)
+    date_versement = Column(Date, nullable=False)
+    methode_paiement = Column(String(255))
+    note = Column(Text)
+    collected_by = Column(CHAR(36), ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relations
+    payroll = relationship("Payroll", back_populates="versements")
 
 class CategorieProduit(Base, ObservableMixin):
     """Catégories de produits gérées par l'utilisateur — distinctes de

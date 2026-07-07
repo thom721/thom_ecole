@@ -87,7 +87,7 @@ class _StatsTabState extends State<StatsTab> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.sidebarBg,
+              color: AppColors.cardBg,
               border: Border.all(color: AppColors.borderSubtle),
               borderRadius: BorderRadius.circular(16),
             ),
@@ -114,7 +114,7 @@ class _StatsTabState extends State<StatsTab> {
                 else
                   ...state.statsClasses.map((c) {
                     final color = c.val > 85
-                        ? const Color(0xFF34D399)
+                        ? AppColors.cardPalette['emerald']!.text
                         : c.val > 70
                         ? const Color(0xFFFBBF24)
                         : AppColors.danger;
@@ -188,7 +188,7 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.sidebarBg,
+        color: AppColors.cardBg,
         border: Border.all(color: AppColors.borderSubtle),
         borderRadius: BorderRadius.circular(16),
       ),

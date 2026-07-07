@@ -161,6 +161,8 @@ class ProfesseurBase(BaseModel):
     adresse: str
     matiere_enseignee: Optional[str] = None
     status: bool = False
+    type_paiement: str = "fixe"
+    salaire_fixe: Optional[float] = None
 
 class ProfesseurCreate(ProfesseurBase):
     pass
@@ -174,12 +176,19 @@ class ProfesseurUpdate(BaseModel):
     adresse: Optional[str] = None
     matiere_enseignee: Optional[str] = None
     status: Optional[bool] = None
+    type_paiement: Optional[str] = None
+    salaire_fixe: Optional[float] = None
 
 class ProfesseurResponse(ProfesseurBase):
     id: str
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     user: UserResponse | None
+    # Non-null si cette fiche est la "casquette enseignante" d'un Personnel
+    # (rôle teacher/Enseignant, voir RAcademic.py:_sync_shadow_professeur) —
+    # permet à l'UI de le signaler plutôt que de laisser croire à un
+    # professeur autonome avec son propre compte de connexion.
+    personnel_id: Optional[str] = None
 
     @computed_field
     @property
@@ -207,6 +216,8 @@ class ProfesseurRequest(BaseModel):
     adresse: str = Field(..., min_length=5)
     matiere_enseignee: Optional[str] = None
     notification: bool = False
+    type_paiement: str = Field("fixe", pattern="^(fixe|horaire)$")
+    salaire_fixe: Optional[float] = Field(None, gt=0)
 
     @validator('sexe')
     def validate_sexe(cls, v):
@@ -232,6 +243,7 @@ class PersonnelBase(BaseModel):
     adresse: str
     matiere_enseignee: Optional[str] = None
     status: bool = False
+    salaire_fixe: Optional[float] = None
 
 class PersonnelCreate(PersonnelBase):
     pass
@@ -245,12 +257,20 @@ class PersonnelUpdate(BaseModel):
     adresse: Optional[str] = None
     matiere_enseignee: Optional[str] = None
     status: Optional[bool] = None
+    salaire_fixe: Optional[float] = None
 
 class PersonnelResponse(PersonnelBase):
     id: str
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     user: UserResponse | None
+    # Non-null si cette fiche est la "casquette administrative" d'un
+    # Professeur (rôle non-enseignant, voir
+    # RAcademic.py:_sync_shadow_personnel) — symétrique de
+    # ProfesseurResponse.personnel_id : permet à l'UI de le signaler plutôt
+    # que de laisser croire à un membre du personnel autonome avec son
+    # propre compte de connexion.
+    professeur_id: Optional[str] = None
 
     @computed_field
     @property
@@ -291,8 +311,9 @@ class PersonnelRequest(BaseModel):
     role: str
     first: bool = False  # Indique si c'est le premier utilisateur (admin)
     password: Optional[str] = None  # Requis uniquement si first=True
-    
-    
+    salaire_fixe: Optional[float] = Field(None, gt=0)
+
+
     @validator('sexe')
     def validate_sexe(cls, v, values):
         if v and v.upper() not in ['M', 'F', 'MASCULIN', 'FEMININ', 'HOMME', 'FEMME']:

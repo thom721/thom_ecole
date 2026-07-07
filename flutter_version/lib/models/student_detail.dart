@@ -148,6 +148,7 @@ class StudentDetail {
     required this.adresseResponsable,
     required this.classesEtudiant,
     required this.piecesSoumises,
+    required this.aideFinanciere,
   });
 
   factory StudentDetail.fromJson(Map<String, dynamic> json) {
@@ -191,6 +192,7 @@ class StudentDetail {
       piecesSoumises: ((json['pieces_soumises'] as List?) ?? const [])
           .map((e) => PieceSoumise.fromJson(e as Map<String, dynamic>))
           .toList(),
+      aideFinanciere: json['aide_financiere']?.toString(),
     );
   }
 
@@ -216,6 +218,7 @@ class StudentDetail {
   final String? adresseResponsable;
   final List<ClasseEtudiantEntry> classesEtudiant;
   final List<PieceSoumise> piecesSoumises;
+  final String? aideFinanciere;
 
   /// Équivalent de `classe_actuelle_` (Ajout_etudiant.vue) : la classe la
   /// plus récente, triée par date de création (faute de champ "actif").

@@ -192,6 +192,7 @@ class _LogScreenState extends State<LogScreen> {
                           ]
                         : state.items.map((log) {
                             return DataRow(
+                              mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
                               onSelectChanged: (_) => _showDetail(log.id),
                               cells: [
                                 DataCell(

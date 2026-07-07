@@ -140,6 +140,7 @@ class _PaiementScreenState extends State<PaiementScreen> {
                     ],
                     rows: state.payments.map((p) {
                       return DataRow(
+                        mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
                         onSelectChanged: (_) => _openDetail(p),
                         cells: [
                           DataCell(Text(p.identifiant)),

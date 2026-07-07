@@ -212,7 +212,7 @@ class _PromusScreenState extends State<PromusScreen> {
                                   ]),
                                 ]
                               : state.resultats.map((e) {
-                                  final color = e.succes ? const Color(0xFF34D399) : const Color(0xFFFB7185);
+                                  final color = e.succes ? AppColors.cardPalette['emerald']!.text : AppColors.cardPalette['rose']!.text;
                                   return DataRow(cells: [
                                     DataCell(Text(e.nom, style: TextStyle(color: AppColors.textPrimary))),
                                     DataCell(Text(e.prenom, style: TextStyle(color: AppColors.textPrimary))),

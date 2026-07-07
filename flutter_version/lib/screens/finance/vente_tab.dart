@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/print_permission.dart';
 import '../../models/vente.dart';
 import '../../state/vente_state.dart';
 import '../../theme/app_theme.dart';
@@ -108,6 +109,7 @@ class _VenteTabState extends State<VenteTab> {
                   rows: state.items.map((v) {
                     final isPrinting = state.printingId == v.id;
                     return DataRow(
+                      mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
                       onSelectChanged: (_) => _openComposer(editing: v),
                       cells: [
                         DataCell(Text(v.orderItemId)),
@@ -132,9 +134,10 @@ class _VenteTabState extends State<VenteTab> {
                                     size: 17,
                                     color: AppColors.accentLight,
                                   ),
-                                  onPressed: () => context
-                                      .read<VenteState>()
-                                      .printRecu(v.id),
+                                  onPressed: () {
+                                    if (!canPrintPermission(context, 'Imprimer vente')) return;
+                                    context.read<VenteState>().printRecu(v.id);
+                                  },
                                 ),
                         ),
                       ],

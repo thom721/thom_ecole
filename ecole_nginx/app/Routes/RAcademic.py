@@ -16,6 +16,7 @@ from passlib.context import CryptContext
 from app.database import get_db
 from app.Models.MModels import AnneeAcademique, Niveau, Faculte, Classe, Cours,Etudiant, Professeur,User
 from app.Models.MSystems import Personnel,ModelHasRole,Profile,Role,Permission
+from app.Models.MFinancials import SalaireHistorique
 from app.Schemas.pagination import PaginatedResponse
 from app.utils.pagination import paginate 
 from app.Schemas.SOther import ActiveRequest, ChangePasswordRequest,SuccessResponse
@@ -385,6 +386,17 @@ async def store_professeur(
         
         if request.id:
             ActionContext.set_action('update')
+            # Cette fiche peut être liée à un Personnel dans un sens ou
+            # l'autre ("casquette enseignante" d'un Personnel, ou fiche
+            # Professeur réelle avec sa propre "casquette administrative"
+            # Personnel) — dans les deux cas les deux fiches partagent
+            # volontairement le même email (voir _sync_shadow_professeur/
+            # _sync_shadow_personnel), il faut donc exclure ce Personnel lié
+            # des vérifications d'unicité ci-dessous, sinon la mise à jour
+            # de cette fiche se bloque elle-même avec "email déjà utilisé".
+            linked_personnel_id = db.query(Professeur.personnel_id).filter(Professeur.id == request.id).scalar()
+            shadow_personnel_id = db.query(Personnel.id).filter(Personnel.professeur_id == request.id).scalar()
+
             # Vérifier si l'email existe pour un autre utilisateur
             email_exists_in_users = db.query(
                 select(User.id)
@@ -392,7 +404,7 @@ async def store_professeur(
                 .where(User.userable_id != request.id)
                 .exists()
             ).scalar()
-            
+
             email_exists_in_professeurs = db.query(
                 select(Professeur.id)
                 .where(Professeur.email == request.email)
@@ -400,12 +412,16 @@ async def store_professeur(
                 .exists()
             ).scalar()
 
-            email_exists_in_personnels = db.query(
+            personnels_query = (
                 select(Personnel.id)
                 .where(Personnel.email == request.email)
                 .where(Personnel.id != request.id)
-                .exists()
-            ).scalar()
+            )
+            if linked_personnel_id:
+                personnels_query = personnels_query.where(Personnel.id != linked_personnel_id)
+            if shadow_personnel_id:
+                personnels_query = personnels_query.where(Personnel.id != shadow_personnel_id)
+            email_exists_in_personnels = db.query(personnels_query.exists()).scalar()
             if not user_has_permission(user,"Modifier professeur",db):
                 raise HTTPException(
                 status_code=403, 
@@ -457,6 +473,7 @@ async def store_professeur(
                     raise HTTPException(status_code=404, detail="Professeur non trouvé")
                 
                 # Mettre à jour les données du professeur
+                ancien_salaire = professeur.salaire_fixe
                 professeur.nom = request.nom
                 professeur.prenom = request.prenom
                 professeur.sexe = request.sexe
@@ -464,7 +481,17 @@ async def store_professeur(
                 professeur.telephone = request.telephone
                 professeur.adresse = request.adresse
                 professeur.matiere_enseignee = request.matiere_enseignee
-                
+                professeur.type_paiement = request.type_paiement
+                professeur.salaire_fixe = request.salaire_fixe
+                if request.salaire_fixe is not None and request.salaire_fixe != ancien_salaire:
+                    db.add(SalaireHistorique(
+                        employe_type="professeur",
+                        employe_id=professeur.id,
+                        ancien_montant=ancien_salaire,
+                        nouveau_montant=request.salaire_fixe,
+                        modifie_par=user.id,
+                    ))
+
                 # Vérifier si l'utilisateur existe
                 if professeur.user:
                     professeur.user.name = request.prenom
@@ -515,7 +542,9 @@ async def store_professeur(
                     email=request.email,
                     telephone=request.telephone,
                     adresse=request.adresse,
-                    matiere_enseignee=request.matiere_enseignee
+                    matiere_enseignee=request.matiere_enseignee,
+                    type_paiement=request.type_paiement,
+                    salaire_fixe=request.salaire_fixe
                 )
                 db.add(professeur)
                 db.flush()
@@ -686,6 +715,111 @@ async def change_password_teacher(
 
 router_personnel = APIRouter(prefix="/api/v1", tags=["Personnel"])
 
+_ROLES_ENSEIGNANTS = ("teacher", "enseignant")
+
+# Rôles qui ne représentent pas une fonction de type Personnel (poste
+# administratif/technique) : rôles système génériques (admin/user/student)
+# et les rôles enseignants eux-mêmes. Tout le reste (Comptable, Secrétaire
+# général, Responsable pédagogique, Surveillant, ...) est une fonction de
+# type "personnel" — voir _sync_shadow_personnel.
+_ROLES_NON_PERSONNEL = _ROLES_ENSEIGNANTS + ("admin", "user", "student")
+
+
+def _role_is_enseignant(db: Session, role_id: str) -> bool:
+    role = db.query(Role).filter(Role.id == role_id).first()
+    return bool(role) and role.name.strip().lower() in _ROLES_ENSEIGNANTS
+
+
+def _role_is_personnel(db: Session, role_id: str) -> bool:
+    role = db.query(Role).filter(Role.id == role_id).first()
+    return bool(role) and role.name.strip().lower() not in _ROLES_NON_PERSONNEL
+
+
+def _sync_shadow_professeur(db: Session, personnel: Personnel, is_enseignant: bool) -> None:
+    """Si le rôle assigné à ce Personnel est teacher/Enseignant, garantit
+    l'existence d'une fiche Professeur "casquette enseignante" liée (aucun
+    User propre — le Personnel garde son seul compte de connexion) afin
+    qu'il soit assignable dans Programme (professeur_id) et suive ses
+    cours/heures comme un vrai professeur (cours-payroll, heures-pointees,
+    bilan mensuel...). Ne fait rien si le rôle n'est pas enseignant — une
+    fiche déjà créée n'est jamais supprimée (préserve l'historique
+    Programme/Payroll qui la référence), juste désactivée (status=False)
+    si le rôle change vers autre chose. Appelé depuis store_personnel (un
+    seul rôle) ET depuis RRolePermission.py:assign_role_to_user (rôles
+    modifiables aussi depuis l'onglet Rôles de Profile, indépendamment du
+    formulaire Personnel — il faut synchroniser depuis les deux chemins)."""
+    professeur = db.query(Professeur).filter(Professeur.personnel_id == personnel.id).first()
+
+    if is_enseignant:
+        if professeur:
+            professeur.nom = personnel.nom
+            professeur.prenom = personnel.prenom
+            professeur.sexe = personnel.sexe
+            professeur.telephone = personnel.telephone
+            professeur.adresse = personnel.adresse
+            # Garder l'email de la fiche "casquette enseignante" aligné sur
+            # le vrai email du Personnel s'il a changé depuis la création.
+            professeur.email = personnel.email
+            professeur.status = True
+        else:
+            db.add(Professeur(
+                nom=personnel.nom,
+                prenom=personnel.prenom,
+                sexe=personnel.sexe,
+                # Email réel du Personnel : aucun risque de collision avec
+                # un login, puisque l'authentification passe par
+                # User.email (table séparée) et non par Professeur.email —
+                # cette fiche n'a de toute façon pas de User propre. Un
+                # placeholder synthétique ici n'apportait rien et rendait
+                # la fiche illisible dans la liste des professeurs.
+                email=personnel.email,
+                telephone=personnel.telephone,
+                adresse=personnel.adresse,
+                status=True,
+                personnel_id=personnel.id,
+            ))
+    elif professeur:
+        professeur.status = False
+
+
+def _sync_shadow_personnel(db: Session, professeur: Professeur, is_personnel: bool) -> None:
+    """Symétrique de _sync_shadow_professeur, pour le cas inverse : un
+    Professeur avec son propre compte de connexion qui reçoit un rôle non-
+    enseignant (Comptable, Secrétaire général, Responsable pédagogique...).
+    Garantit l'existence d'une fiche Personnel "casquette administrative"
+    liée (aucun User propre — le Professeur garde son seul compte) afin
+    qu'il apparaisse dans la liste Personnel avec un salaire_fixe distinct
+    de sa paie de professeur. Appelé uniquement depuis
+    RRolePermission.py:assign_role_to_user — contrairement à Personnel,
+    ProfesseurRequest (store_professeur) ne porte pas de champ rôle, un
+    professeur ne peut changer de rôle que depuis l'onglet Rôles de
+    Profile. Personnel n'a pas de colonne status (contrairement à
+    Professeur) : il n'y a donc pas d'équivalent "désactiver" ici si le
+    rôle repasse à enseignant/admin — la fiche déjà créée est seulement
+    laissée telle quelle (jamais supprimée, pour préserver l'historique
+    Payroll qui la référence)."""
+    personnel = db.query(Personnel).filter(Personnel.professeur_id == professeur.id).first()
+
+    if is_personnel:
+        if personnel:
+            personnel.nom = professeur.nom
+            personnel.prenom = professeur.prenom
+            personnel.sexe = professeur.sexe
+            personnel.telephone = professeur.telephone
+            personnel.adresse = professeur.adresse
+            personnel.email = professeur.email
+        else:
+            db.add(Personnel(
+                nom=professeur.nom,
+                prenom=professeur.prenom,
+                sexe=professeur.sexe,
+                email=professeur.email,
+                telephone=professeur.telephone,
+                adresse=professeur.adresse,
+                professeur_id=professeur.id,
+            ))
+
+
 @router_personnel.get("/personnel",response_model=PaginatedResponse[PersonnelResponse])
 def get_personnels(
     page: int = 1,
@@ -756,14 +890,25 @@ async def store_personnel(
         
         if request.id:
             ActionContext.set_action('update')
+            # Si cette fiche est la "casquette administrative" d'un
+            # Professeur (voir _sync_shadow_personnel), elle partage
+            # volontairement le même email que le compte de connexion de ce
+            # Professeur — l'exclure sinon la mise à jour de cette fiche se
+            # bloque elle-même avec "email déjà utilisé".
+            linked_professeur_id = db.query(Personnel.professeur_id).filter(Personnel.id == request.id).scalar()
+
             # Vérifier si l'email existe pour un autre utilisateur
-            email_exists_in_users = db.query(
+            users_query = (
                 select(User.id)
                 .where(User.email == request.email)
                 .where(User.userable_id != request.id)
-                .exists()
-            ).scalar()
-            
+            )
+            if linked_professeur_id:
+                users_query = users_query.where(
+                    or_(User.userable_type != "App\\Models\\Professeur", User.userable_id != linked_professeur_id)
+                )
+            email_exists_in_users = db.query(users_query.exists()).scalar()
+
             email_exists_in_personnels = db.query(
                 select(Personnel.id)
                 .where(Personnel.email == request.email)
@@ -842,13 +987,23 @@ async def store_personnel(
                     raise HTTPException(status_code=404, detail="Personnel non trouvé")
                 
                 # Mettre à jour les données du personnel (exclure id et role)
+                ancien_salaire = personnel.salaire_fixe
                 personnel.nom = request.nom
                 personnel.prenom = request.prenom
                 personnel.sexe = request.sexe
                 personnel.email = request.email
                 personnel.telephone = request.telephone
                 personnel.adresse = request.adresse
-                
+                personnel.salaire_fixe = request.salaire_fixe
+                if request.salaire_fixe is not None and request.salaire_fixe != ancien_salaire:
+                    db.add(SalaireHistorique(
+                        employe_type="personnel",
+                        employe_id=personnel.id,
+                        ancien_montant=ancien_salaire,
+                        nouveau_montant=request.salaire_fixe,
+                        modifie_par=user.id,
+                    ))
+
                 # Vérifier si l'utilisateur existe
                 try:
                     if personnel.user:
@@ -895,7 +1050,8 @@ async def store_personnel(
                         sexe=request.sexe,
                         email=request.email,
                         telephone=request.telephone,
-                        adresse=request.adresse
+                        adresse=request.adresse,
+                        salaire_fixe=request.salaire_fixe
                     )
                     db.add(personnel)
                     db.flush()
@@ -951,7 +1107,11 @@ async def store_personnel(
                             )
                     except Exception as email_error:
                         logger.error(f"Échec d'envoi de l'email d'activation pour {request.email}: {email_error}")
-            
+
+            if not request.first:
+                _sync_shadow_professeur(db, personnel, _role_is_enseignant(db, validated_data['role']))
+                db.commit()
+
             return PersonnelResponseMsg(message="Operation reussie")
             
         except HTTPException:

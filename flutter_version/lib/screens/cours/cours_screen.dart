@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/print_gate.dart';
+import '../../core/print_permission.dart';
 import '../../models/cours.dart';
 import '../../models/programme.dart';
 import '../../state/cours_state.dart';
@@ -7,6 +9,7 @@ import '../../state/programme_state.dart';
 import '../../state/reference_data_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/data_table_card.dart';
+import '../../widgets/param_dialog.dart';
 import '../../widgets/pill_button.dart';
 import '../../widgets/section_header.dart';
 import 'cours_form_screen.dart';
@@ -45,6 +48,28 @@ class _CoursScreenState extends State<CoursScreen> {
       context.read<ProgrammeState>().load();
       context.read<ProgrammeState>().loadCombos();
     }
+  }
+
+  Future<void> _openImprimerHoraire() async {
+    if (!canPrintNonReceipt(context)) return;
+    if (!canPrintPermission(context, 'Imprimer rapport pedagogique')) return;
+    await context.read<ProgrammeState>().loadCombos();
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => const _ImprimerHoraireDialog(),
+    );
+  }
+
+  Future<void> _openChargeEnseignement() async {
+    if (!canPrintNonReceipt(context)) return;
+    if (!canPrintPermission(context, 'Imprimer rapport pedagogique')) return;
+    await context.read<ProgrammeState>().loadCombos();
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => const _ChargeEnseignementDialog(),
+    );
   }
 
   Widget _buildSwitcher() {
@@ -112,7 +137,25 @@ class _CoursScreenState extends State<CoursScreen> {
             colorKey: 'sky',
           ),
           const SizedBox(height: 16),
-          _buildSwitcher(),
+          Row(
+            children: [
+              _buildSwitcher(),
+              const Spacer(),
+              PillButton(
+                label: 'Imprimer horaire',
+                colorKey: 'sky',
+                icon: Icons.print_outlined,
+                onPressed: _openImprimerHoraire,
+              ),
+              const SizedBox(width: 10),
+              PillButton(
+                label: "Charge d'enseignement",
+                colorKey: 'blue',
+                icon: Icons.summarize_outlined,
+                onPressed: _openChargeEnseignement,
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
           Expanded(
             child: switch (_tab) {
@@ -450,6 +493,239 @@ class _ProgrammeTabViewState extends State<_ProgrammeTabView> {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Modal "Imprimer horaire" — reconstruit fidèlement au modal du web
+/// (Cours.vue), dont l'endpoint /print-horaire n'existait pas côté backend
+/// (bouton mort). Mêmes champs : niveau → faculté (si niveau universitaire)
+/// → classe + année académique.
+class _ImprimerHoraireDialog extends StatefulWidget {
+  const _ImprimerHoraireDialog();
+
+  @override
+  State<_ImprimerHoraireDialog> createState() => _ImprimerHoraireDialogState();
+}
+
+class _ImprimerHoraireDialogState extends State<_ImprimerHoraireDialog> {
+  String? _niveauId;
+  String? _faculteId;
+  String? _classeId;
+  String? _anneeId;
+  String? _error;
+
+  Future<void> _submit() async {
+    if (_niveauId == null || _classeId == null || _anneeId == null) {
+      setState(() => _error = 'Niveau, classe et année académique sont requis.');
+      return;
+    }
+    setState(() => _error = null);
+    final error = await context.read<ProgrammeState>().printHoraire(
+          niveauId: _niveauId!,
+          classeId: _classeId!,
+          anneeAcademiqueId: _anneeId!,
+          faculteId: _faculteId,
+        );
+    if (!mounted) return;
+    if (error != null) {
+      setState(() => _error = error);
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final refData = context.watch<ReferenceDataState>();
+    final progState = context.watch<ProgrammeState>();
+    final isUniversitaire = refData.niveaux
+            .where((n) => n.id == _niveauId)
+            .map((n) => n.name)
+            .firstOrNull ==
+        'Universitaire';
+    final classes = refData.classesForNiveau(_niveauId);
+
+    return ParamDialogShell(
+      title: "Imprimer l'horaire",
+      width: 560,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DropdownButtonFormField<String>(
+            initialValue: _niveauId,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: "Niveau d'étude"),
+            items: refData.niveaux
+                .map((n) => DropdownMenuItem(value: n.id, child: Text(n.name)))
+                .toList(),
+            onChanged: (v) => setState(() {
+              _niveauId = v;
+              _classeId = null;
+              _faculteId = null;
+            }),
+          ),
+          if (isUniversitaire) ...[
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _faculteId,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Faculté / Option'),
+              items: refData.facultes
+                  .map((f) => DropdownMenuItem(value: f.id, child: Text(f.nom)))
+                  .toList(),
+              onChanged: (v) => setState(() => _faculteId = v),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  initialValue: _classeId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Classe'),
+                  items: classes
+                      .map((c) => DropdownMenuItem(value: c.id, child: Text(c.nomClasse)))
+                      .toList(),
+                  onChanged: _niveauId == null ? null : (v) => setState(() => _classeId = v),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  initialValue: _anneeId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Année académique'),
+                  items: refData.annees
+                      .map((a) => DropdownMenuItem(value: a.id, child: Text(a.nom)))
+                      .toList(),
+                  onChanged: (v) => setState(() => _anneeId = v),
+                ),
+              ),
+            ],
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(_error!, style: const TextStyle(color: AppColors.danger, fontSize: 12)),
+          ],
+          Padding(
+            padding: const EdgeInsets.only(top: 18),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+                  child: const Text('Fermer'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: progState.isPrintingHoraire ? null : _submit,
+                  icon: progState.isPrintingHoraire
+                      ? const SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.print_outlined, size: 16),
+                  label: const Text('Imprimer'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Modal "Charge d'enseignement" — nouveau bouton (demande explicite) :
+/// professeur + année académique → PDF listant ses cours/classes assignés
+/// (Programme). Pas une durée en heures — voir RHoraireReport.py.
+class _ChargeEnseignementDialog extends StatefulWidget {
+  const _ChargeEnseignementDialog();
+
+  @override
+  State<_ChargeEnseignementDialog> createState() => _ChargeEnseignementDialogState();
+}
+
+class _ChargeEnseignementDialogState extends State<_ChargeEnseignementDialog> {
+  String? _professeurId;
+  String? _anneeId;
+  String? _error;
+
+  Future<void> _submit() async {
+    if (_professeurId == null || _anneeId == null) {
+      setState(() => _error = 'Professeur et année académique sont requis.');
+      return;
+    }
+    setState(() => _error = null);
+    final error = await context.read<ProgrammeState>().printChargeEnseignement(
+          professeurId: _professeurId!,
+          anneeAcademiqueId: _anneeId!,
+        );
+    if (!mounted) return;
+    if (error != null) {
+      setState(() => _error = error);
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final refData = context.watch<ReferenceDataState>();
+    final progState = context.watch<ProgrammeState>();
+
+    return ParamDialogShell(
+      title: "Charge d'enseignement",
+      width: 520,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DropdownButtonFormField<String>(
+            initialValue: _professeurId,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Professeur'),
+            items: progState.professeurs
+                .map((p) => DropdownMenuItem(value: p.id, child: Text('${p.prenom} ${p.nom}')))
+                .toList(),
+            onChanged: (v) => setState(() => _professeurId = v),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: _anneeId,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Année académique'),
+            items: refData.annees
+                .map((a) => DropdownMenuItem(value: a.id, child: Text(a.nom)))
+                .toList(),
+            onChanged: (v) => setState(() => _anneeId = v),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(_error!, style: const TextStyle(color: AppColors.danger, fontSize: 12)),
+          ],
+          Padding(
+            padding: const EdgeInsets.only(top: 18),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+                  child: const Text('Fermer'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: progState.isPrintingCharge ? null : _submit,
+                  icon: progState.isPrintingCharge
+                      ? const SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.print_outlined, size: 16),
+                  label: const Text('Imprimer'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

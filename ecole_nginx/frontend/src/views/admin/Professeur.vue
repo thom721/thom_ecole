@@ -41,6 +41,8 @@ const formProfesseur = reactive({
   email: "",
   adresse: "",
   matiere_enseignee: "",
+  type_paiement: "fixe",
+  salaire_fixe: "",
   // processing: false, // Manuel
   // errors: {}        // Manuel
 });
@@ -49,6 +51,7 @@ const resetForm = () => {
   Object.assign(formProfesseur, {
     id: "", nom: "", prenom: "", sexe: "", telephone: "",
     notification: false, email: "", adresse: "", matiere_enseignee: "",
+    type_paiement: "fixe", salaire_fixe: "",
     processing: false, errors: {}
   });
 };
@@ -57,10 +60,72 @@ const professeurModalShow = () => {
   registerProfesseur.value = true;
 };
 
+// Actif/Inactif dans le modal — équivalent de admin_status (flutter_version,
+// professeur_screen.dart:_toggleStatus), même endpoint PATCH v1/active-teacher
+// que le badge "Nom" de la liste (activeProf ci-dessous).
+const professeurUserStatus = ref(null);
+const togglingModalStatus = ref(false);
+
+const toggleModalStatus = async () => {
+  if (!formProfesseur.id) return;
+  togglingModalStatus.value = true;
+  try {
+    const { data } = await axios.patch(`${url}/active-teacher`, { id: formProfesseur.id });
+    professeurUserStatus.value = typeof data.status === 'boolean' ? (data.status ? 1 : 0) : data.status;
+    fetchPersonData(pages.value);
+  } catch (error) {
+    console.error("Erreur d'activation:", error);
+  } finally {
+    togglingModalStatus.value = false;
+  }
+};
+
+// Réinitialisation du mot de passe — équivalent de reset_password_professeur()
+// (school_client) / ProfesseurState.resetPassword (flutter_version) → PATCH
+// v1/change-password-teacher, absente du web jusqu'ici.
+const newPassword = ref("");
+const confirmPassword = ref("");
+const passwordError = ref("");
+const passwordSuccess = ref("");
+const resettingPassword = ref(false);
+
+const resetPasswordProfesseur = async () => {
+  passwordError.value = "";
+  passwordSuccess.value = "";
+  if (newPassword.value.length < 8) {
+    passwordError.value = "Le mot de passe doit contenir au moins 8 caractères.";
+    return;
+  }
+  if (newPassword.value !== confirmPassword.value) {
+    passwordError.value = "Les mots de passe ne correspondent pas.";
+    return;
+  }
+  resettingPassword.value = true;
+  try {
+    await axios.patch(`${url}/change-password-teacher`, {
+      professeur_id: formProfesseur.id,
+      password: newPassword.value,
+      password_confirm: confirmPassword.value,
+    });
+    passwordSuccess.value = "Mot de passe réinitialisé.";
+    newPassword.value = "";
+    confirmPassword.value = "";
+  } catch (error) {
+    passwordError.value = error.response?.data?.detail ?? "Impossible de réinitialiser le mot de passe.";
+  } finally {
+    resettingPassword.value = false;
+  }
+};
+
 const professeurModalClose = () => {
   registerProfesseur.value = false;
   resetForm();
   changeButton.value = false;
+  professeurUserStatus.value = null;
+  newPassword.value = "";
+  confirmPassword.value = "";
+  passwordError.value = "";
+  passwordSuccess.value = "";
 };
 
 // Logique de soumission avec Axios pur
@@ -101,14 +166,16 @@ const submitProfesseur = async () => {
   errors.value = {};
 
   try {
-    // Fix: use correct endpoint and method for create vs update
-    const endpoint = changeButton.value 
-      ? `${url}/professeur/${formProfesseur.id}`  // update: include ID
-      : `${url}/professeur`;                       // create
-    
-    const method = changeButton.value ? 'put' : 'post';  // Fix: use PUT for update
-    
-    const response = await axios[method](endpoint, formProfesseur);
+    // store_professeur (RAcademic.py:371) est un unique POST qui gère
+    // création ET modification selon la présence de "id" dans le corps —
+    // il n'existe aucune route PUT /professeur/{id} côté serveur (la
+    // version précédente de ce fichier appelait cette route inexistante,
+    // donc échouait en 404 à chaque tentative de modification).
+    const payload = {
+      ...formProfesseur,
+      salaire_fixe: formProfesseur.salaire_fixe === "" ? null : Number(formProfesseur.salaire_fixe),
+    };
+    const response = await axios.post(`${url}/professeur`, payload);
 
     if (response.status === 200 || response.status === 201) {
       professeurModalClose();
@@ -177,7 +244,10 @@ const editProf = (dataProfesseur) => {
   formProfesseur.adresse = dataProfesseur.adresse;
   formProfesseur.matiere_enseignee = dataProfesseur.matiere_enseignee;
   formProfesseur.notification = !!dataProfesseur.notification;
-  
+  formProfesseur.type_paiement = dataProfesseur.type_paiement ?? "fixe";
+  formProfesseur.salaire_fixe = dataProfesseur.salaire_fixe ?? "";
+
+  professeurUserStatus.value = dataProfesseur.user?.status ?? null;
   changeButton.value = true;
   professeurModalShow();
 };
@@ -297,6 +367,7 @@ const actions = [
     </template>
 
     <template #cell-nom="{ row, value }">
+  <span class="inline-flex items-center gap-1.5">
   <button
     v-if="activatingId !== row.id"
     @click="activeProf(row.id)"
@@ -321,6 +392,15 @@ const actions = [
     Waiting…
   </span>
 
+  <!-- "Casquette enseignante" d'un Personnel avec le rôle teacher/Enseignant
+       (RAcademic.py:_sync_shadow_professeur) — aucun compte de connexion
+       propre pour cette fiche, équivalent du badge "via Personnel" déjà
+       présent côté bureau (flutter_version, professeur_screen.dart). -->
+  <span v-if="row.personnel_id" title="Casquette enseignante d'un membre du Personnel — pas de compte de connexion propre."
+    class="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 whitespace-nowrap">
+    via Personnel
+  </span>
+  </span>
 </template>
 
  <template #cell-status_="{ row, value }">
@@ -377,7 +457,7 @@ const actions = [
       <template #title>
        <div class="flex flex-col md:flex-row justify-between items-center">
          <h5 class="text-center text-xl text-slate-500" id="professeurLabel">
-           Ajouter un Professeur
+           {{ changeButton ? 'Modifier un Professeur' : 'Ajouter un Professeur' }}
           </h5>
        </div>
 
@@ -385,6 +465,22 @@ const actions = [
       <template #content>
         <form id="prof-form" @submit.prevent="submitProfesseur">
           <div class="modal-body">
+            <!-- Actif/Inactif — équivalent de admin_status (flutter_version,
+                 professeur_screen.dart), visible seulement en modification. -->
+            <div v-if="changeButton" class="flex items-center gap-3 mb-3 px-3.5 py-2.5 rounded-lg bg-white/[0.03] border border-white/[0.07]">
+              <span class="text-sm font-bold" :class="professeurUserStatus == 1 ? 'text-emerald-400' : 'text-rose-400'">
+                {{ professeurUserStatus == 1 ? 'Active' : 'Inactive' }}
+              </span>
+              <span class="flex-1"></span>
+              <button type="button" @click="toggleModalStatus" :disabled="togglingModalStatus"
+                class="px-3 py-1 rounded-md text-xs font-medium border disabled:opacity-50 transition-colors"
+                :class="professeurUserStatus == 1
+                  ? 'text-rose-400 border-rose-400/40 hover:bg-rose-400/10'
+                  : 'text-emerald-400 border-emerald-400/40 hover:bg-emerald-400/10'">
+                {{ togglingModalStatus ? '…' : (professeurUserStatus == 1 ? 'Desactiver' : 'Activer') }}
+              </button>
+            </div>
+
             <div class="flex flex-col md:flex-row justify-between items-center gap-2">
               <div class="pb-2 w-full">
                 <InputLabel for="nom" value="Nom" />
@@ -455,6 +551,46 @@ const actions = [
                 <span class="text-[12px] text-[#7c83a0] group-hover:text-[#c0c7d8] transition-colors">Notifier Le Prof</span>
               </label>
             </div>
+            </div>
+
+            <div class="flex flex-col md:flex-row justify-between items-center gap-2">
+              <div class="pb-2 w-full">
+                <InputLabel for="type_paiement" value="Type de paiement" />
+                <select class="select" id="type_paiement" v-model="formProfesseur.type_paiement">
+                  <option value="fixe">Fixe</option>
+                  <option value="horaire">Horaire</option>
+                </select>
+                <InputError class="mt-2" :message="errors.type_paiement" />
+              </div>
+
+              <div v-if="formProfesseur.type_paiement === 'fixe'" class="pb-2 w-full">
+                <InputLabel for="salaire_fixe" value="Salaire fixe (mensuel)" />
+                <TextInput id="salaire_fixe" v-model="formProfesseur.salaire_fixe" type="number" step="0.01" class="py-0" />
+                <InputError class="mt-2" :message="errors.salaire_fixe" />
+              </div>
+            </div>
+
+            <!-- Réinitialiser le mot de passe — équivalent de
+                 ProfesseurState.resetPassword (flutter_version), absente du
+                 web jusqu'ici. -->
+            <div v-if="changeButton" class="pt-3 mt-2 border-t border-white/[0.07]">
+              <p class="text-[10.5px] tracking-wide font-semibold text-[#7c83a0] uppercase mb-2">
+                Réinitialiser le mot de passe
+              </p>
+              <div class="flex flex-col md:flex-row gap-2 items-start">
+                <div class="w-full">
+                  <TextInput v-model="newPassword" type="password" class="py-0" placeholder="Nouveau mot de passe" />
+                </div>
+                <div class="w-full">
+                  <TextInput v-model="confirmPassword" type="password" class="py-0" placeholder="Confirmation" />
+                </div>
+                <button type="button" @click="resetPasswordProfesseur" :disabled="resettingPassword"
+                  class="shrink-0 px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium text-[#c9d1d9] border border-white/[0.12] hover:bg-white/[0.06] disabled:opacity-50 transition-colors">
+                  {{ resettingPassword ? '…' : 'Réinitialiser' }}
+                </button>
+              </div>
+              <p v-if="passwordError" class="text-xs text-rose-400 mt-1.5">{{ passwordError }}</p>
+              <p v-if="passwordSuccess" class="text-xs text-emerald-400 mt-1.5">{{ passwordSuccess }}</p>
             </div>
           </div>
           <div class="flex justify-end gap-4">

@@ -5,7 +5,7 @@ from sqlalchemy import select, and_, or_, func, case
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field, field_validator, model_validator
 from app.Models.MFinancials import Paiement
-from app.Models.MModels import Niveau,Etudiant,AnneeAcademique,Classe
+from app.Models.MModels import Niveau,Etudiant,AnneeAcademique,Classe,User
 from app.Models.MSystems import Profile
 from app.Models.MRelations import ClasseEtudiant
 from app.database import get_db
@@ -14,6 +14,7 @@ import json
 from collections import defaultdict
 import logging
 from app.Helper.pdf_personaliser import PDFGenerator
+from app.dependencies.Dependencie import check_permission
 
 
 logger = logging.getLogger(__name__)
@@ -327,7 +328,8 @@ pdf_gen = PDFGenerator()
 @router.post("/print-rapport-paiement")#, response_model=PrintPaymentReportResponse
 def print_payment_report(
     request: PrintPaymentReportRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(check_permission("Imprimer rapport")),
 ):
     """
     Génère un rapport de paiement pour une classe et une période données

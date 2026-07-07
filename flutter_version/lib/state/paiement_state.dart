@@ -35,6 +35,7 @@ class PaiementState extends ChangeNotifier {
   PaymentInfo? currentInfo;
   bool isLoadingInfo = false;
   String? infoError;
+  bool isVerifying = false;
 
   PaymentDetail? currentDetail;
   bool isLoadingDetail = false;
@@ -337,6 +338,64 @@ class PaiementState extends ChangeNotifier {
       return null;
     } catch (e) {
       return _extractError(e);
+    }
+  }
+
+  /// Bouton "Vérifier" (bandeau "statut modifié", paiement_form_screen.dart) :
+  /// équivalent EXPLICITE (déclenché par le caissier, pas silencieux) de la
+  /// réconciliation de l'original (Controllers/Main.py:13008-13017,
+  /// self.valider_paiement(data) déclenché tout seul quand aide_financiere
+  /// a changé). Contrairement à selectYear() (simple GET), ceci POST
+  /// v1/post-payment-save avec depot=null + must_refresh_paiement=true :
+  /// le backend (RSavePaiement.py, bloc "Gestion du changement de type de
+  /// bourse") recalcule alors les échéances/le récapitulatif contre l'aide
+  /// financière ACTUELLE de l'élève, sans encaisser de nouveau montant —
+  /// c'est ce qui fait réellement disparaître le bandeau, pas un simple
+  /// rafraîchissement d'affichage.
+  Future<String?> verifierStatut() async {
+    final info = currentInfo;
+    if (info == null) return 'Aucun contexte de paiement chargé.';
+
+    isVerifying = true;
+    notifyListeners();
+    try {
+      await _apiClient.post(
+        'post-payment-save',
+        data: {
+          'niveau_id': info.niveauId,
+          'etudiant_id': info.studentId,
+          'identifiant': info.identifiant,
+          'classe': info.classeId,
+          'echeance': info.echeance,
+          'prenom': info.prenom,
+          'nom': info.nom,
+          'annee_academique': info.anneeAcademique,
+          'devise': info.devise,
+          'index_paiement': null,
+          'must_refresh_paiement': true,
+          'paiement_details': {
+            'depot': null,
+            'depot_et_avance': null,
+            'montant': null,
+            'status': 0,
+            'total_verse': 0,
+            'total_annuel': 0,
+            'devise': 0,
+            'employer': '',
+            'balance': null,
+            'avance': null,
+          },
+          'mois': <String, bool>{},
+          'accessoires': <String, bool>{},
+        },
+      );
+      await selectYear(selectedYearIndex ?? studentYears.length - 1);
+      return null;
+    } catch (e) {
+      return _extractError(e);
+    } finally {
+      isVerifying = false;
+      notifyListeners();
     }
   }
 

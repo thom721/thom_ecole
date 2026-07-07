@@ -9,8 +9,11 @@ import 'first_login_password_screen.dart';
 const _gold = Color(0xFFC9A84C);
 const _loginBg = Color(0xFF0D0D14);
 const _inputBg = Color(0xFF111111);
-const _inputBorder = Color(0xFF222222);
+const _inputBorder = Color(0xFF3D3D48); // plus clair pour rester visible sur _loginBg
 const _mutedText = Color(0xFF7C7C7C);
+// #change_ip / #valider_id_server / #valider_profile (main_school1.ui:704-712) :
+// bleu, pas doré comme #btn_connexion — bordure 1px, fond plein bleu au survol.
+const _blueAction = Color(0xFF228BE6);
 
 /// Équivalent IDENTIQUE de connexion_page (Resources/main_school1.ui) et de
 /// se_connecter()/handle_login_response() (Controllers/Main.py,
@@ -154,7 +157,13 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Center(
               child: SingleChildScrollView(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
+                  // maxWidth = 400 (largeur des champs, minimumSize de
+                  // email_2/password_2, main_school1.ui:3142-3147) + 2×32 de
+                  // padding horizontal, pour que les champs (qui s'étirent en
+                  // CrossAxisAlignment.stretch) fassent exactement 400px de
+                  // large comme dans school_client, au lieu d'être plus
+                  // étroits.
+                  constraints: const BoxConstraints(maxWidth: 464),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 32,
@@ -265,28 +274,50 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: TextStyle(color: _mutedText, fontSize: 12),
                           ),
                           const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: _ipController,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
+                          // Équivalent de frame_243/frame_242 (main_school1.ui:
+                          // 3327-3418) : le champ pleine largeur sur sa propre
+                          // ligne, puis le bouton sur la ligne suivante, aligné
+                          // à droite avec une largeur minimale (pas pleine
+                          // largeur) — pas côte à côte comme avant.
+                          TextField(
+                            controller: _ipController,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                            ),
+                            decoration: _darkField(hint: '192.168.0.110'),
+                          ),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: OutlinedButton(
+                              // #change_ip (main_school1.ui:704-712/731-740) :
+                              // bleu, coins à peine arrondis (5px, pas une
+                              // pilule), fond plein bleu + texte blanc au
+                              // survol.
+                              style:
+                                  OutlinedButton.styleFrom(
+                                    foregroundColor: _blueAction,
+                                    side: const BorderSide(color: _blueAction),
+                                    minimumSize: const Size(100, 0),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(5),
+                                    ),
+                                  ).copyWith(
+                                    backgroundColor: WidgetStateProperty.resolveWith(
+                                      (states) => states.contains(WidgetState.hovered)
+                                          ? _blueAction
+                                          : null,
+                                    ),
+                                    foregroundColor: WidgetStateProperty.resolveWith(
+                                      (states) => states.contains(WidgetState.hovered)
+                                          ? Colors.white
+                                          : _blueAction,
+                                    ),
                                   ),
-                                  decoration: _darkField(hint: '192.168.0.110'),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              OutlinedButton(
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: _gold,
-                                  side: const BorderSide(color: _gold),
-                                ),
-                                onPressed: _saveServerIp,
-                                child: const Text('Modifier'),
-                              ),
-                            ],
+                              onPressed: _saveServerIp,
+                              child: const Text('Modifier'),
+                            ),
                           ),
                           if (_ipMessage != null) ...[
                             const SizedBox(height: 8),

@@ -39,6 +39,23 @@ server_path = os.path.join(
 user_profile, "AppData", "Local", ".ecole_360"
         )
 
+
+def _verifier_age_minimum(date_naissance: date, db: Session) -> None:
+    """Rejette l'inscription si l'élève est plus jeune que
+    profiles.age_minimum_inscription (réglage par école, défaut 1 an si
+    aucun profil n'existe encore — voir Models/MSystems.py:Profile)."""
+    profile = db.query(Profile).first()
+    age_minimum = profile.age_minimum_inscription if profile and profile.age_minimum_inscription else 1
+    aujourdhui = date.today()
+    age = aujourdhui.year - date_naissance.year - (
+        (aujourdhui.month, aujourdhui.day) < (date_naissance.month, date_naissance.day)
+    )
+    if age < age_minimum:
+        raise HTTPException(
+            status_code=422,
+            detail=f"L'élève est trop jeune ({age} an(s)). L'âge minimum est de {age_minimum} an(s).",
+        )
+
 @router.get("/etudiant", response_model=PaginatedResponse)
 def get_all_etudiants(
     search: Optional[str] = Query(None, description="Recherche par nom, prénom ou identifiant"),
@@ -274,12 +291,10 @@ class EtudiantSchema(BaseModel):
         if parsed_date > aujourdhui:
             raise ValueError("La date de naissance ne peut pas être dans le futur.")
 
-        # 3. Sécurité : Âge minimum (ex: l'enfant doit avoir au moins 2 ans)
-        age = aujourdhui.year - parsed_date.year - ((aujourdhui.month, aujourdhui.day) < (parsed_date.month, parsed_date.day))
-        
-        if age < 2:
-            raise ValueError(f"L'élève est trop jeune ({age} an(s)). L'âge minimum est de 2 ans.")
-            
+        # 3. Âge minimum : dépend de profiles.age_minimum_inscription (réglage
+        # par école), inaccessible depuis ce validateur Pydantic (pas de
+        # session DB ici) — vérifié dans les routes elles-mêmes juste après
+        # le parsing, voir _verifier_age_minimum().
         return parsed_date
 
 def update_or_create(db, model, search: dict, data: dict):
@@ -308,8 +323,11 @@ def store_etudiant(
     current_user:User=Depends(get_current_user)
 ):
     UPLOAD_DIR = str(STATIC_BASE_DIR)
-          
-    validate_exists(Niveau, Niveau.id, db, data.niveau_id) 
+
+    if data.date_de_naissance:
+        _verifier_age_minimum(data.date_de_naissance, db)
+
+    validate_exists(Niveau, Niveau.id, db, data.niveau_id)
     validate_exists(Classe, Classe.id, db, data.classe_actuelle_id)
     validate_exists(AnneeAcademique, AnneeAcademique.id, db, data.annee_academique_id)
      
@@ -477,8 +495,11 @@ def store_etudiant(
     db: Session = Depends(get_db)
 ):
     UPLOAD_DIR = str(STATIC_BASE_DIR)
-          
-    validate_exists(Niveau, Niveau.id, db, data.niveau_id) 
+
+    if data.date_de_naissance:
+        _verifier_age_minimum(data.date_de_naissance, db)
+
+    validate_exists(Niveau, Niveau.id, db, data.niveau_id)
     validate_exists(Classe, Classe.id, db, data.classe_actuelle_id)
     validate_exists(AnneeAcademique, AnneeAcademique.id, db, data.annee_academique_id)
      
@@ -685,7 +706,7 @@ pdf_gen = PDFGenerator()
 # @router.post("/print-recu-inscrit/{student_id}")
 # @router.api_route("/print-recu-inscrit/{student_id}", methods=["GET", "POST"])
 @router.api_route("/print-recu-inscrit/{student_id}", methods=["GET", "POST"], response_model=StudentShowResponse)
-def impression_fiche(student_id: str, db: Session = Depends(get_db),current_user:User= Depends(get_current_user)):
+def impression_fiche(student_id: str, db: Session = Depends(get_db),current_user:User= Depends(check_permission("Imprimer enregistrement"))):
     # 1. Récupération de l'étudiant avec ses relations (équivalent de with())
     # student = db.query(Etudiant).options(
     #     joinedload(Etudiant.classes_etudiant).joinedload(ClasseEtudiant.classes),
@@ -1102,12 +1123,10 @@ class EtudiantSchemaUpdate(BaseModel):
         if parsed_date > aujourdhui:
             raise ValueError("La date de naissance ne peut pas être dans le futur.")
 
-        # 3. Sécurité : Âge minimum (ex: l'enfant doit avoir au moins 2 ans)
-        age = aujourdhui.year - parsed_date.year - ((aujourdhui.month, aujourdhui.day) < (parsed_date.month, parsed_date.day))
-        
-        if age < 2:
-            raise ValueError(f"L'élève est trop jeune ({age} an(s)). L'âge minimum est de 2 ans.")
-            
+        # 3. Âge minimum : dépend de profiles.age_minimum_inscription (réglage
+        # par école), inaccessible depuis ce validateur Pydantic (pas de
+        # session DB ici) — vérifié dans les routes elles-mêmes juste après
+        # le parsing, voir _verifier_age_minimum().
         return parsed_date
 
 @router.put("/student/profile")
@@ -1117,6 +1136,9 @@ def update_student_profile(
     current_user: User = Depends(get_current_user)
 ):
     UserContext.set_user_id(current_user.id)
+
+    if data.date_de_naissance:
+        _verifier_age_minimum(data.date_de_naissance, db)
 
     email_exists_in_users = db.query(
         select(User.id)

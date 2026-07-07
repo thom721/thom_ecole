@@ -8,7 +8,7 @@ import io, json
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.database import get_db
-from app.dependencies.Dependencie import get_current_user
+from app.dependencies.Dependencie import check_permission
 from app.Models.MModels import User
 
 try:
@@ -124,7 +124,7 @@ def _write_group_row(ws, row, label, fill, font, n_cols, extras=None):
 def export_excel_register(
     req: ExcelRegisterReq,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user)
+    _: User = Depends(check_permission("Imprimer enregistrement"))
 ):
     from itertools import groupby as igroup
 
@@ -196,7 +196,7 @@ def export_excel_register(
 def export_excel_paiement(
     req: ExcelPaymentReq,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user)
+    _: User = Depends(check_permission("Imprimer rapport"))
 ):
     from app.Models.MFinancials import Paiement as PaiementModel
     from app.Models.MModels import AnneeAcademique
@@ -423,7 +423,7 @@ def export_excel_paiement(
 def export_excel_pedagogique(
     req: ExcelPedagoReq,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user)
+    _: User = Depends(check_permission("Imprimer rapport pedagogique"))
 ):
     from itertools import groupby as igroup
     from app.Models.MModels import AnneeAcademique
@@ -626,7 +626,7 @@ def export_excel_pedagogique(
 def export_excel_global(
     req: ExcelGlobalReq,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user)
+    _: User = Depends(check_permission("Imprimer rapport"))
 ):
     from app.Models.MFinancials import Paiement as PaiementModel
     from datetime import datetime as dt, time as dtime
@@ -746,7 +746,7 @@ def export_excel_global(
 def export_excel_presence(
     req: ExcelPresenceReq,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user)
+    _: User = Depends(check_permission("Imprimer rapport"))
 ):
     sql = text("""
         SELECT e.nom, e.prenom, e.identifiant,

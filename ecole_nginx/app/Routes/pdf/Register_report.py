@@ -7,9 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db 
 from app.Models.MRelations import ClasseEtudiant
-from app.Models.MModels import Etudiant,Niveau,AnneeAcademique,Classe
+from app.Models.MModels import Etudiant,Niveau,AnneeAcademique,Classe,User
 from app.Helper.pdf_personaliser import PDFGenerator
 from app.Models.MSystems import Profile
+from app.dependencies.Dependencie import check_permission
 
 
 class RegisterReportRequest(BaseModel):
@@ -23,7 +24,8 @@ pdf_gen = PDFGenerator()
 @router.post("/print-repport-register21")
 def print_register_report(
     request: RegisterReportRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(check_permission("Imprimer enregistrement")),
 ):
     try:
         # 🔹 Query principale (équivalent join Laravel)

@@ -157,6 +157,24 @@ VALUES
 ('trg_paiement_statuts', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 
+
+INSERT INTO sym_trigger (trigger_id, source_table_name, channel_id, sync_on_insert, sync_on_update, sync_on_delete, create_time, last_update_time, use_stream_lobs,stream_row, source_schema_name)
+VALUES
+('trg_produits', 'produits', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_categories_produits', 'categories_produits', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_payrolls', 'payrolls', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon'),
+('trg_page_sections', 'page_sections', 'default', 1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, 'lemignon');
+
+
+
+INSERT INTO sym_trigger_router (trigger_id, router_id, create_time, last_update_time)
+VALUES
+('trg_produits', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_categories_produits', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_payrolls', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('trg_page_sections', 'main to main', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+
 cd /opt/symmtric-ds/bin
 ./symadmin sync-triggers
 
@@ -175,6 +193,13 @@ SELECT node_id FROM sym_node;
 
 .\symadmin reload-table -n win-node other_transactions
 ./symadmin reload-table -n deb-node other_transactions
+
+.\symadmin --engine win-node reload-table --node deb-node produits
+.\symadmin --engine win-node reload-table --node deb-node page_sections
+.\symadmin --engine win-node reload-table --node deb-node payrolls
+.\symadmin --engine win-node reload-table --node deb-node categories_produits
+
+
 
 SELECT node_id, channel_id, status, byte_count, data_row_count, create_time 
 FROM sym_outgoing_batch 

@@ -194,7 +194,7 @@ class _AppelTabState extends State<AppelTab> {
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.sidebarBg,
+                color: AppColors.cardBg,
                 border: Border.all(color: AppColors.borderSubtle),
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -234,7 +234,7 @@ class _AppelTabState extends State<AppelTab> {
                         ),
                       _CountBadge(
                         label: '${state.presentsCount} présents',
-                        color: const Color(0xFF34D399),
+                        color: AppColors.cardPalette['emerald']!.text,
                       ),
                       const SizedBox(width: 8),
                       _CountBadge(
@@ -279,8 +279,8 @@ class _AppelTabState extends State<AppelTab> {
                     const SizedBox(height: 8),
                     Text(
                       state.appelSuccess!,
-                      style: const TextStyle(
-                        color: Color(0xFF34D399),
+                      style: TextStyle(
+                        color: AppColors.cardPalette['emerald']!.text,
                         fontSize: 12.5,
                       ),
                     ),
@@ -410,7 +410,7 @@ class _StudentRow extends StatelessWidget {
     final Color avatarColor = student.valeur == null
         ? AppColors.textMuted
         : student.valeur == true
-        ? const Color(0xFF34D399)
+        ? AppColors.cardPalette['emerald']!.text
         : const Color(0xFF7F1D1D);
 
     return Padding(
@@ -463,7 +463,7 @@ class _StudentRow extends StatelessWidget {
             label: 'Présent',
             icon: Icons.check,
             active: student.valeur == true,
-            activeColor: const Color(0xFF34D399),
+            activeColor: AppColors.cardPalette['emerald']!.text,
             onTap: () => state.toggleValeur(student, true),
           ),
           const SizedBox(width: 6),

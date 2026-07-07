@@ -7,6 +7,24 @@
       <span v-if="displayAide" class="ml-1.5 text-[#7aaeff]">{{ displayAide }}</span>
     </div>
 
+    <!-- Statut modifié depuis le dernier paiement -->
+    <div v-if="statut_modifie"
+      class="mb-3 text-[13px] text-[#7aaeff] bg-[#4a7cff]/10 border border-[#4a7cff]/20 rounded-lg px-3 py-2">
+      Le statut de cet élève a été modifié depuis son dernier paiement (aide financière).
+      Vérifiez le montant avant de valider.
+      <div class="flex justify-end mt-2">
+        <button
+          type="button"
+          :disabled="props.waiting"
+          @click="emit('verifier')"
+          class="px-3 py-1 rounded-md text-[12px] font-medium border border-[#4a7cff] text-[#7aaeff]
+                 hover:bg-[#4a7cff]/10 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+        >
+          Vérifier
+        </button>
+      </div>
+    </div>
+
     <!-- Statut / Avance / Erreur -->
     <div class="mb-4">
       <div v-if="details === 'null'"
@@ -44,6 +62,9 @@
                transition-all duration-150
                [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       />
+      <p v-if="montantDepasseSolde" class="mt-1.5 text-[12px] text-[#d29922]">
+        Ce montant dépasse ce que l'étudiant doit encore (solde restant : {{ solde_restant }} {{ details.devise }}).
+      </p>
     </div>
 
     <!-- Accessoires -->
@@ -156,17 +177,19 @@ const props = defineProps({
 });
 
 
-const emit = defineEmits(['paiement-valide']);
+const emit = defineEmits(['paiement-valide', 'verifier']);
 
 // ── State ──────────────────────────────────────────────────────────────────────
 const status                = ref(false);
-const balanse               = ref(0);
+const balanse                = ref(0);
 const avance                = ref(0);
 const avance_sur            = ref('');
 const montant_verser        = ref('');
 const accessoire_checkboxes = ref({});
 const echeance_checkboxes   = ref({});
 const montantInput          = ref(null);
+const solde_restant         = ref(null);
+const statut_modifie        = ref(false);
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -202,6 +225,8 @@ const initPaymentLogic = () => {
   montant_verser.value       = '';
   accessoire_checkboxes.value = {};
   echeance_checkboxes.value  = {};
+  solde_restant.value        = null;
+  statut_modifie.value       = false;
 
   if (!props.details || props.details === 'null') return;
 
@@ -229,6 +254,22 @@ const initPaymentLogic = () => {
   if (latest_entry) {
     const total_verse  = Number(latest_entry.total_verse  ?? 0);
     const total_annuel = Number(latest_entry.total_annuel ?? 0);
+
+    // Solde restant dû avant ce nouveau versement, pour avertir si le
+    // montant en cours de saisie le dépasse (voir @input sur le champ).
+    if (total_annuel > 0) {
+      solde_restant.value = Math.max(total_annuel - total_verse, 0);
+    }
+
+    // Chaque entrée info_paiement[date] embarque son propre aide_financiere
+    // au moment de l'enregistrement (RSavePaiement.py:918-919) — équivalent
+    // de la vérification "le statut de cet élève a été modifié"
+    // (school_client/Controllers/Main.py:13008-13017).
+    const aide_enregistree = latest_entry.aide_financiere;
+    const aide_actuelle    = props.details.aide_financiere;
+    if (aide_enregistree && aide_actuelle && aide_enregistree !== aide_actuelle) {
+      statut_modifie.value = true;
+    }
 
     if (total_annuel > 0 && total_verse >= total_annuel) {
       status.value = true;
@@ -291,6 +332,16 @@ const displayAide = computed(() => {
   return props.details.aide_financiere && props.details.aide_financiere !== 'Aucune'
     ? `(${props.details.aide_financiere})`
     : '';
+});
+
+/** True si le montant en cours de saisie est >= au solde restant dû —
+ * avertit avant validation plutôt que de bloquer (le serveur alloue de
+ * toute façon l'excédent, voir payment_save_info()). */
+const montantDepasseSolde = computed(() => {
+  if (solde_restant.value === null || solde_restant.value <= 0) return false;
+  const montant = Number(montant_verser.value);
+  if (!montant || montant <= 0) return false;
+  return montant >= solde_restant.value;
 });
 
 const sortedEcheances = computed(() =>

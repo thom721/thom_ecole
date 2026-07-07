@@ -11,6 +11,9 @@ class Professeur {
     this.matiereEnseignee,
     required this.statusLabel,
     this.userStatus,
+    this.typePaiement = 'fixe',
+    this.salaireFixe,
+    this.personnelId,
   });
 
   factory Professeur.fromJson(Map<String, dynamic> json) {
@@ -27,6 +30,11 @@ class Professeur {
       matiereEnseignee: json['matiere_enseignee']?.toString(),
       statusLabel: json['status_']?.toString() ?? 'Inactif',
       userStatus: rawStatus is num ? rawStatus.toInt() : null,
+      typePaiement: json['type_paiement']?.toString() ?? 'fixe',
+      salaireFixe: json['salaire_fixe'] == null
+          ? null
+          : (json['salaire_fixe'] as num).toDouble(),
+      personnelId: json['personnel_id']?.toString(),
     );
   }
 
@@ -43,4 +51,14 @@ class Professeur {
   // null=pas encore de compte utilisateur — distinction reprise du badge à
   // 3 couleurs de Professeur.vue (vert/orange/rose).
   final int? userStatus;
+  // 'fixe' ou 'horaire' — détermine si le payroll utilise salaireFixe ou le
+  // calcul heures × taux (ParametrePayroll), voir payroll_tab.dart.
+  final String typePaiement;
+  final double? salaireFixe;
+  // Non-null si cette fiche est la "casquette enseignante" d'un Personnel
+  // (rôle teacher/Enseignant) plutôt qu'un professeur autonome — voir
+  // RAcademic.py:_sync_shadow_professeur.
+  final String? personnelId;
+
+  bool get isLinkedToPersonnel => personnelId != null;
 }

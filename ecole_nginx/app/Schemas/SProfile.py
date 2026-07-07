@@ -51,6 +51,7 @@ class ProfileBase(BaseModel):
     logo_image_base64: Optional[str] = None
     school_url: Optional[str] = None
     is_receive_arriere: Optional[bool] = False
+    age_minimum_inscription: Optional[int] = 1
 
 
 class ProfileCreate(ProfileBase):

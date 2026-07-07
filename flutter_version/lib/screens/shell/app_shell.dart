@@ -9,6 +9,7 @@ import '../../state/theme_state.dart';
 import '../../theme/app_theme.dart';
 import '../abonnement/abonnement_screen.dart';
 import '../administration/administration_screen.dart';
+import '../apropos/a_propos_screen.dart';
 import '../cours/cours_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../etudiant/etudiant_screen.dart';
@@ -253,6 +254,13 @@ class _AppShellState extends State<AppShell> {
         return LogScreen();
       case 'abonnement':
         return AbonnementScreen();
+      case 'a_propos':
+        // Pas `const` : AProposScreen lit AppColors (thème clair/sombre) à
+        // chaque build — un widget const est canonicalisé par Dart, Flutter
+        // le reconnaît comme strictement identique d'un rebuild à l'autre
+        // et saute l'appel à build(), donc ignore silencieusement tout
+        // changement de thème survenu après le tout premier affichage.
+        return AProposScreen();
       default:
         final item = kAllNavItems.firstWhere((e) => e.id == id);
         return PlaceholderScreen(title: item.label);
@@ -269,10 +277,12 @@ class _AppShellState extends State<AppShell> {
   }
 
   /// Équivalent de actualiser_page() (Controllers/Main.py:13371-13381) :
-  /// "Actualiser" n'est PAS une page (contrairement à 'a_propos', qui ouvre
-  /// une boîte de dialogue) — elle recharge les données de référence
-  /// partagées sans changer la page affichée, donc on ne touche pas à
-  /// _currentPageId ici.
+  /// "Actualiser" n'est PAS une page — elle recharge les données de
+  /// référence partagées sans changer la page affichée, donc on ne touche
+  /// pas à _currentPageId ici. 'a_propos' est bien une page normale (voir
+  /// AProposScreen) depuis l'ajout du contenu éditorial Infini Software —
+  /// avant ça, elle ouvrait juste un showAboutDialog générique (nom +
+  /// version, déjà visibles dans le pied de page persistant de l'app).
   Future<void> _actualiser() async {
     await context.read<ReferenceDataState>().refresh();
     if (!mounted) return;
@@ -289,12 +299,6 @@ class _AppShellState extends State<AppShell> {
     setState(() => _currentPageId = id);
     if (id == 'home') {
       context.read<DashboardState>().load();
-    } else if (id == 'a_propos') {
-      showAboutDialog(
-        context: context,
-        applicationName: 'Lekol360',
-        applicationVersion: '1.0.1',
-      );
     }
   }
 

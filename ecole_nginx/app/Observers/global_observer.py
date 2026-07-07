@@ -160,8 +160,17 @@ class GlobalModelObserver:
                 ip_address=self.request_ip
             )
 
+            # Pas de commit() ici : after_insert/after_update se déclenchent
+            # DURANT le flush du commit() appelant (RPayroll.py, RVente.py,
+            # etc.) — un commit() imbriqué à ce stade clôt la transaction en
+            # cours d'exécution par SQLAlchemy, qui tente ensuite de la
+            # poursuivre sur une transaction déjà fermée
+            # (ResourceClosedError: "This transaction is closed", reproduit
+            # sur Depense.register_observers() avec le même motif
+            # db.add()+db.commit() que toutes les routes utilisent). Un
+            # simple add() suffit : ce nouvel objet est balayé par le même
+            # flush déjà en cours et persiste avec le commit() appelant.
             self.db.add(log_entry)
-            self.db.commit()
 
             # Nettoyer le contexte
             AdminAuthorization.clear()

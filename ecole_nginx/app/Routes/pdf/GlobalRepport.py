@@ -6,7 +6,7 @@ from typing import Optional, List, Dict, Any
 from decimal import Decimal
 from pydantic import BaseModel, Field, field_validator,model_validator
 from app.Models.MFinancials import Paiement,Loan,LoanRepayment,OrderItem,Vente,Depense,FraisInscription,OtherTransaction
-from app.Models.MModels import Niveau,Etudiant
+from app.Models.MModels import Niveau,Etudiant,User
 from app.Models.MSystems import Profile
 from app.Models.MRelations import ClasseEtudiant
 from app.database import get_db
@@ -15,6 +15,7 @@ from enum import Enum
 import json
 import logging
 from app.Helper.pdf_personaliser import PDFGenerator
+from app.dependencies.Dependencie import check_permission
 
 logger = logging.getLogger(__name__)
 
@@ -342,7 +343,8 @@ pdf_gen = PDFGenerator()
 @router.post("/print-global-repport", response_model=GlobalReportResponse)
 def print_global_report(
     request: PrintGlobalReportRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(check_permission("Imprimer rapport")),
 ):
     """
     Génère un rapport global pour une période donnée

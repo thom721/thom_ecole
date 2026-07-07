@@ -67,6 +67,8 @@ class ProfileCreate(BaseModel):
     adresse: str
     logo_image_path: Optional[str] = None # Sera utilisé pour le Base64 ou le chemin
     logo_image_base64: Optional[str] = None # Sera utilisé pour le Base64 ou le chemin
+    is_receive_arriere: Optional[bool] = False
+    age_minimum_inscription: Optional[int] = 1
 
 @router.post("/profile")
 async def store_profile(data: ProfileCreate, db: Session = Depends(get_db),current_user:User= Depends(get_current_user)):
@@ -115,6 +117,7 @@ async def store_profile(data: ProfileCreate, db: Session = Depends(get_db),curre
             db_profile.ligne2 = data.ligne2
             db_profile.adresse = data.adresse
             db_profile.is_receive_arriere = bool(getattr(data, 'is_receive_arriere', False))
+            db_profile.age_minimum_inscription = getattr(data, 'age_minimum_inscription', None) or 1
             if logo_path:
                 # data.logo_image_path EST déjà le data-URI base64 complet
                 # ("data:image/png;base64,...") envoyé par le web ET le
@@ -140,6 +143,7 @@ async def store_profile(data: ProfileCreate, db: Session = Depends(get_db),curre
                 logo_image_path=logo_path,
                 logo_image_base64=data.logo_image_path if logo_path else data.logo_image_base64,
                 is_receive_arriere=bool(getattr(data, 'is_receive_arriere', False)),
+                age_minimum_inscription=getattr(data, 'age_minimum_inscription', None) or 1,
             )
             db.add(new_profile)
             db.commit()

@@ -49,6 +49,14 @@ class ProgrammeResponse(BaseModel):
     classe: Optional[str] = None
     professeur_id: Optional[str] = None
     Cours_id: Optional[str] = None
+    # La query de /programme (liste) construit le dict avec ces clés
+    # (profId/coursId/classId), distinctes de professeur_id/Cours_id
+    # utilisées ailleurs (ex. get_programme par id) — déclarées ici pour
+    # que Pydantic ne les rejette pas silencieusement (elles arrivaient
+    # en `null` côté Flutter alors que la query SQL les renvoyait bien).
+    profId: Optional[str] = None
+    coursId: Optional[str] = None
+    classId: Optional[str] = None
     session: Optional[str] = None
     heure: Optional[str] = None
     jours: Optional[str] = None

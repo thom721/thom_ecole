@@ -15,6 +15,7 @@ from app.Models.MModels import  AnneeAcademique,Niveau,Classe,User,Etudiant,Facu
 from app.Models.MRelations import ClasseEtudiant,CoursEtudiant
 from app.Models.MSystems import Profile
 from app.Helper.pdf_personaliser import PDFGenerator
+from app.dependencies.Dependencie import check_permission
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -180,7 +181,11 @@ def moyenne_and_place(
 
 
 @router.post("/imprime-bulletin")
-def impression_bulletin(request: BulletinRequest, db: Session = Depends(get_db)):
+def impression_bulletin(
+    request: BulletinRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(check_permission("Imprimer bulletin")),
+):
     """
     Endpoint pour l'impression du bulletin
     

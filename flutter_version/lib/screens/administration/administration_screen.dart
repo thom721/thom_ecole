@@ -69,7 +69,7 @@ class _AdministrationScreenState extends State<AdministrationScreen> {
   }
 
   Color _statusColor(Personnel p) {
-    if (p.userStatus == 1) return const Color(0xFF34D399);
+    if (p.userStatus == 1) return AppColors.cardPalette['emerald']!.text;
     if (p.userStatus == 0) return const Color(0xFFF59E0B);
     return AppColors.danger;
   }
@@ -141,20 +141,41 @@ class _AdministrationScreenState extends State<AdministrationScreen> {
                       final color = _statusColor(p);
                       return DataRow(cells: [
                         DataCell(
-                          isToggling
-                              ? const SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                              : InkWell(
-                                  onTap: () => _toggleActive(p),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              isToggling
+                                  ? const SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                                  : InkWell(
+                                      onTap: () => _toggleActive(p),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: color.withValues(alpha: 0.1),
+                                          border: Border.all(color: color.withValues(alpha: 0.3)),
+                                          borderRadius: BorderRadius.circular(999),
+                                        ),
+                                        child: Text(p.nom, style: TextStyle(fontSize: 12.5, color: color)),
+                                      ),
+                                    ),
+                              if (p.isLinkedToProfesseur) ...[
+                                const SizedBox(width: 6),
+                                Tooltip(
+                                  message: "Casquette administrative d'un Professeur — "
+                                      "pas de compte de connexion propre.",
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: color.withValues(alpha: 0.1),
-                                      border: Border.all(color: color.withValues(alpha: 0.3)),
+                                      color: AppColors.cardPalette['amber']!.bar.withValues(alpha: 0.12),
                                       borderRadius: BorderRadius.circular(999),
                                     ),
-                                    child: Text(p.nom, style: TextStyle(fontSize: 12.5, color: color)),
+                                    child: Text('via Professeur',
+                                        style: TextStyle(fontSize: 10.5, color: AppColors.cardPalette['amber']!.text)),
                                   ),
                                 ),
+                              ],
+                            ],
+                          ),
                         ),
                         DataCell(Text(p.prenom)),
                         DataCell(Text(p.sexe)),
@@ -197,6 +218,9 @@ class _PersonnelFormDialogState extends State<_PersonnelFormDialog> {
   late final _telephone = TextEditingController(text: widget.personnel?.telephone);
   late final _email = TextEditingController(text: widget.personnel?.email);
   late final _adresse = TextEditingController(text: widget.personnel?.adresse);
+  late final _salaireFixe = TextEditingController(
+    text: widget.personnel?.salaireFixe?.toString(),
+  );
   String _sexe = 'M';
   String? _roleId;
   String? _error;
@@ -228,6 +252,7 @@ class _PersonnelFormDialogState extends State<_PersonnelFormDialog> {
     _telephone.dispose();
     _email.dispose();
     _adresse.dispose();
+    _salaireFixe.dispose();
     _newPassword.dispose();
     _confirmPassword.dispose();
     super.dispose();
@@ -303,6 +328,7 @@ class _PersonnelFormDialogState extends State<_PersonnelFormDialog> {
       'telephone': _telephone.text.trim(),
       'adresse': _adresse.text.trim(),
       'role': _roleId,
+      'salaire_fixe': double.tryParse(_salaireFixe.text.trim()),
     });
     if (!mounted) return;
     if (error != null) {
@@ -395,6 +421,12 @@ class _PersonnelFormDialogState extends State<_PersonnelFormDialog> {
                 ),
                 const SizedBox(height: 12),
                 TextField(controller: _adresse, decoration: const InputDecoration(labelText: 'Adresse')),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _salaireFixe,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Salaire fixe (mensuel)'),
+                ),
                 if (_error != null) ...[
                   const SizedBox(height: 12),
                   Text(_error!, style: const TextStyle(color: AppColors.danger, fontSize: 12)),
@@ -436,7 +468,7 @@ class _PersonnelFormDialogState extends State<_PersonnelFormDialog> {
                   ],
                   if (_passwordSuccess != null) ...[
                     const SizedBox(height: 8),
-                    Text(_passwordSuccess!, style: const TextStyle(color: Color(0xFF34D399), fontSize: 12)),
+                    Text(_passwordSuccess!, style: TextStyle(color: AppColors.cardPalette['emerald']!.text, fontSize: 12)),
                   ],
                 ],
                 const SizedBox(height: 20),

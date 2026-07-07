@@ -40,6 +40,7 @@ const formPersonnel = reactive({
     email: "",
     adresse: "",
     role: "",
+    salaire_fixe: "",
     processing: false,
     errors: {}
 });
@@ -47,7 +48,7 @@ const formPersonnel = reactive({
 const resetForm = () => {
     Object.assign(formPersonnel, {
         id: "", nom: "", prenom: "", sexe: "", telephone: "",
-        email: "", adresse: "", role: "", processing: false, errors: {}
+        email: "", adresse: "", role: "", salaire_fixe: "", processing: false, errors: {}
     });
 };
 
@@ -55,9 +56,72 @@ const PersonnelModalShow = () => {
     openModal.value = true;
 };
 
+// Statut actif/inactif affiché et bascule dans le modal — équivalent de
+// admin_status/admin_change_status (flutter_version, administration_screen.
+// dart:_toggleStatus), même endpoint PATCH v1/active-personnel que le badge
+// "Nom" de la liste (activePersonnel ci-dessous).
+const personnelUserStatus = ref(null);
+const togglingModalStatus = ref(false);
+
+const toggleModalStatus = async () => {
+    if (!formPersonnel.id) return;
+    togglingModalStatus.value = true;
+    try {
+        const { data } = await axios.patch(`${url}/active-personnel`, { id: formPersonnel.id });
+        personnelUserStatus.value = typeof data.status === 'boolean' ? (data.status ? 1 : 0) : data.status;
+        searchPersonnel(pages.value);
+    } catch (error) {
+        console.error("Erreur d'activation:", error);
+    } finally {
+        togglingModalStatus.value = false;
+    }
+};
+
+// Réinitialisation du mot de passe — équivalent de reset_password_personnel()
+// (school_client) / PersonnelState.resetPassword (flutter_version) → PATCH
+// v1/change-password-personnel, absente du web jusqu'ici.
+const newPassword = ref("");
+const confirmPassword = ref("");
+const passwordError = ref("");
+const passwordSuccess = ref("");
+const resettingPassword = ref(false);
+
+const resetPasswordPersonnel = async () => {
+    passwordError.value = "";
+    passwordSuccess.value = "";
+    if (newPassword.value.length < 8) {
+        passwordError.value = "Le mot de passe doit contenir au moins 8 caractères.";
+        return;
+    }
+    if (newPassword.value !== confirmPassword.value) {
+        passwordError.value = "Les mots de passe ne correspondent pas.";
+        return;
+    }
+    resettingPassword.value = true;
+    try {
+        await axios.patch(`${url}/change-password-personnel`, {
+            personnel_id: formPersonnel.id,
+            password: newPassword.value,
+            password_confirm: confirmPassword.value,
+        });
+        passwordSuccess.value = "Mot de passe réinitialisé.";
+        newPassword.value = "";
+        confirmPassword.value = "";
+    } catch (error) {
+        passwordError.value = error.response?.data?.detail ?? "Impossible de réinitialiser le mot de passe.";
+    } finally {
+        resettingPassword.value = false;
+    }
+};
+
 const PersonnelModalClose = () => {
     changeButton.value = false;
     resetForm();
+    personnelUserStatus.value = null;
+    newPassword.value = "";
+    confirmPassword.value = "";
+    passwordError.value = "";
+    passwordSuccess.value = "";
     openModal.value = false;
 };
 
@@ -72,7 +136,11 @@ const submitPersonnel = async () => {
             : `${url}/personnel`;
         
         const method = changeButton.value ? 'post' : 'post';
-        const response = await axios[method](endpoint, formPersonnel);
+        const payload = {
+            ...formPersonnel,
+            salaire_fixe: formPersonnel.salaire_fixe === "" ? null : Number(formPersonnel.salaire_fixe),
+        };
+        const response = await axios[method](endpoint, payload);
 
         if (response.status === 200 || response.status === 201) {
             PersonnelModalClose();
@@ -104,14 +172,16 @@ const editPerso = (personnel) => {
     formPersonnel.email = personnel.email;
     formPersonnel.telephone = personnel.telephone;
     formPersonnel.adresse = personnel.adresse;
-    
+    formPersonnel.salaire_fixe = personnel.salaire_fixe ?? "";
+
     // Extraction sécurisée du rôle
     if (personnel.user && personnel.user.roles && personnel.user.roles.length > 0) {
         formPersonnel.role = personnel.user.roles[0].id;
     } else {
         formPersonnel.role = '';
     }
-    
+
+    personnelUserStatus.value = personnel.user?.status ?? null;
     changeButton.value = true;
     PersonnelModalShow();
 };
@@ -247,7 +317,7 @@ const activePersonnel = async (id) => {
         <StyleModal :show="openModal" :max-width="'2xl'" @close="PersonnelModalClose">
             <template #title>
                 <h5 class="modal-title text-center text-slate-300" id="PersonnelLabel">
-                    Ajouter un Personnel
+                    {{ changeButton ? 'Modifier un Personnel' : 'Ajouter un Personnel' }}
                 </h5>
             </template>
 
@@ -255,6 +325,22 @@ const activePersonnel = async (id) => {
                 <div>
                     <form @submit.prevent="submitPersonnel">
                         <div class="modal-body">
+                            <!-- Actif/Inactif — équivalent de admin_status (flutter_version,
+                                 administration_screen.dart), visible seulement en modification. -->
+                            <div v-if="changeButton" class="flex items-center gap-3 mb-3 px-3.5 py-2.5 rounded-lg bg-white/[0.03] border border-white/[0.07]">
+                                <span class="text-sm font-bold" :class="personnelUserStatus == 1 ? 'text-emerald-400' : 'text-rose-400'">
+                                    {{ personnelUserStatus == 1 ? 'Active' : 'Inactive' }}
+                                </span>
+                                <span class="flex-1"></span>
+                                <button type="button" @click="toggleModalStatus" :disabled="togglingModalStatus"
+                                    class="px-3 py-1 rounded-md text-xs font-medium border disabled:opacity-50 transition-colors"
+                                    :class="personnelUserStatus == 1
+                                        ? 'text-rose-400 border-rose-400/40 hover:bg-rose-400/10'
+                                        : 'text-emerald-400 border-emerald-400/40 hover:bg-emerald-400/10'">
+                                    {{ togglingModalStatus ? '…' : (personnelUserStatus == 1 ? 'Desactiver' : 'Activer') }}
+                                </button>
+                            </div>
+
                             <div class="flex flex-col md:flex-row justify-between items-center gap-2">
                                 <div class="pb-2 w-full">
                                     <InputLabel for="nom" value="Nom" />
@@ -323,6 +409,34 @@ const activePersonnel = async (id) => {
                                 <InputError class="mt-2" :message="formPersonnel.errors.adresse" />
                             </div>
 
+                            <div class="pb-2">
+                                <InputLabel for="salaire_fixe" value="Salaire fixe (mensuel)" />
+                                <TextInput id="salaire_fixe" v-model="formPersonnel.salaire_fixe" type="number" step="0.01" class="py-0" />
+                                <InputError class="mt-2" :message="formPersonnel.errors.salaire_fixe" />
+                            </div>
+
+                            <!-- Réinitialiser le mot de passe — équivalent de
+                                 PersonnelState.resetPassword (flutter_version), absente du web
+                                 jusqu'ici. -->
+                            <div v-if="changeButton" class="pt-3 mt-2 border-t border-white/[0.07]">
+                                <p class="text-[10.5px] tracking-wide font-semibold text-[#7c83a0] uppercase mb-2">
+                                    Réinitialiser le mot de passe
+                                </p>
+                                <div class="flex flex-col md:flex-row gap-2 items-start">
+                                    <div class="w-full">
+                                        <TextInput v-model="newPassword" type="password" class="py-0" placeholder="Nouveau mot de passe" />
+                                    </div>
+                                    <div class="w-full">
+                                        <TextInput v-model="confirmPassword" type="password" class="py-0" placeholder="Confirmation" />
+                                    </div>
+                                    <button type="button" @click="resetPasswordPersonnel" :disabled="resettingPassword"
+                                        class="shrink-0 px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium text-[#c9d1d9] border border-white/[0.12] hover:bg-white/[0.06] disabled:opacity-50 transition-colors">
+                                        {{ resettingPassword ? '…' : 'Réinitialiser' }}
+                                    </button>
+                                </div>
+                                <p v-if="passwordError" class="text-xs text-rose-400 mt-1.5">{{ passwordError }}</p>
+                                <p v-if="passwordSuccess" class="text-xs text-emerald-400 mt-1.5">{{ passwordSuccess }}</p>
+                            </div>
 
                         </div>
                         <div class="flex justify-end gap-4 py-1">
@@ -354,6 +468,7 @@ const activePersonnel = async (id) => {
     @update:selections="selections = $event"
   > 
 <template #cell-nom="{ row, value }">
+ <span class="inline-flex items-center gap-1.5">
   <button
     v-if="activatingId !== row.id"
     @click="activePersonnel(row.id)"
@@ -376,6 +491,16 @@ const activePersonnel = async (id) => {
     </svg>
     Waiting…
   </span>
+
+  <!-- "Casquette administrative" d'un Professeur avec un rôle non-enseignant
+       (RAcademic.py:_sync_shadow_personnel) — aucun compte de connexion
+       propre pour cette fiche, symétrique du badge "via Personnel" côté
+       Professeur (voir aussi flutter_version, administration_screen.dart). -->
+  <span v-if="row.professeur_id" title="Casquette administrative d'un Professeur — pas de compte de connexion propre."
+    class="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 whitespace-nowrap">
+    via Professeur
+  </span>
+ </span>
  </template>
 
  <template #cell-status_="{ row, value }">
