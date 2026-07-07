@@ -926,7 +926,14 @@ class Main_run:
                 #     print(f"⚠️ Erreur Firewall MySQL : {e}")
 
                 ip_address = self.get_server_ip_()
-                self.add_or_update_host(ip_address)
+                # L'entrée hosts DU SERVEUR pointe vers 127.0.0.1, pas vers
+                # sa propre IP réseau : le serveur doit rester joignable en
+                # local (aplekol360.local) même sans réseau/DHCP. La vraie IP
+                # reste enregistrée (save_server_ip) pour les postes clients,
+                # qui gèrent leur propre entrée hosts séparément (voir
+                # gui/ip_storage.dart côté Flutter / add_or_update_host côté
+                # client Windows).
+                self.add_or_update_host("127.0.0.1")
                 self.ip_manager.save_server_ip(ip_address)
 
 
@@ -970,7 +977,10 @@ class Main_run:
                 self.server_ip = input("\n\t [ + ] Entrez une adresse IP valide :  ")
 
             self.ip_manager.save_server_ip(self.server_ip)
-            self.add_or_update_host(self.server_ip)
+            # Voir le commentaire équivalent plus haut : entrée hosts du
+            # serveur en 127.0.0.1, self.server_ip (la vraie IP) reste
+            # utilisée pour configure_nginx()/la configuration SSL.
+            self.add_or_update_host("127.0.0.1")
             if self.configure_nginx(ip_ser=self.server_ip):
                 try:
                     self.configure_nginx_service()
@@ -1108,10 +1118,14 @@ class Main_run:
         self.app = QApplication(sys.argv)
 
         if active == 'true':  
-            self.verify_esystem_and_install_service() 
+            self.verify_esystem_and_install_service()
             ip_address = self.get_server_ip_()
             if ip_address != self.ip_manager.get_server_ip():
-                self.add_or_update_host(self.get_server_ip_()) 
+                # Voir le commentaire dans configure_env() : entrée hosts du
+                # serveur toujours en 127.0.0.1, indépendamment de l'IP
+                # réseau détectée ici (qui ne sert plus qu'à savoir si elle a
+                # changé, pour la logique juste en dessous).
+                self.add_or_update_host("127.0.0.1")
 
             self.ensure_services_running(services_a_verifier)
             print("\n [+]   Demarrage du server ...!!!--")
@@ -2373,8 +2387,75 @@ class MySQLInstaller:
         return os.path.join(base_path, relative_path)
 
 
+    def _service_status(self) -> str:
+        """Équivalent autonome de MySQLAdmin.get_service_status (pas de
+        dépendance croisée entre les deux classes) : RUNNING/STOPPED/UNKNOWN
+        si le service existe, NOT_INSTALLED si 'sc query' échoue."""
+        try:
+            result = subprocess.run(
+                ["sc", "query", self.service_name], capture_output=True, text=True, check=True
+            )
+            if "RUNNING" in result.stdout:
+                return "RUNNING"
+            if "STOPPED" in result.stdout:
+                return "STOPPED"
+            return "UNKNOWN"
+        except subprocess.CalledProcessError:
+            return "NOT_INSTALLED"
+
+    def _mysql_already_set_up(self) -> bool:
+        """Vérifie que l'installation est bien complète (binaire extrait,
+        configuration écrite, dossier de données présent, service Windows
+        enregistré) avant d'emprunter le chemin rapide de install_and_config().
+        Si UN SEUL de ces éléments manque, l'installation est considérée
+        incomplète/interrompue et la procédure complète ci-dessous s'exécute
+        pour repartir de zéro — comportement historique conservé tel quel
+        comme filet de sécurité."""
+        mysqld_exe = os.path.join(self.bin_dir, "mysqld.exe")
+        return (
+            os.path.exists(mysqld_exe)
+            and os.path.exists(self.my_ini_path)
+            and os.path.exists(self.data_dir)
+            and self._service_status() != "NOT_INSTALLED"
+        )
+
+    def _ensure_service_running_fast(self) -> bool:
+        """Démarre le service s'il est arrêté, SANS le tuer/le réinstaller
+        s'il tourne déjà (contrairement à start_mysql_service(), qui fait un
+        taskkill inconditionnel) — utilisé uniquement sur le chemin rapide
+        d'un service déjà installé."""
+        status = self._service_status()
+        if status == "RUNNING":
+            return True
+        if status == "STOPPED":
+            try:
+                subprocess.run(
+                    ["net", "start", self.service_name], timeout=60, check=True,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                )
+                return self._service_status() == "RUNNING"
+            except Exception:
+                return False
+        return False
+
     def install_and_config(self):
         """Procédure complète d'installation et de configuration de MySQL"""
+        # Chemin rapide : si MySQL est déjà extrait/configuré/enregistré comme
+        # service Windows, on saute le téléchargement, l'extraction, les
+        # permissions récursives (icacls /t sur tout le dossier data — lent
+        # sur une vraie base de production) et la réinitialisation du mot de
+        # passe root — auparavant refaits à CHAQUE lancement de app.py, pas
+        # seulement à la première installation, ce qui rendait chaque
+        # démarrage anormalement long. Si l'un des éléments vérifiés manque
+        # (installation partielle/interrompue), on retombe intégralement sur
+        # la procédure complète ci-dessous, inchangée.
+        if self._mysql_already_set_up():
+            print("\n [ok]   MySQL déjà installé — vérification rapide du service...")
+            if self._ensure_service_running_fast():
+                print(Fore.GREEN + " [ ok ]   MySQL est opérationnel, installation sautée.")
+                return
+            print("\n [!]   Le service MySQL ne répond pas, reprise de l'installation complète...")
+
         # if not os.path.exists(self.download_path):
         if not os.path.exists(os.path.join(self.current_dir,self.zip_file)):
             self.download_mysql()
@@ -2390,9 +2471,9 @@ class MySQLInstaller:
         self.fix_permissions()
 
         self.initialize_database()
-        
+
         self.install_mysql_as_service()
-    
+
 
         self.start_mysql_service()
          
