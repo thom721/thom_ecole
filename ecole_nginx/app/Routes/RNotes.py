@@ -7,7 +7,8 @@ import logging
 from app.Schemas.SNotes import *
 from app.database import get_db
 from app.Models.MRelations import CoursEtudiant
-from app.Models.MModels import Professeur,User
+from app.Models.MModels import Professeur,User,Niveau,Classe
+from app.Models.MSystems import Log
 from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role,first_or_update_safe,require_role
 
 PEDAGOGIC_ROLES = ['admin', 'Responsable pédagogique', 'teacher']
@@ -86,6 +87,28 @@ def check_note_sequence(
         }
     
     return {"success": "ok"}
+
+def _scan_month_notes(data: Any, mois: str, delete: bool = False) -> int:
+    """Parcourt récursivement le blob JSON de notes d'un étudiant
+    (`CoursEtudiant.data_etudiant`) et compte — ou supprime si delete=True —
+    les entrées `notes[mois]`, quelle que soit la profondeur d'imbrication
+    (mois simple, session, contrôle/trimestre). Les clés utilisées pour les
+    autres modes d'évaluation ("intra", "finale", "Contr. I", "Trimestre I"...)
+    ne collisionnent jamais avec un nom de mois, donc ce scan générique reste
+    précis même si la structure diffère selon le mode.
+    """
+    if not isinstance(data, dict):
+        return 0
+    removed = 0
+    notes = data.get("notes")
+    if isinstance(notes, dict) and mois in notes:
+        removed += 1
+        if delete:
+            del notes[mois]
+    for value in data.values():
+        if isinstance(value, dict):
+            removed += _scan_month_notes(value, mois, delete)
+    return removed
 
 # ============================================================================
 # ROUTER
@@ -502,4 +525,114 @@ async def store_note(
         logger.error(f"Erreur globale: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail={"errors": str(e)})
 
- 
+
+# ============================================================================
+# SUPPRESSION GROUPÉE DE NOTES (par niveau / classe / année / mois)
+# ============================================================================
+def _query_cours_etudiants_for_suppression(
+    db: Session, niveau_id: str, classe_id: str, annee_academique: str
+):
+    return db.query(CoursEtudiant).filter(
+        CoursEtudiant.niveau == niveau_id,
+        CoursEtudiant.classe == classe_id,
+        CoursEtudiant.annee_academique == annee_academique,
+    ).all()
+
+
+@router_note.get("/coursEtudiant/notes/apercu-suppression", response_model=DeleteNotesPreviewResponse)
+def preview_delete_notes(
+    niveau_id: str,
+    classe_id: str,
+    annee_academique: str,
+    mois: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(check_permission("Supprimer note")),
+):
+    """Aperçu (lecture seule) du nombre d'étudiants/notes qui seraient
+    affectés par une suppression, pour confirmation avant l'action réelle.
+    """
+    rows = _query_cours_etudiants_for_suppression(db, niveau_id, classe_id, annee_academique)
+
+    etudiants_concernes = 0
+    notes_a_supprimer = 0
+    for row in rows:
+        data = parse_etudiant_data(row.data_etudiant)
+        count = _scan_month_notes(data, mois, delete=False)
+        if count > 0:
+            etudiants_concernes += 1
+            notes_a_supprimer += count
+
+    return DeleteNotesPreviewResponse(
+        etudiants_concernes=etudiants_concernes,
+        notes_a_supprimer=notes_a_supprimer,
+    )
+
+
+@router_note.delete("/coursEtudiant/notes/suppression", response_model=DeleteNotesResponse)
+def delete_notes(
+    request: DeleteNotesRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(check_permission("Supprimer note")),
+):
+    """Supprime les notes d'un mois donné pour tous les étudiants d'un
+    niveau/classe/année. Action groupée et irréversible : toutes les
+    modifications sont regroupées dans une seule transaction (tout ou rien)
+    et chaque étudiant affecté génère une entrée dans la table `logs` pour
+    garder une trace de qui a supprimé quoi.
+    """
+    niveau = db.query(Niveau).filter(Niveau.id == request.niveau_id).first()
+    if not niveau:
+        raise HTTPException(status_code=422, detail={"errors": "Niveau introuvable"})
+
+    classe = db.query(Classe).filter(Classe.id == request.classe_id).first()
+    if not classe:
+        raise HTTPException(status_code=422, detail={"errors": "Classe introuvable"})
+
+    rows = _query_cours_etudiants_for_suppression(
+        db, request.niveau_id, request.classe_id, request.annee_academique
+    )
+
+    etudiants_affectes = 0
+    notes_supprimees = 0
+    try:
+        for row in rows:
+            data = parse_etudiant_data(row.data_etudiant)
+            count = _scan_month_notes(data, request.mois, delete=True)
+            if count == 0:
+                continue
+
+            row.data_etudiant = json.dumps(data)
+            db.add(row)
+            db.add(Log(
+                action="Suppression groupée de notes (mois)",
+                user_id=current_user.id,
+                model_type="CoursEtudiant",
+                model_id=row.id,
+                new_values={"mois": request.mois, "notes_supprimees": count},
+                reason=(
+                    f"{niveau.name} / {classe.nom_classe} / "
+                    f"{request.annee_academique} / {request.mois}"
+                    + (f" — {request.raison}" if request.raison else "")
+                )[:255],
+            ))
+            etudiants_affectes += 1
+            notes_supprimees += count
+
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Erreur suppression groupée de notes: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail={"errors": f"Erreur interne : {str(e)}"})
+
+    if notes_supprimees == 0:
+        return DeleteNotesResponse(
+            success="Aucune note trouvée pour ces critères.",
+            etudiants_affectes=0,
+            notes_supprimees=0,
+        )
+
+    return DeleteNotesResponse(
+        success=f"{notes_supprimees} note(s) supprimée(s) pour {etudiants_affectes} étudiant(s).",
+        etudiants_affectes=etudiants_affectes,
+        notes_supprimees=notes_supprimees,
+    )

@@ -120,6 +120,10 @@ th {
      @apply inline-flex items-center gap-2 px-4 py-2 bg-[#4f8ef7]/15 text-[#7aaeff] border border-[#4f8ef7]/25 rounded-md text-[12px] font-medium hover:bg-[#4f8ef7]/25 hover:border-[#4f8ef7]/40 cursor-pointer transition-colors
 }
 
+.btn-red{
+     @apply inline-flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-md text-[12px] font-medium hover:bg-red-500/20 hover:border-red-500/35 cursor-pointer transition-colors
+}
+
 
 
 

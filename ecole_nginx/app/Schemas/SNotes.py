@@ -97,3 +97,26 @@ class StoreNoteResponse(BaseModel):
 
 class StoreNoteErrorResponse(BaseModel):
     errors: Any  # Can be string or list
+
+class DeleteNotesRequest(BaseModel):
+    niveau_id: str = Field(..., description="ID du niveau")
+    classe_id: str = Field(..., description="ID de la classe")
+    annee_academique: str = Field(..., description="Année académique")
+    mois: str = Field(..., description="Mois dont les notes doivent être supprimées")
+    raison: Optional[str] = Field(None, description="Raison de la suppression (saisie côté Flutter)")
+
+    @field_validator('niveau_id', 'classe_id', 'annee_academique', 'mois')
+    @classmethod
+    def validate_not_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("Ce champ ne peut pas être vide")
+        return v.strip()
+
+class DeleteNotesPreviewResponse(BaseModel):
+    etudiants_concernes: int
+    notes_a_supprimer: int
+
+class DeleteNotesResponse(BaseModel):
+    success: str
+    etudiants_affectes: int
+    notes_supprimees: int

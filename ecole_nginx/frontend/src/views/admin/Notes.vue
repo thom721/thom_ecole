@@ -1,14 +1,16 @@
 <script setup>
-import { ref, onMounted, watch, reactive } from "vue";
+import { ref, computed, onMounted, watch, reactive } from "vue";
 import axios from "axios";
 import Swal from 'sweetalert2';
 import { useSchoolStore,useSchoolStoreInfo } from '@/stores/schoolStore';
+import { useAuthStore } from '@/stores/auth';
  import StyleModal from '@/components/StyleModal.vue';
 import DataTable from '@/components/DataTable.vue'
 import { usePdfWithLoading } from '@/stores/usePdf';
 const { submitPdf, loading, error, loadingMap } = usePdfWithLoading()
 
-const {classes_global,annee_global} =useSchoolStoreInfo()
+const authStore = useAuthStore();
+const {classes_global,annee_global,niveau_global} =useSchoolStoreInfo()
 const global_bulletin = ref(false)
 const dataLoading = ref(false)
 const data_print = reactive({
@@ -126,8 +128,102 @@ onMounted(searchCoursEtudiant);
 const modalBulletin = ref(false);
 
 const closeModal = () => {
-    modalBulletin.value = false; 
-}; 
+    modalBulletin.value = false;
+};
+
+// --- SUPPRESSION GROUPÉE DE NOTES ---------------------------------------
+// Action destructive et irréversible : on impose un aperçu (comptage) à
+// jour avant d'autoriser la suppression, et toute modification d'un des
+// 4 filtres invalide l'aperçu déjà obtenu pour éviter de supprimer sur la
+// base d'une sélection différente de celle vérifiée.
+const modalDeleteNotes = ref(false);
+const deleteFilters = reactive({
+  niveau_id: "",
+  classe_id: "",
+  annee_academique: "",
+  mois: "",
+});
+const deletePreview = ref(null); // { etudiants_concernes, notes_a_supprimer } | null
+const deletePreviewLoading = ref(false);
+const deleteInFlight = ref(false);
+
+const classesForDeleteNiveau = computed(() =>
+  (classes_global ?? []).filter((c) => c.niveau_id === deleteFilters.niveau_id)
+);
+
+const deleteFiltersComplete = computed(() =>
+  !!(deleteFilters.niveau_id && deleteFilters.classe_id && deleteFilters.annee_academique && deleteFilters.mois)
+);
+
+watch(
+  () => [deleteFilters.niveau_id, deleteFilters.classe_id, deleteFilters.annee_academique, deleteFilters.mois],
+  () => { deletePreview.value = null; }
+);
+watch(
+  () => deleteFilters.niveau_id,
+  () => { deleteFilters.classe_id = ""; }
+);
+
+const openDeleteNotesModal = () => {
+  deleteFilters.niveau_id = "";
+  deleteFilters.classe_id = "";
+  deleteFilters.annee_academique = "";
+  deleteFilters.mois = "";
+  deletePreview.value = null;
+  modalDeleteNotes.value = true;
+};
+const closeDeleteNotesModal = () => { modalDeleteNotes.value = false; };
+
+const previewDeleteNotes = async () => {
+  if (!deleteFiltersComplete.value) return;
+  deletePreviewLoading.value = true;
+  deletePreview.value = null;
+  try {
+    const { data } = await axios.get(`${url}/coursEtudiant/notes/apercu-suppression`, {
+      params: { ...deleteFilters },
+    });
+    deletePreview.value = data;
+  } catch (e) {
+    console.error("Erreur aperçu suppression notes:", e);
+    Swal.fire({ icon: "error", text: e.response?.data?.detail?.errors || "Erreur lors de l'aperçu." });
+  } finally {
+    deletePreviewLoading.value = false;
+  }
+};
+
+const confirmDeleteNotes = async () => {
+  if (!deletePreview.value || deletePreview.value.notes_a_supprimer === 0) return;
+
+  const { value: typed } = await Swal.fire({
+    icon: "warning",
+    title: "Suppression définitive",
+    html: `Vous allez supprimer <b>${deletePreview.value.notes_a_supprimer}</b> note(s) `
+        + `pour <b>${deletePreview.value.etudiants_concernes}</b> étudiant(s) `
+        + `(${deleteFilters.mois}, ${deleteFilters.annee_academique}). `
+        + `Cette action est irréversible.<br><br>Tapez <b>SUPPRIMER</b> pour confirmer.`,
+    input: "text",
+    inputPlaceholder: "SUPPRIMER",
+    showCancelButton: true,
+    confirmButtonText: "Supprimer définitivement",
+    confirmButtonColor: "#dc2626",
+    cancelButtonText: "Annuler",
+    inputValidator: (value) => (value !== "SUPPRIMER" ? 'Veuillez taper exactement "SUPPRIMER".' : undefined),
+  });
+  if (typed !== "SUPPRIMER") return;
+
+  deleteInFlight.value = true;
+  try {
+    const { data } = await axios.delete(`${url}/coursEtudiant/notes/suppression`, { data: { ...deleteFilters } });
+    Swal.fire({ icon: "success", text: data.success, timer: 2500, showConfirmButton: false });
+    deletePreview.value = null;
+    closeDeleteNotesModal();
+  } catch (e) {
+    console.error("Erreur suppression notes:", e);
+    Swal.fire({ icon: "error", text: e.response?.data?.detail?.errors || "Erreur lors de la suppression." });
+  } finally {
+    deleteInFlight.value = false;
+  }
+};
 
 
  const columns = [
@@ -208,7 +304,15 @@ const actions = [
     </svg>
     Bulletin
   </button>
- 
+
+  <button v-if="authStore.hasPermission('Supprimer note')" type="button" @click="openDeleteNotesModal"
+    class="btn-red">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" class="w-3.5 h-3.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+    </svg>
+    Supprimer notes
+  </button>
+
   </div>
 
     <div class="flex justify-end mt-2 md:mt-0">
@@ -328,6 +432,77 @@ const actions = [
               </div>
             </div> 
            
+        </template>
+    </StyleModal>
+
+    <StyleModal :show="modalDeleteNotes" max-width="2xl" @close="closeDeleteNotesModal">
+        <template #title>
+            <div class="flex justify-between items-center py-2">
+                <p class="text-lg text-gray-800">Supprimer des notes</p>
+                <p class="far fa-circle-xmark text-xl text-red-500 cursor-pointer hover:scale-110 transition flex justify-end" @click="closeDeleteNotesModal"></p>
+            </div>
+        </template>
+        <template #content>
+            <p class="text-sm text-slate-500 mb-3">
+              Supprime les notes d'un mois précis pour tous les étudiants du niveau / classe / année choisis. Cette action est irréversible.
+            </p>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="text-sm">Niveau</label>
+                <select v-model="deleteFilters.niveau_id" class="input-select">
+                  <option value="" disabled>Choisir un niveau</option>
+                  <option v-for="n in niveau_global" :key="n.id" :value="n.id">{{ n.name }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-sm">Classe</label>
+                <select v-model="deleteFilters.classe_id" class="input-select" :disabled="!deleteFilters.niveau_id">
+                  <option value="" disabled>Choisir une classe</option>
+                  <option v-for="c in classesForDeleteNiveau" :key="c.id" :value="c.id">{{ c.nom_classe }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-sm">Année académique</label>
+                <select v-model="deleteFilters.annee_academique" class="input-select">
+                  <option value="" disabled>Choisir une année</option>
+                  <option v-for="a in annee_global" :key="a.id" :value="a.annee_academique">{{ a.annee_academique }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-sm">Mois</label>
+                <select v-model="deleteFilters.mois" class="input-select">
+                  <option value="" disabled>Choisir le mois</option>
+                  <option v-for="m in month" :key="m" :value="m">{{ m }}</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="pt-4 flex items-center gap-3">
+              <button type="button" class="btn-outline-sky disabled:opacity-40 disabled:cursor-not-allowed"
+                :disabled="!deleteFiltersComplete || deletePreviewLoading" @click="previewDeleteNotes">
+                <span v-if="!deletePreviewLoading">Vérifier</span>
+                <span v-else>Vérification…</span>
+              </button>
+
+              <div v-if="deletePreview" class="text-sm">
+                <span v-if="deletePreview.notes_a_supprimer === 0" class="text-slate-400">
+                  Aucune note trouvée pour ces critères.
+                </span>
+                <span v-else class="text-amber-500 font-semibold">
+                  {{ deletePreview.notes_a_supprimer }} note(s) pour {{ deletePreview.etudiants_concernes }} étudiant(s) seront supprimées.
+                </span>
+              </div>
+            </div>
+
+            <div class="pt-4 flex justify-end">
+              <button type="button" class="btn-red disabled:opacity-40 disabled:cursor-not-allowed"
+                :disabled="!deletePreview || deletePreview.notes_a_supprimer === 0 || deleteInFlight"
+                @click="confirmDeleteNotes">
+                <span v-if="!deleteInFlight">Supprimer définitivement</span>
+                <span v-else>Suppression…</span>
+              </button>
+            </div>
         </template>
     </StyleModal>
   </div>

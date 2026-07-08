@@ -250,6 +250,69 @@ class NoteState extends ChangeNotifier {
     }
   }
 
+  /// Équivalent de l'aperçu (lecture seule) côté web,
+  /// GET v1/coursEtudiant/notes/apercu-suppression — compte les
+  /// étudiants/notes qui seraient affectés avant d'autoriser la suppression.
+  Future<({int? etudiants, int? notes, String? error})> previewDeleteNotes({
+    required String niveauId,
+    required String classeId,
+    required String anneeAcademique,
+    required String mois,
+  }) async {
+    try {
+      final response = await _apiClient.get(
+        'coursEtudiant/notes/apercu-suppression',
+        query: {
+          'niveau_id': niveauId,
+          'classe_id': classeId,
+          'annee_academique': anneeAcademique,
+          'mois': mois,
+        },
+      );
+      final data = response.data as Map<String, dynamic>;
+      return (
+        etudiants: (data['etudiants_concernes'] as num?)?.toInt(),
+        notes: (data['notes_a_supprimer'] as num?)?.toInt(),
+        error: null,
+      );
+    } catch (e) {
+      return (etudiants: null, notes: null, error: _extractError(e));
+    }
+  }
+
+  /// Équivalent de DELETE v1/coursEtudiant/notes/suppression — suppression
+  /// groupée et irréversible des notes d'un mois pour un niveau/classe/année
+  /// donnés. Le chemin a un segment de plus que /coursEtudiant/notes
+  /// délibérément : /coursEtudiant/{cours_etudiant_id} (RCoursEtudiant.py)
+  /// est enregistré avant ce routeur et interceptait silencieusement
+  /// /coursEtudiant/notes en traitant "notes" comme un id.
+  /// Doit toujours être précédée d'un [previewDeleteNotes] à jour (imposé
+  /// côté écran, pas ici) pour éviter de supprimer sur la base d'une
+  /// sélection différente de celle vérifiée par l'utilisateur.
+  Future<String?> deleteNotes({
+    required String niveauId,
+    required String classeId,
+    required String anneeAcademique,
+    required String mois,
+    String? raison,
+  }) async {
+    try {
+      await _apiClient.dio.delete(
+        'coursEtudiant/notes/suppression',
+        data: {
+          'niveau_id': niveauId,
+          'classe_id': classeId,
+          'annee_academique': anneeAcademique,
+          'mois': mois,
+          if (raison != null) 'raison': raison,
+        },
+      );
+      return null;
+    } catch (e) {
+      return _extractError(e);
+    }
+  }
+
   Future<void> _openFile(String path) async {
     if (Platform.isMacOS) {
       await Process.run('open', [path]);

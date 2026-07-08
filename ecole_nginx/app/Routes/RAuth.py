@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Header,BackgroundTasks,Request
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
-from app.Models.MSystems import Permission, Role, RoleHasPermission, ModelHasRole,PasswordResetCode
+from app.Models.MSystems import Permission, Role, RoleHasPermission, ModelHasRole, ModelHasPermission, PasswordResetCode
 from app.Schemas.SOther import ActiveRequest, ChangePasswordRequest,SuccessResponse,updatePassword
 from app.Helper import CryptAndDecript
 import string
@@ -129,12 +129,22 @@ def authenticate_with_permission_check(
 
 
 def user_data_generate(user,db: Session = Depends(get_db),success=""):
-        # 2. Récupérer les permissions (méthode 1: via relation)
-    permissions = []
-    if hasattr(user, 'permissions'):
-        if isinstance(user.permissions, str):
-            permissions = [p.strip() for p in user.permissions.split(",") if p.strip()]
-    
+    # Permissions effectives : directes (relation User.permissions, table
+    # model_has_permissions) UNION celles héritées des rôles. Doit rester
+    # aligné avec AuthorizationService.user_has_permission (qui vérifie les
+    # deux) — sinon une permission accordée directement à l'utilisateur
+    # n'apparaît jamais ici et un bouton gated par hasPermission() côté
+    # frontend reste caché alors que l'action serait bien autorisée.
+    permissions = {p.name for p in user.permissions}
+    role_permissions_query = db.query(Permission.name)\
+        .join(RoleHasPermission, RoleHasPermission.permission_id == Permission.id)\
+        .join(Role, Role.id == RoleHasPermission.role_id)\
+        .join(ModelHasRole, ModelHasRole.role_id == Role.id)\
+        .filter(ModelHasRole.model_id == user.id)\
+        .distinct()\
+        .all()
+    permissions = sorted(permissions | {p[0] for p in role_permissions_query})
+
     # 3. Récupérer les rôles (méthode 1: via relation)
     roles = []
     if hasattr(user, 'roles'):
@@ -142,20 +152,7 @@ def user_data_generate(user,db: Session = Depends(get_db),success=""):
             roles = [role.name for role in user.roles]
         elif isinstance(user.roles, str):
             roles = [user.roles]
-    
-    # 4. Méthode 2: Si vous avez des tables de liaison
-    # Récupérer les permissions via la table role_permissions
-    if not permissions:
-        permissions_query = db.query(Permission.name)\
-            .join(RoleHasPermission, RoleHasPermission.permission_id == Permission.id)\
-            .join(Role, Role.id == RoleHasPermission.role_id)\
-            .join(ModelHasRole, ModelHasRole.role_id == Role.id)\
-            .filter(ModelHasRole.model_id == user.id)\
-            .distinct()\
-            .all()
-        
-        permissions = [p[0] for p in permissions_query]
-    
+
     # 5. Récupérer les rôles via user_roles
     if not roles:
         roles_query = db.query(Role.name)\
@@ -236,11 +233,19 @@ def login(request: Request,
         UserContext.set_user_id(user.id)
 
 
-        permissions = []
-        if hasattr(user, 'permissions'):
-            if isinstance(user.permissions, str):
-                permissions = [p.strip() for p in user.permissions.split(",") if p.strip()]
-        
+        # Permissions effectives : directes (relation User.permissions) UNION
+        # celles héritées des rôles — voir la même correction dans
+        # user_data_generate() ci-dessus.
+        permissions = {p.name for p in user.permissions}
+        role_permissions_query = db.query(Permission.name)\
+            .join(RoleHasPermission, RoleHasPermission.permission_id == Permission.id)\
+            .join(Role, Role.id == RoleHasPermission.role_id)\
+            .join(ModelHasRole, ModelHasRole.role_id == Role.id)\
+            .filter(ModelHasRole.model_id == user.id)\
+            .distinct()\
+            .all()
+        permissions = sorted(permissions | {p[0] for p in role_permissions_query})
+
         # 3. Récupérer les rôles (méthode 1: via relation)
         roles = []
         if hasattr(user, 'roles'):
@@ -248,20 +253,7 @@ def login(request: Request,
                 roles = [role.name for role in user.roles]
             elif isinstance(user.roles, str):
                 roles = [user.roles]
-        
-        # 4. Méthode 2: Si vous avez des tables de liaison
-        # Récupérer les permissions via la table role_permissions
-        if not permissions:
-            permissions_query = db.query(Permission.name)\
-                .join(RoleHasPermission, RoleHasPermission.permission_id == Permission.id)\
-                .join(Role, Role.id == RoleHasPermission.role_id)\
-                .join(ModelHasRole, ModelHasRole.role_id == Role.id)\
-                .filter(ModelHasRole.model_id == user.id)\
-                .distinct()\
-                .all()
-            
-            permissions = [p[0] for p in permissions_query]
-        
+
         # 5. Récupérer les rôles via user_roles
         if not roles:
             roles_query = db.query(Role.name)\

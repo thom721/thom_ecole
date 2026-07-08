@@ -49,6 +49,14 @@ class _NoteEntryScreenState extends State<NoteEntryScreen> {
   String _currentProfesseurId = '';
   String? _evaluationMonth;
   String? _evaluationControle;
+  // Incrémenté à chaque rechargement authentique des notes affichées (choix
+  // de cours ou d'évaluation, fin d'un fetchExisting). Inclus dans la Key
+  // des TextFormField de la colonne Note : sans lui, deux mises à jour
+  // successives de s.note sous la même évaluation (ex: le setState optimiste
+  // puis celui qui applique fetchExisting) partagent la même Key → Flutter
+  // réutilise l'Element existant et n'relit jamais le nouvel initialValue,
+  // laissant afficher les notes d'une évaluation précédente.
+  int _dataRevision = 0;
 
   Future<void> _submitSearch(List<Niveau> niveaux) async {
     if (_niveauId == null || _coursId == null || _classeId == null || _anneeId == null) {
@@ -108,6 +116,7 @@ class _NoteEntryScreenState extends State<NoteEntryScreen> {
       // (ci-dessous), ce qui force leur remount avec le initialValue vidé.
       _evaluationMonth = null;
       _evaluationControle = null;
+      _dataRevision++;
       for (final s in _result!.students) {
         s.note = null;
       }
@@ -115,7 +124,16 @@ class _NoteEntryScreenState extends State<NoteEntryScreen> {
   }
 
   Future<void> _onEvaluationChange(String? month) async {
-    setState(() => _evaluationMonth = month);
+    setState(() {
+      _evaluationMonth = month;
+      _dataRevision++;
+      // Vider immédiatement : tant que fetchExisting n'a pas répondu, le
+      // champ ne doit jamais laisser croire qu'une note de l'évaluation
+      // précédente appartient à celle qu'on vient de choisir.
+      for (final s in _result!.students) {
+        s.note = null;
+      }
+    });
     if (month == null) return;
     final existing = await context.read<NoteState>().fetchExisting(
           coursNom: _currentCoursNom,
@@ -126,6 +144,7 @@ class _NoteEntryScreenState extends State<NoteEntryScreen> {
         );
     if (!mounted) return;
     setState(() {
+      _dataRevision++;
       for (final s in _result!.students) {
         s.note = existing[s.id];
       }
@@ -165,8 +184,9 @@ class _NoteEntryScreenState extends State<NoteEntryScreen> {
     } else {
       setState(() {
         _error = null;
+        _dataRevision++;
         for (final s in _result!.students) {
-          s.note = 0;
+          s.note = null;
         }
       });
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notes enregistrées.')));
@@ -446,7 +466,7 @@ class _NoteEntryScreenState extends State<NoteEntryScreen> {
                       SizedBox(
                         width: 80,
                         child: TextFormField(
-                          key: ValueKey('${s.id}_${_evaluationMonth}_$_evaluationControle'),
+                          key: ValueKey('${s.id}_${_evaluationMonth}_${_evaluationControle}_$_dataRevision'),
                           initialValue: s.note?.toString() ?? '',
                           textAlign: TextAlign.center,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),

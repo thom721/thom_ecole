@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/dual_auth.dart';
 import '../../core/print_gate.dart';
 import '../../core/print_permission.dart';
 import '../../models/note.dart';
+import '../../state/auth_state.dart';
 import '../../state/note_state.dart';
 import '../../state/reference_data_state.dart';
 import '../../theme/app_theme.dart';
@@ -95,6 +97,9 @@ class _NotesScreenState extends State<NotesScreen> {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<NoteState>();
+    final canDeleteNotes = context.watch<AuthState>().permissions.contains(
+      'Supprimer note',
+    );
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -127,6 +132,18 @@ class _NotesScreenState extends State<NotesScreen> {
                   builder: (_) => const _MassBulletinDialog(),
                 ),
               ),
+              if (canDeleteNotes) ...[
+                const SizedBox(width: 8),
+                PillButton(
+                  label: 'Supprimer notes',
+                  colorKey: 'rose',
+                  icon: Icons.delete_outline,
+                  onPressed: () => showDialog(
+                    context: context,
+                    builder: (_) => const _DeleteNotesDialog(),
+                  ),
+                ),
+              ],
               const Spacer(),
               SizedBox(
                 width: 260,
@@ -333,6 +350,247 @@ class _MassBulletinDialogState extends State<_MassBulletinDialog> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Text('Imprimer'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Suppression groupée de notes (niveau / classe / année / mois) —
+/// équivalent du même écran côté web (Notes.vue). Action irréversible :
+/// un aperçu (comptage) à jour est exigé avant que "Supprimer
+/// définitivement" ne devienne cliquable, et toute modification d'un
+/// filtre invalide l'aperçu déjà obtenu.
+class _DeleteNotesDialog extends StatefulWidget {
+  const _DeleteNotesDialog();
+
+  @override
+  State<_DeleteNotesDialog> createState() => _DeleteNotesDialogState();
+}
+
+class _DeleteNotesDialogState extends State<_DeleteNotesDialog> {
+  String? _niveauId;
+  String? _classeId;
+  String? _anneeAcademique;
+  String? _mois;
+  String? _error;
+
+  bool _isPreviewing = false;
+  int? _previewEtudiants;
+  int? _previewNotes;
+  bool _isDeleting = false;
+
+  bool get _filtersComplete =>
+      _niveauId != null &&
+      _classeId != null &&
+      _anneeAcademique != null &&
+      _mois != null;
+
+  void _resetPreview() {
+    _previewEtudiants = null;
+    _previewNotes = null;
+  }
+
+  Future<void> _preview() async {
+    if (!_filtersComplete) return;
+    setState(() {
+      _isPreviewing = true;
+      _error = null;
+      _resetPreview();
+    });
+    final result = await context.read<NoteState>().previewDeleteNotes(
+      niveauId: _niveauId!,
+      classeId: _classeId!,
+      anneeAcademique: _anneeAcademique!,
+      mois: _mois!,
+    );
+    if (!mounted) return;
+    setState(() {
+      _isPreviewing = false;
+      if (result.error != null) {
+        _error = result.error;
+      } else {
+        _previewEtudiants = result.etudiants;
+        _previewNotes = result.notes;
+      }
+    });
+  }
+
+  Future<void> _confirmDelete() async {
+    if (_previewNotes == null || _previewNotes == 0) return;
+    final raison = await showReasonDialog(
+      context: context,
+      title: 'Suppression définitive',
+      message:
+          'Vous allez supprimer $_previewNotes note(s) pour $_previewEtudiants '
+          'étudiant(s) ($_mois, $_anneeAcademique). Cette action est '
+          'irréversible. Indiquez la raison de cette suppression.',
+      confirmLabel: 'Supprimer définitivement',
+    );
+    if (raison == null || !mounted) return;
+
+    setState(() => _isDeleting = true);
+    final error = await context.read<NoteState>().deleteNotes(
+      niveauId: _niveauId!,
+      classeId: _classeId!,
+      anneeAcademique: _anneeAcademique!,
+      mois: _mois!,
+      raison: raison,
+    );
+    if (!mounted) return;
+    setState(() => _isDeleting = false);
+    if (error != null) {
+      setState(() => _error = error);
+      return;
+    }
+    Navigator.of(context).pop();
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Notes supprimées avec succès.')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final refData = context.watch<ReferenceDataState>();
+    final classesForNiveau = refData.classesForNiveau(_niveauId);
+
+    return ParamDialogShell(
+      title: 'Supprimer des notes',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            "Supprime les notes d'un mois précis pour tous les étudiants du "
+            "niveau / classe / année choisis. Cette action est irréversible.",
+            style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            initialValue: _niveauId,
+            decoration: const InputDecoration(labelText: 'Niveau'),
+            items: refData.niveaux
+                .map((n) => DropdownMenuItem(value: n.id, child: Text(n.name)))
+                .toList(),
+            onChanged: (v) => setState(() {
+              _niveauId = v;
+              _classeId = null;
+              _resetPreview();
+            }),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            key: ValueKey('classe-$_niveauId'),
+            initialValue: _classeId,
+            decoration: const InputDecoration(labelText: 'Classe'),
+            items: classesForNiveau
+                .map(
+                  (c) => DropdownMenuItem(value: c.id, child: Text(c.nomClasse)),
+                )
+                .toList(),
+            onChanged: _niveauId == null
+                ? null
+                : (v) => setState(() {
+                    _classeId = v;
+                    _resetPreview();
+                  }),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: _anneeAcademique,
+            decoration: const InputDecoration(labelText: 'Année académique'),
+            items: refData.annees
+                .map((a) => DropdownMenuItem(value: a.nom, child: Text(a.nom)))
+                .toList(),
+            onChanged: (v) => setState(() {
+              _anneeAcademique = v;
+              _resetPreview();
+            }),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: _mois,
+            decoration: const InputDecoration(labelText: 'Mois'),
+            items: NoteState.moisAnneeScolaire
+                .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                .toList(),
+            onChanged: (v) => setState(() {
+              _mois = v;
+              _resetPreview();
+            }),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              OutlinedButton(
+                onPressed: (!_filtersComplete || _isPreviewing)
+                    ? null
+                    : _preview,
+                child: _isPreviewing
+                    ? const SizedBox(
+                        height: 14,
+                        width: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Vérifier'),
+              ),
+              const SizedBox(width: 12),
+              if (_previewNotes != null)
+                Expanded(
+                  child: Text(
+                    _previewNotes == 0
+                        ? 'Aucune note trouvée pour ces critères.'
+                        : '$_previewNotes note(s) pour $_previewEtudiants '
+                              'étudiant(s) seront supprimées.',
+                    style: TextStyle(
+                      color: _previewNotes == 0
+                          ? AppColors.textMuted
+                          : AppColors.cardPalette['amber']!.text,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _error!,
+              style: const TextStyle(color: AppColors.danger, fontSize: 12),
+            ),
+          ],
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Annuler'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.danger,
+                ),
+                onPressed:
+                    (_previewNotes == null ||
+                        _previewNotes == 0 ||
+                        _isDeleting)
+                    ? null
+                    : _confirmDelete,
+                child: _isDeleting
+                    ? const SizedBox(
+                        height: 16,
+                        width: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Supprimer définitivement'),
               ),
             ],
           ),
