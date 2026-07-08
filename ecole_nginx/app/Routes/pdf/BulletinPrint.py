@@ -72,8 +72,8 @@ def calculer_moyenne_generale(
             coef = float(details['coefficients'])
             
             if mois == 'all':
-                for note_mois in details['notes']:
-                    notes.append(note_mois)
+                for note_mois, val in details['notes'].items():
+                    notes.append(val)
                     coefficient.append(coef)
             elif mois in details['notes']:
                 notes.append(details['notes'][mois])
