@@ -4,6 +4,7 @@ import 'core/api_client.dart';
 import 'core/token_storage.dart';
 import 'state/abonnement_state.dart';
 import 'state/account_state.dart';
+import 'state/annulation_arriere_state.dart';
 import 'state/auth_state.dart';
 import 'state/cours_state.dart';
 import 'state/dashboard_state.dart';
@@ -56,6 +57,7 @@ class SchoolClientApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ReferenceDataState(apiClient)),
         ChangeNotifierProvider(create: (_) => StudentsState(apiClient)),
         ChangeNotifierProvider(create: (_) => PaiementState(apiClient)),
+        ChangeNotifierProvider(create: (_) => AnnulationArriereState(apiClient)),
         ChangeNotifierProvider(create: (_) => ParametresState(apiClient)),
         ChangeNotifierProvider(create: (_) => ProfileState(apiClient)),
         ChangeNotifierProvider(create: (_) => ProfesseurState(apiClient)),

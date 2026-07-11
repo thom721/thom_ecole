@@ -1,6 +1,7 @@
 <script setup>
-import { onMounted, ref, watch, computed } from "vue";
+import { onMounted, ref, watch, computed, reactive } from "vue";
 import axios from "axios";
+import Swal from 'sweetalert2';
 import PrimaryButton from '@/components/PrimaryButton.vue';
 import AdminLayout from '@/layouts/AdminLayout.vue';
 import StyleModal from '@/components/StyleModal.vue';
@@ -10,6 +11,8 @@ import { useAuthStore } from "@/stores/auth";
 
 const authStore = useAuthStore();
 const canCreatePayment = computed(() => authStore.canAccessPaiement);
+const canManageArrears = computed(() => authStore.hasPermission('Annuler arriéré'));
+const executantName = computed(() => authStore.user?.name || authStore.user?.email || '');
 
 // URL de base définie dans ton .env
 const url = import.meta.env.VITE_APP_BASE_URL;
@@ -116,11 +119,122 @@ const actions = [
     type: 'slot',
     icon: 'ri-edit-box-line text-sky-500 hover:text-sky-700 cursor-pointer',
     onClick: async (row, selection, index) => {
-        console.log(row); 
+        console.log(row);
     },
   },
- 
+  {
+    key: 'annulation',
+    type: 'slot',
+    icon: 'ri-shield-cross-line text-rose-500 hover:text-rose-700 cursor-pointer',
+    onClick: () => {},
+  },
 ]
+
+// --- DÉROGATION D'ARRIÉRÉ (annulation manuelle et réversible) ------------
+const derogationModal = ref(false);
+const derogationRow = ref(null);
+const derogationLoading = ref(false);
+const derogationSubmitting = ref(false);
+const derogationExisting = ref(null);
+const derogationError = ref('');
+const derogationForm = reactive({
+  accepteContrat: false,
+  ordonnePar: '',
+  ordonneParFonction: '',
+  typeAnnulation: 'total',
+  montant: '',
+  raison: '',
+});
+
+const openDerogationModal = async (row) => {
+  derogationRow.value = row;
+  derogationError.value = '';
+  derogationExisting.value = null;
+  Object.assign(derogationForm, {
+    accepteContrat: false, ordonnePar: '', ordonneParFonction: '',
+    typeAnnulation: 'total', montant: '', raison: '',
+  });
+  derogationModal.value = true;
+  derogationLoading.value = true;
+  try {
+    const { data } = await axios.get(`${url}/annulation-arriere`, { params: { paiement_id: row.id } });
+    derogationExisting.value = data.find(d => d.statut === 'actif') || null;
+  } catch (e) {
+    console.error('Erreur chargement dérogation:', e);
+  } finally {
+    derogationLoading.value = false;
+  }
+};
+
+const closeDerogationModal = () => {
+  derogationModal.value = false;
+  derogationRow.value = null;
+};
+
+const submitDerogation = async () => {
+  if (!derogationForm.accepteContrat) return;
+  const confirm = await Swal.fire({
+    icon: 'warning',
+    title: 'Confirmer la dérogation',
+    text: "Cette action lève le blocage d'arriéré pour cet étudiant sur cette année. Elle reste réversible.",
+    showCancelButton: true,
+    confirmButtonText: 'Oui, accorder la dérogation',
+    cancelButtonText: 'Annuler',
+    background: '#0f1117', color: '#e8eaf0',
+  });
+  if (!confirm.isConfirmed) return;
+
+  derogationSubmitting.value = true;
+  derogationError.value = '';
+  try {
+    await axios.post(`${url}/annulation-arriere`, {
+      paiement_id: derogationRow.value.id,
+      type_annulation: derogationForm.typeAnnulation,
+      montant_annule: derogationForm.typeAnnulation === 'partiel' ? Number(derogationForm.montant) : null,
+      ordonne_par: derogationForm.ordonnePar,
+      ordonne_par_fonction: derogationForm.ordonneParFonction,
+      raison: derogationForm.raison,
+      contrat_accepte: derogationForm.accepteContrat,
+    });
+    Swal.fire({ icon: 'success', title: 'Dérogation accordée', timer: 2000, showConfirmButton: false, background: '#0f1117', color: '#e8eaf0' });
+    closeDerogationModal();
+  } catch (e) {
+    derogationError.value = e.response?.data?.detail?.errors || 'Erreur lors de la création de la dérogation.';
+  } finally {
+    derogationSubmitting.value = false;
+  }
+};
+
+const revokeDerogation = async () => {
+  const { value: raison } = await Swal.fire({
+    icon: 'warning',
+    title: 'Révoquer cette dérogation ?',
+    text: "Le blocage d'arriéré sera rétabli pour cet étudiant sur cette année.",
+    input: 'textarea',
+    inputPlaceholder: 'Raison de la révocation (20 à 150 caractères)',
+    showCancelButton: true,
+    confirmButtonText: 'Oui, révoquer',
+    cancelButtonText: 'Annuler',
+    background: '#0f1117', color: '#e8eaf0',
+    inputValidator: (value) => {
+      if (!value || value.trim().length < 20 || value.trim().length > 150) {
+        return 'La raison doit contenir entre 20 et 150 caractères.';
+      }
+    },
+  });
+  if (!raison) return;
+
+  derogationSubmitting.value = true;
+  try {
+    await axios.post(`${url}/annulation-arriere/${derogationExisting.value.id}/annuler`, { raison });
+    Swal.fire({ icon: 'success', title: 'Dérogation révoquée', timer: 2000, showConfirmButton: false, background: '#0f1117', color: '#e8eaf0' });
+    closeDerogationModal();
+  } catch (e) {
+    Swal.fire({ icon: 'error', title: 'Erreur', text: e.response?.data?.detail?.errors || 'Erreur lors de la révocation.', background: '#0f1117', color: '#e8eaf0' });
+  } finally {
+    derogationSubmitting.value = false;
+  }
+};
 </script>
 
 <template>
@@ -200,6 +314,13 @@ const actions = [
             </router-link>
         </template>
 
+            <template #action-annulation="{row}">
+            <button v-if="canManageArrears" type="button" class="text-rose-500 hover:text-rose-700"
+                title="Dérogation d'arriéré" @click="openDerogationModal(row)">
+                Dérogation
+            </button>
+        </template>
+
             <!-- Optional: empty state override -->
             <template #empty>
             Aucun étudiant trouvé pour cette recherche.
@@ -242,6 +363,106 @@ const actions = [
             </div>
             <div v-else-if="searhStudent.length > 1" class="text-center py-4 text-gray-400 text-sm">
                 Aucun étudiant trouvé...
+            </div>
+        </template>
+    </StyleModal>
+
+    <StyleModal :show="derogationModal" max-width="2xl" @close="closeDerogationModal">
+        <template #title>
+            <div class="flex justify-between items-center py-2">
+                <p class="text-lg text-gray-800">
+                    Dérogation d'arriéré — {{ derogationRow?.nom }} {{ derogationRow?.prenom }} ({{ derogationRow?.annee }})
+                </p>
+                <p class="far fa-circle-xmark text-xl text-red-500 cursor-pointer hover:scale-110 transition flex justify-end" @click="closeDerogationModal"></p>
+            </div>
+        </template>
+        <template #content>
+            <div v-if="derogationLoading" class="text-center py-8 text-sm text-gray-400">Chargement...</div>
+
+            <div v-else-if="derogationExisting" class="space-y-4">
+                <div class="bg-amber-500/10 border border-amber-500/25 rounded-xl p-4 text-sm space-y-1.5">
+                    <p><strong>Dérogation active</strong> pour {{ derogationExisting.annee_academique }}</p>
+                    <p>Montant annulé : <strong>{{ derogationExisting.montant_annule }} GDES</strong> ({{ derogationExisting.type_annulation }})</p>
+                    <p>Ordonné par : {{ derogationExisting.ordonne_par }} ({{ derogationExisting.ordonne_par_fonction }})</p>
+                    <p>Exécuté par : {{ derogationExisting.executant_nom }}<span v-if="derogationExisting.executant_role"> — {{ derogationExisting.executant_role }}</span></p>
+                    <p>Motif : {{ derogationExisting.raison }}</p>
+                </div>
+                <div class="flex justify-end">
+                    <button type="button" class="btn-red disabled:opacity-40" :disabled="derogationSubmitting" @click="revokeDerogation">
+                        {{ derogationSubmitting ? 'Révocation…' : 'Révoquer la dérogation' }}
+                    </button>
+                </div>
+            </div>
+
+            <div v-else class="space-y-4">
+                <div class="bg-slate-500/10 border border-slate-500/20 rounded-xl p-4 text-[12.5px] leading-relaxed max-h-56 overflow-y-auto">
+                    <p class="font-semibold mb-2">ATTESTATION D'ANNULATION D'ARRIÉRÉ DE PAIEMENT</p>
+                    <p class="mb-2">
+                        Je soussigné(e) <strong>{{ executantName }}</strong>, certifie procéder à l'annulation du solde impayé
+                        de l'année académique <strong>{{ derogationRow?.annee }}</strong> pour l'étudiant
+                        <strong>{{ derogationRow?.nom }} {{ derogationRow?.prenom }}</strong>, sur instruction expresse de
+                        <strong>{{ derogationForm.ordonnePar || '…' }}</strong>, en sa qualité de
+                        <strong>{{ derogationForm.ordonneParFonction || '…' }}</strong>.
+                    </p>
+                    <p class="mb-1">Je reconnais que cette action :</p>
+                    <ul class="list-disc pl-5 space-y-0.5">
+                        <li>permet à l'étudiant de régler ses paiements de l'année en cours sans que le solde de l'année précédente ne soit exigé au préalable ;</li>
+                        <li>n'efface pas la dette dans les registres : elle est enregistrée comme une dérogation, horodatée et nominative ;</li>
+                        <li>reste réversible à tout moment par une personne autorisée, ce qui rétablira l'obligation de règlement ;</li>
+                        <li>sera intégrée au rapport financier (personne ayant ordonné, personne ayant exécuté, montant, motif).</li>
+                    </ul>
+                    <p class="mt-2">En cochant la case ci-dessous, je confirme avoir pris connaissance de ces termes et j'atteste de l'exactitude des informations saisies.</p>
+                </div>
+
+                <label class="flex items-start gap-2 text-sm">
+                    <input type="checkbox" v-model="derogationForm.accepteContrat" class="mt-1">
+                    <span>J'ai lu et j'accepte les termes de cette attestation.</span>
+                </label>
+
+                <fieldset :disabled="!derogationForm.accepteContrat" class="space-y-3" :class="{ 'opacity-40': !derogationForm.accepteContrat }">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-sm">Ordonné par</label>
+                            <input type="text" v-model="derogationForm.ordonnePar" placeholder="Nom du responsable" class="input-select">
+                        </div>
+                        <div>
+                            <label class="text-sm">Fonction</label>
+                            <input type="text" v-model="derogationForm.ordonneParFonction" placeholder="Ex: Directeur général" class="input-select">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-sm block mb-1">Montant à annuler</label>
+                        <div class="flex items-center gap-4 text-sm mb-2">
+                            <label class="flex items-center gap-1.5">
+                                <input type="radio" value="total" v-model="derogationForm.typeAnnulation"> Tout le reste (calculé automatiquement)
+                            </label>
+                            <label class="flex items-center gap-1.5">
+                                <input type="radio" value="partiel" v-model="derogationForm.typeAnnulation"> Montant précis
+                            </label>
+                        </div>
+                        <input v-if="derogationForm.typeAnnulation === 'partiel'" type="number" min="0" step="0.01"
+                            v-model="derogationForm.montant" placeholder="Montant en GDES" class="input-select">
+                    </div>
+
+                    <div>
+                        <label class="text-sm">Raison (20 à 150 caractères)</label>
+                        <textarea v-model="derogationForm.raison" rows="3" maxlength="150" class="input-select"
+                            placeholder="Motif de cette dérogation"></textarea>
+                        <p class="text-[11px] text-gray-400 text-right">{{ derogationForm.raison.length }}/150</p>
+                    </div>
+                </fieldset>
+
+                <p v-if="derogationError" class="text-red-500 text-sm">{{ derogationError }}</p>
+
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" class="btn-outline-sky" @click="closeDerogationModal">Annuler</button>
+                    <button type="button" class="btn-red disabled:opacity-40"
+                        :disabled="!derogationForm.accepteContrat || !derogationForm.ordonnePar || !derogationForm.ordonneParFonction || derogationForm.raison.length < 20 || (derogationForm.typeAnnulation === 'partiel' && !derogationForm.montant) || derogationSubmitting"
+                        @click="submitDerogation">
+                        {{ derogationSubmitting ? 'Envoi…' : 'Accorder la dérogation' }}
+                    </button>
+                </div>
             </div>
         </template>
     </StyleModal>

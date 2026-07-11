@@ -111,6 +111,45 @@ class Paiement(Base, ObservableMixin):
     niveau_ref = relationship("Niveau", back_populates="paiement")
     classe_ref = relationship("Classe", back_populates="paiement")
 
+class AnnulationArriere(Base, ObservableMixin):
+    """Dérogation manuelle (réversible) au blocage d'arriéré de l'année
+    précédente (voir RSavePaiement.py:_check_arrears_previous_year) — ne
+    modifie jamais Paiement.paiement_details, l'historique réel des
+    versements reste intact ; seule l'existence d'une ligne active ici
+    lève le blocage pour ce couple étudiant/année."""
+    __tablename__ = "annulations_arriere"
+    __table_args__ = {
+        'mysql_collate': 'utf8mb4_unicode_ci',
+        'mysql_charset': 'utf8mb4',
+         'mysql_engine':'InnoDB'
+    }
+
+    id = Column(CHAR(36), primary_key=True, default=generate_uuid)
+    etudiant_id = Column(CHAR(36), ForeignKey("etudiants.id"), nullable=False)
+    annee_academique_id = Column(CHAR(36), ForeignKey("annee_academiques.id"), nullable=False)
+    annee_academique = Column(String(255), nullable=False)
+    type_annulation = Column(String(20), nullable=False)  # 'partiel' | 'total'
+    montant_annule = Column(Numeric(10, 2), nullable=False)
+    ordonne_par = Column(String(255), nullable=False)
+    ordonne_par_fonction = Column(String(255), nullable=False)
+    executant_user_id = Column(CHAR(36), ForeignKey("users.id"), nullable=False)
+    executant_nom = Column(String(255), nullable=False)
+    executant_role = Column(String(255), nullable=True)
+    raison = Column(String(255), nullable=False)
+    contrat_accepte = Column(Boolean, nullable=False, default=False)
+    statut = Column(String(20), nullable=False, default="actif")  # 'actif' | 'annule'
+    annule_le = Column(DateTime, nullable=True)
+    annule_par_user_id = Column(CHAR(36), ForeignKey("users.id"), nullable=True)
+    annule_raison = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relations
+    etudiant = relationship("Etudiant")
+    annee_academique_ref = relationship("AnneeAcademique")
+    executant = relationship("User", foreign_keys=[executant_user_id])
+    annule_par = relationship("User", foreign_keys=[annule_par_user_id])
+
 class ParametrePaiement(Base, ObservableMixin):
     __tablename__ = "parametre_paiements"
     __table_args__ = {

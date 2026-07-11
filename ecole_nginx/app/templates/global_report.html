@@ -295,6 +295,39 @@
           {% endif %}
           {% endfor %}
 
+          {# ── DÉROGATIONS D'ARRIÉRÉ ACCORDÉES ── #}
+          {# Aucun argent encaissé ici : une dette d'année précédente a été
+             annulée sur ordre d'un responsable — volontairement PAS
+             additionné à ns.total_final. #}
+          {% if (type == 'Global' or type == 'Arriéré') and derogations %}
+          <tr>
+               <td colspan="3" style="font-weight: 900; text-align:center; font-size:14px">DÉROGATIONS D'ARRIÉRÉ ACCORDÉES</td>
+          </tr>
+          <tr>
+               <th>Étudiant</th>
+               <th>Année / Motif</th>
+               <th>Montant annulé</th>
+          </tr>
+          {% for d in derogations %}
+          <tr>
+               <td>{{ d.fname }} {{ d.prenom }}</td>
+               <td>
+                    {{ d.annee_academique }}{{ ' (révoquée)' if d.statut == 'annule' }}<br>
+                    <span style="font-size:11px">Ordonné par : {{ d.ordonne_par }} ({{ d.ordonne_par_fonction }})</span><br>
+                    <span style="font-size:11px">Exécuté par : {{ d.executant_nom }}{{ ' — ' + d.executant_role if d.executant_role }}</span><br>
+                    <span style="font-size:11px">Motif : {{ d.raison }}</span>
+               </td>
+               <td style="text-align:center">{{ d.montant_annule }} GDES</td>
+          </tr>
+          {% endfor %}
+          <tr>
+               <td colspan="2" style="font-size:15px">Total des dérogations accordées</td>
+               <td style="text-align:center; font-size:15px;background-color:#dfdede">
+                    {{ total_derogations }} GDES
+               </td>
+          </tr>
+          {% endif %}
+
           {# ── PRÊTS ── #}
           {% if type == 'Global' or type == 'Prêt' %}
           <tr>

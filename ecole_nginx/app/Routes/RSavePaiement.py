@@ -9,7 +9,7 @@ from dateutil.relativedelta import relativedelta
 import logging
 from app.Models.MModels import Etudiant,Niveau,Classe,AnneeAcademique,Faculte,User
 from app.Models.MRelations import ClasseEtudiant
-from app.Models.MFinancials import ParametrePaiement, Paiement,PaiementStatut
+from app.Models.MFinancials import ParametrePaiement, Paiement,PaiementStatut,AnnulationArriere
 from collections import OrderedDict
 from app.Models.MSystems import Log, Profile
 import uuid as uuid_lib
@@ -228,6 +228,70 @@ def supprimer_dernier_paiement(
 # VÉRIFICATION DES ARRIÉRÉS
 # ============================================================================
 
+def _resolve_previous_year(
+    etudiant_id: str, current_annee_id: str, db: Session
+) -> tuple:
+    """Résout l'année académique précédant immédiatement current_annee_id et
+    le Paiement de l'étudiant pour cette année précédente (ou None, None si
+    l'année courante ou l'année précédente n'existent pas). Factorisé hors
+    de _check_arrears_previous_year() pour être réutilisé par la
+    dérogation d'arriéré (calcul du solde à annuler)."""
+    current_annee = (
+        db.query(AnneeAcademique)
+        .filter(AnneeAcademique.id == current_annee_id)
+        .first()
+    )
+    if not current_annee:
+        return None, None
+
+    prev_annee = (
+        db.query(AnneeAcademique)
+        .filter(AnneeAcademique.date_debut < current_annee.date_debut)
+        .order_by(AnneeAcademique.date_debut.desc())
+        .first()
+    )
+    if not prev_annee:
+        return None, None
+
+    prev_paiement = (
+        db.query(Paiement)
+        .filter(
+            Paiement.etudiant_id == etudiant_id,
+            Paiement.annee_academique == prev_annee.annee_academique,
+        )
+        .first()
+    )
+    return prev_annee, prev_paiement
+
+
+def _compute_previous_year_balance(prev_paiement) -> Optional[float]:
+    """Calcule le solde impayé (total_annuel - total_verse) à partir de la
+    dernière transaction non retournée du Paiement de l'année précédente.
+    Retourne None si non déterminable (pas de paiement, pas d'info_paiement
+    exploitable) — utilisé pour pré-remplir le montant "tout le reste"
+    d'une dérogation d'arriéré."""
+    if not prev_paiement:
+        return None
+    pd_data = (
+        json.loads(prev_paiement.paiement_details)
+        if isinstance(prev_paiement.paiement_details, str)
+        else prev_paiement.paiement_details
+    )
+    inner = pd_data.get("paiement_details", {})
+    info_paiement = inner.get("info_paiement", {})
+    valid = [(k, v) for k, v in info_paiement.items() if v.get("status") != "retourné"]
+    if not valid:
+        return None
+    try:
+        valid.sort(key=lambda x: datetime.strptime(x[0].replace("/", "-"), "%d-%m-%Y %H:%M"))
+    except ValueError:
+        pass
+    _, last = valid[-1]
+    total_verse = float(last.get("total_verse") or 0)
+    total_annuel = float(last.get("total_annuel") or 0)
+    return max(0.0, total_annuel - total_verse)
+
+
 def _check_arrears_previous_year(
     etudiant_id: str, current_annee_id: str, db: Session
 ) -> tuple:
@@ -239,6 +303,7 @@ def _check_arrears_previous_year(
       - Première année à l'établissement (≤ 1 inscription enregistrée)
       - Pas inscrit l'année précédente (gap year, nouveau cycle, etc.)
       - Aucune année précédente dans la base
+      - Une dérogation active (AnnulationArriere) couvre cette année
 
     Retourne (has_arrears: bool, message: str | None).
     """
@@ -251,23 +316,24 @@ def _check_arrears_previous_year(
     if n_inscriptions <= 1:
         return False, None
 
-    # 2. Récupérer l'année courante (besoin de date_debut pour ordonner)
-    current_annee = (
-        db.query(AnneeAcademique)
-        .filter(AnneeAcademique.id == current_annee_id)
-        .first()
-    )
-    if not current_annee:
+    # 2-3. Année précédente + son Paiement éventuel
+    prev_annee, prev_paiement = _resolve_previous_year(etudiant_id, current_annee_id, db)
+    if not prev_annee:
         return False, None
 
-    # 3. Année académique immédiatement précédente (la plus récente avant N)
-    prev_annee = (
-        db.query(AnneeAcademique)
-        .filter(AnneeAcademique.date_debut < current_annee.date_debut)
-        .order_by(AnneeAcademique.date_debut.desc())
+    # 3bis. Dérogation active : un responsable a manuellement levé le
+    # blocage pour cette année précédente — prime sur toute la logique
+    # ci-dessous, sans jamais modifier le Paiement original.
+    active_waiver = (
+        db.query(AnnulationArriere)
+        .filter(
+            AnnulationArriere.etudiant_id == etudiant_id,
+            AnnulationArriere.annee_academique_id == prev_annee.id,
+            AnnulationArriere.statut == "actif",
+        )
         .first()
     )
-    if not prev_annee:
+    if active_waiver:
         return False, None
 
     # 4. L'étudiant était-il inscrit l'année précédente ?
@@ -284,14 +350,6 @@ def _check_arrears_previous_year(
         return False, None
 
     # 5. Paiement de l'année précédente
-    prev_paiement = (
-        db.query(Paiement)
-        .filter(
-            Paiement.etudiant_id == etudiant_id,
-            Paiement.annee_academique == prev_annee.annee_academique,
-        )
-        .first()
-    )
     if not prev_paiement:
         return True, (
             f"L'étudiant n'a aucun paiement enregistré pour l'année "

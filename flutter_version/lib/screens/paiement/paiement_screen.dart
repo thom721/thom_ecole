@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/paiement.dart';
 import '../../models/student.dart';
+import '../../state/auth_state.dart';
 import '../../state/paiement_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/data_table_card.dart';
 import '../../widgets/pill_button.dart';
 import '../../widgets/section_header.dart';
+import 'derogation_arriere_dialog.dart';
 import 'paiement_detail_screen.dart';
 import 'paiement_form_screen.dart';
 
@@ -77,6 +79,7 @@ class _PaiementScreenState extends State<PaiementScreen> {
     }
 
     final state = context.watch<PaiementState>();
+    final canManageArrears = context.watch<AuthState>().permissions.contains('Annuler arriéré');
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -131,12 +134,13 @@ class _PaiementScreenState extends State<PaiementScreen> {
                   onPageChange: (page) => context.read<PaiementState>().loadList(page: page),
                   child: DataTable(
                     showCheckboxColumn: false,
-                    columns: const [
-                      DataColumn(label: Text('IDENTIFIANT')),
-                      DataColumn(label: Text('NOM')),
-                      DataColumn(label: Text('PRÉNOM')),
-                      DataColumn(label: Text('ANNÉE')),
-                      DataColumn(label: Text('CLASSE')),
+                    columns: [
+                      const DataColumn(label: Text('IDENTIFIANT')),
+                      const DataColumn(label: Text('NOM')),
+                      const DataColumn(label: Text('PRÉNOM')),
+                      const DataColumn(label: Text('ANNÉE')),
+                      const DataColumn(label: Text('CLASSE')),
+                      if (canManageArrears) const DataColumn(label: Text('')),
                     ],
                     rows: state.payments.map((p) {
                       return DataRow(
@@ -148,6 +152,14 @@ class _PaiementScreenState extends State<PaiementScreen> {
                           DataCell(Text(p.prenom)),
                           DataCell(Text(p.annee)),
                           DataCell(Text(p.classe)),
+                          if (canManageArrears)
+                            DataCell(
+                              IconButton(
+                                tooltip: "Dérogation d'arriéré",
+                                icon: Icon(Icons.gpp_maybe_outlined, size: 17, color: AppColors.danger),
+                                onPressed: () => showDerogationArriereDialog(context, p),
+                              ),
+                            ),
                         ],
                       );
                     }).toList(),

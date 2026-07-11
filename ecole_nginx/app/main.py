@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from time import time
-from app.Routes import Etudiants, RAcademic,RCours,RProgramme,dashboard,RCoursEtudiant,RParamExam,RAnneAcademique,RClasses,RInscription,RPaiement,RPaiementParam,RClientInfos,RProfile,RAuth,RRolePermission,RVente,RLog,RNotes,RSavePaiement,Initialisation,Returns,RTransaction,RPromus,REvents,RNews,RCategory,RPresences,RFormations,RPageSections,RProduit,RCategorieProduit,RPayroll,RParametrePayroll,RPointage
+from app.Routes import Etudiants, RAcademic,RCours,RProgramme,dashboard,RCoursEtudiant,RParamExam,RAnneAcademique,RClasses,RInscription,RPaiement,RPaiementParam,RClientInfos,RProfile,RAuth,RRolePermission,RVente,RLog,RNotes,RSavePaiement,Initialisation,Returns,RTransaction,RPromus,REvents,RNews,RCategory,RPresences,RFormations,RPageSections,RProduit,RCategorieProduit,RPayroll,RParametrePayroll,RPointage,RAnnulationArriere
 
 from app.Routes.pdf import BulletinPrint, paiement_recu,GlobalRepport,PaymentRepport,Register_report,VenteRecu,RegisterRepport,PedagogicRepport,MasBulletinPrint,PedaRepport,RPRepport,RExcelExport,RHoraireReport,PayrollReport,SalaireHistoriqueReport
 from fastapi.responses import JSONResponse
@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 
 from app.Models.MModels import User,Etudiant
-from app.Models.MFinancials import Paiement,ParametrePaiement,ParamExam,OtherTransaction,Vente,Depense,Payroll,PayrollVersement
+from app.Models.MFinancials import Paiement,ParametrePaiement,ParamExam,OtherTransaction,Vente,Depense,Payroll,PayrollVersement,AnnulationArriere
 from app.Models.MSystems import Log
 from app.database import SessionLocal, engine, Base,get_engine_dynamically
 import os
@@ -354,6 +354,7 @@ def startup_event():
         ParametrePaiement.register_observers(db)
         Payroll.register_observers(db)
         PayrollVersement.register_observers(db)
+        AnnulationArriere.register_observers(db)
         # Seed sections page d'accueil
         from app.services.home_seed import seed_home, seed_formations
         seed_home(db)
@@ -388,6 +389,7 @@ app.include_router(RVente.router)
 app.include_router(RProduit.router)
 app.include_router(RCategorieProduit.router)
 app.include_router(RPayroll.router)
+app.include_router(RAnnulationArriere.router_annulation_arriere)
 app.include_router(RParametrePayroll.router)
 app.include_router(RPointage.router)
 app.include_router(RPaiementParam.router)

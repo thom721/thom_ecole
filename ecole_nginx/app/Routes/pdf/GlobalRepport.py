@@ -5,8 +5,8 @@ from sqlalchemy import select, and_, or_, func
 from typing import Optional, List, Dict, Any
 from decimal import Decimal
 from pydantic import BaseModel, Field, field_validator,model_validator
-from app.Models.MFinancials import Paiement,Loan,LoanRepayment,OrderItem,Vente,Depense,FraisInscription,OtherTransaction
-from app.Models.MModels import Niveau,Etudiant,User
+from app.Models.MFinancials import Paiement,Loan,LoanRepayment,OrderItem,Vente,Depense,FraisInscription,OtherTransaction,AnnulationArriere
+from app.Models.MModels import Niveau,Etudiant,User,AnneeAcademique
 from app.Models.MSystems import Profile
 from app.Models.MRelations import ClasseEtudiant
 from app.database import get_db
@@ -238,6 +238,56 @@ def extraire_donnees_par_intervalle_for_day(
     
     return resultat
 
+def split_arrears_payments(
+    rapport_personalise: List[Dict[str, Any]],
+    db: Session
+) -> tuple[List[Dict[str, Any]], SalesCategory]:
+    """Sépare, parmi les paiements déjà extraits pour la période, ceux qui
+    règlent une année académique différente de l'année active — un
+    étudiant qui verse un montant pendant la période du rapport mais pour
+    une année académique antérieure (arriéré), plutôt que pour l'année en
+    cours. Chaque entrée de rapport_personalise porte déjà
+    `annee_academique` (fusionné depuis paiement_details.details_etudiant).
+
+    Retourne (paiements de l'année en cours uniquement, catégorie Arriéré)
+    — les paiements en arriéré sont retirés de la liste principale pour
+    éviter qu'ils soient comptés deux fois (une fois dans le total des
+    paiements de l'année, une fois dans la section Arriéré).
+    """
+    annee_active = db.query(AnneeAcademique).filter(AnneeAcademique.status == 1).first()
+    annee_active_nom = annee_active.annee_academique if annee_active else None
+
+    if not annee_active_nom:
+        return rapport_personalise, SalesCategory(category='Arriéré', quantite=0, total=0, items=[])
+
+    current_year_payments = []
+    arrears_items = []
+    arrears_total = Decimal("0.0")
+
+    for item in rapport_personalise:
+        annee_paiement = item.get('annee_academique')
+        if annee_paiement and annee_paiement != annee_active_nom:
+            montant = Decimal(str(item.get('depot') or 0))
+            arrears_total += montant
+            arrears_items.append({
+                'qt_item': 1,
+                'order_total': float(montant),
+                'prix_item': float(montant),
+                'vente_name': f"Solde {annee_paiement}",
+                'fname': item.get('nom', ''),
+                'prenom': item.get('prenom', ''),
+            })
+        else:
+            current_year_payments.append(item)
+
+    arrears_category = SalesCategory(
+        category='Arriéré',
+        quantite=len(arrears_items),
+        total=float(arrears_total),
+        items=arrears_items,
+    )
+    return current_year_payments, arrears_category
+
 def get_register_for_period(
     niveaux: List,
     date_debut: datetime,
@@ -284,6 +334,12 @@ def get_sales_for_inter(
 ) -> Dict[str, SalesCategory]:
     """Récupère les ventes pour l'intervalle"""
     resultat = {}
+    # 'Arriéré' n'est normalement pas une catégorie de produit vendu, mais
+    # certains rapports existants ont pu enregistrer des arriérés comme
+    # OrderItem (ancien flux, via Vente) avant l'ajout de
+    # split_arrears_payments() (qui les tire de Paiement). On garde donc
+    # cette catégorie ici pour ne rien perdre, et print_global_report()
+    # fusionne les deux sources.
     categories = ['Livres', 'Tissus', 'Fournitures', 'Arriéré']
     
     for category in categories:
@@ -392,10 +448,54 @@ def print_global_report(
         
         # Récupérer les statistiques d'inscription
         inscription = get_register_for_period(niveaux, date_debut, date_fin, db)
-        
+
+        # Séparer les paiements d'arriéré (année académique différente de
+        # l'année active) du reste — voir split_arrears_payments().
+        rapport_personalise, arrears_category = split_arrears_payments(rapport_personalise, db)
+
         # Récupérer les ventes
         sales = get_sales_for_inter(date_debut, date_fin, db)
-        
+
+        # Fusionner les deux sources d'arriéré : anciens rapports enregistrés
+        # comme OrderItem/Vente (sales['Arriéré'], flux historique) + ceux
+        # tirés des paiements de l'année précédente (arrears_category,
+        # nouveau flux) — on additionne plutôt que d'écraser, pour ne perdre
+        # aucune donnée existante.
+        vente_arriere = sales.get('Arriéré') or SalesCategory(category='Arriéré', quantite=0, total=0, items=[])
+        sales['Arriéré'] = SalesCategory(
+            category='Arriéré',
+            quantite=vente_arriere.quantite + arrears_category.quantite,
+            total=vente_arriere.total + arrears_category.total,
+            items=vente_arriere.items + arrears_category.items,
+        )
+
+        # Dérogations d'arriéré accordées pendant la période (voir
+        # RAnnulationArriere.py) — distinct de sales['Arriéré'] : aucun
+        # argent n'a été encaissé ici, c'est une dette annulée sur ordre
+        # d'un responsable. Affiché séparément, jamais additionné au total.
+        derogations_query = (
+            db.query(AnnulationArriere)
+            .options(joinedload(AnnulationArriere.etudiant))
+            .filter(AnnulationArriere.created_at.between(date_debut, date_fin))
+            .all()
+        )
+        derogations = []
+        total_derogations = Decimal("0.0")
+        for d in derogations_query:
+            total_derogations += d.montant_annule
+            derogations.append({
+                'fname': d.etudiant.nom if d.etudiant else '',
+                'prenom': d.etudiant.prenom if d.etudiant else '',
+                'annee_academique': d.annee_academique,
+                'montant_annule': float(d.montant_annule),
+                'ordonne_par': d.ordonne_par,
+                'ordonne_par_fonction': d.ordonne_par_fonction,
+                'executant_nom': d.executant_nom,
+                'executant_role': d.executant_role,
+                'raison': d.raison,
+                'statut': d.statut,
+            })
+
         # Récupérer les dépenses
         depenses = db.query(Depense).filter(
             Depense.created_at.between(date_debut, date_fin)
@@ -494,6 +594,8 @@ def print_global_report(
             "repayment":repay_list,
             "total_autres": float(total_autres),
             "autres_transactions": autres_list,
+            "derogations": derogations,
+            "total_derogations": float(total_derogations),
             "date": datetime.now().strftime("%d/%m/%Y")
         }
      #    )

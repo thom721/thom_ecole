@@ -66,7 +66,8 @@ def fill_roles_and_permissions(db: Session = Depends(get_db)):
             "Ajouter role", "Modifier role", "Supprimer role", "Voir role",
             "Ajouter parametre", "Modifier parametre", "Supprimer parametre", "Voir parametre", "Supprimer transaction","Modifier transaction", 
             "Imprimer vente", "Imprimer paiement", "Imprimer rapport",
-            "Imprimer rapport pedagogique", "Imprimer bulletin", "Imprimer enregistrement"
+            "Imprimer rapport pedagogique", "Imprimer bulletin", "Imprimer enregistrement",
+            "Annuler arriéré"
         ]
 
         for name in permissions:
