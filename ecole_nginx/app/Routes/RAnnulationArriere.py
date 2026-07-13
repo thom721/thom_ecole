@@ -7,6 +7,7 @@ from app.Schemas.SAnnulationArriere import (
     AnnulationArriereRequest,
     RevokeAnnulationArriereRequest,
     AnnulationArriereResponse,
+    AnnulationArriereContextResponse,
 )
 from app.database import get_db
 from app.Models.MModels import Etudiant, AnneeAcademique, User
@@ -74,7 +75,7 @@ def creer_annulation_arriere(
         )
 
     if request.type_annulation == "total":
-        montant_annule = _compute_previous_year_balance(prev_paiement)
+        montant_annule, _devise = _compute_previous_year_balance(prev_paiement)
         if montant_annule is None:
             raise HTTPException(
                 status_code=422,
@@ -186,15 +187,17 @@ def revoquer_annulation_arriere(
     return _to_response(row)
 
 
-@router_annulation_arriere.get("/annulation-arriere", response_model=list[AnnulationArriereResponse])
+@router_annulation_arriere.get("/annulation-arriere", response_model=AnnulationArriereContextResponse)
 def lister_annulations_arriere(
     paiement_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(check_permission("Annuler arriéré")),
 ):
-    """Liste les dérogations (actives et révoquées) pour l'étudiant/année du
-    Paiement donné, pour que le bouton par ligne sache proposer 'Créer' ou
-    'Annuler la dérogation active' avec son résumé."""
+    """Contexte du bouton de dérogation pour cette ligne Paiement : le solde
+    restant dû (affiché avant même de choisir le montant), et l'historique
+    des dérogations (actives et révoquées) pour l'étudiant/année de ce
+    Paiement, pour que le bouton sache proposer 'Créer' ou 'Annuler la
+    dérogation active' avec son résumé."""
     paiement = db.query(Paiement).filter(Paiement.id == paiement_id).first()
     if not paiement:
         raise HTTPException(status_code=422, detail={"errors": "Paiement introuvable"})
@@ -207,7 +210,12 @@ def lister_annulations_arriere(
         .order_by(AnnulationArriere.created_at.desc())
         .all()
     )
-    return [_to_response(r) for r in rows]
+    solde_restant, devise = _compute_previous_year_balance(paiement)
+    return AnnulationArriereContextResponse(
+        solde_restant=solde_restant,
+        devise=devise,
+        derogations=[_to_response(r) for r in rows],
+    )
 
 
 def _to_response(row: AnnulationArriere) -> AnnulationArriereResponse:

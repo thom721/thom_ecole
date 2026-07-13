@@ -291,8 +291,9 @@ export const useAuthStore = defineStore('auth', {
         this.setToken(response.data.token)
         this.user=response.data
         this.setUser(response.data)
-        
-        
+        this.tabsModified = false
+        this._tabSnapshot = null
+
         if (response.data.school) {
           this.setSchool(response.data.school)
         }
@@ -350,10 +351,13 @@ export const useAuthStore = defineStore('auth', {
     },
 
     clearAuth() {
+      this.stopTabWatcher()
       this.setUser(null)
       this.setSchool(null)
       this.setToken(null)
       this.setError(null)
+      this.tabsModified = false
+      this._tabSnapshot = null
       localStorage.removeItem('auth-token')
       sessionStorage.removeItem('auth-token')
       localStorage.removeItem('api_token')

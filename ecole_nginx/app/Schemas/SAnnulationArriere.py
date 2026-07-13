@@ -56,3 +56,13 @@ class AnnulationArriereResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class AnnulationArriereContextResponse(BaseModel):
+    """Contexte d'une ligne Paiement pour le bouton de dérogation : le
+    solde restant dû (pour affichage avant de choisir 'tout le reste' ou
+    un montant précis) et l'historique des dérogations (active en tête,
+    si présente)."""
+    solde_restant: Optional[float] = None
+    devise: Optional[str] = None
+    derogations: list[AnnulationArriereResponse] = []

@@ -16,9 +16,12 @@ class AnnulationArriereState extends ChangeNotifier {
   bool isLoading = false;
   bool isSubmitting = false;
 
-  /// Équivalent de GET v1/annulation-arriere?paiement_id= — la dérogation
-  /// active pour ce paiement (année précise), ou null s'il n'y en a pas.
-  Future<AnnulationArriere?> fetchActive(String paiementId) async {
+  /// Équivalent de GET v1/annulation-arriere?paiement_id= — le solde
+  /// restant dû pour cette ligne (affiché avant même de choisir le
+  /// montant) et la dérogation active pour ce paiement, s'il y en a une.
+  Future<({double? soldeRestant, String? devise, AnnulationArriere? existing})> fetchContext(
+    String paiementId,
+  ) async {
     isLoading = true;
     notifyListeners();
     try {
@@ -26,14 +29,23 @@ class AnnulationArriereState extends ChangeNotifier {
         'annulation-arriere',
         query: {'paiement_id': paiementId},
       );
-      final list = (response.data as List?) ?? const [];
-      for (final item in list) {
+      final data = response.data as Map<String, dynamic>;
+      final derogations = (data['derogations'] as List?) ?? const [];
+      AnnulationArriere? existing;
+      for (final item in derogations) {
         final a = AnnulationArriere.fromJson(item as Map<String, dynamic>);
-        if (a.estActive) return a;
+        if (a.estActive) {
+          existing = a;
+          break;
+        }
       }
-      return null;
+      return (
+        soldeRestant: (data['solde_restant'] as num?)?.toDouble(),
+        devise: data['devise']?.toString(),
+        existing: existing,
+      );
     } catch (_) {
-      return null;
+      return (soldeRestant: null, devise: null, existing: null);
     } finally {
       isLoading = false;
       notifyListeners();

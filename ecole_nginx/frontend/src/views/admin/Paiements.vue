@@ -136,6 +136,8 @@ const derogationRow = ref(null);
 const derogationLoading = ref(false);
 const derogationSubmitting = ref(false);
 const derogationExisting = ref(null);
+const derogationSoldeRestant = ref(null);
+const derogationDevise = ref('');
 const derogationError = ref('');
 const derogationForm = reactive({
   accepteContrat: false,
@@ -146,19 +148,35 @@ const derogationForm = reactive({
   raison: '',
 });
 
+const roles = ref([]);
+const fetchRoles = async () => {
+  if (roles.value.length > 0) return;
+  try {
+    const { data } = await axios.get(`${url}/role`);
+    roles.value = data.data;
+  } catch (e) {
+    console.error('Erreur chargement rôles:', e);
+  }
+};
+
 const openDerogationModal = async (row) => {
   derogationRow.value = row;
   derogationError.value = '';
   derogationExisting.value = null;
+  derogationSoldeRestant.value = null;
+  derogationDevise.value = '';
   Object.assign(derogationForm, {
     accepteContrat: false, ordonnePar: '', ordonneParFonction: '',
     typeAnnulation: 'total', montant: '', raison: '',
   });
   derogationModal.value = true;
   derogationLoading.value = true;
+  fetchRoles();
   try {
     const { data } = await axios.get(`${url}/annulation-arriere`, { params: { paiement_id: row.id } });
-    derogationExisting.value = data.find(d => d.statut === 'actif') || null;
+    derogationExisting.value = data.derogations.find(d => d.statut === 'actif') || null;
+    derogationSoldeRestant.value = data.solde_restant;
+    derogationDevise.value = data.devise || '';
   } catch (e) {
     console.error('Erreur chargement dérogation:', e);
   } finally {
@@ -395,6 +413,16 @@ const revokeDerogation = async () => {
             </div>
 
             <div v-else class="space-y-4">
+                <div class="bg-rose-500/10 border border-rose-500/25 rounded-xl p-3 text-sm">
+                    <span v-if="derogationSoldeRestant !== null">
+                        Solde restant dû pour {{ derogationRow?.annee }} :
+                        <strong>{{ derogationSoldeRestant }} {{ derogationDevise }}</strong>
+                    </span>
+                    <span v-else class="text-gray-400">
+                        Solde restant non déterminable automatiquement — utilisez un montant précis.
+                    </span>
+                </div>
+
                 <div class="bg-slate-500/10 border border-slate-500/20 rounded-xl p-4 text-[12.5px] leading-relaxed max-h-56 overflow-y-auto">
                     <p class="font-semibold mb-2">ATTESTATION D'ANNULATION D'ARRIÉRÉ DE PAIEMENT</p>
                     <p class="mb-2">
@@ -427,7 +455,10 @@ const revokeDerogation = async () => {
                         </div>
                         <div>
                             <label class="text-sm">Fonction</label>
-                            <input type="text" v-model="derogationForm.ordonneParFonction" placeholder="Ex: Directeur général" class="input-select">
+                            <select v-model="derogationForm.ordonneParFonction" class="input-select">
+                                <option value="" disabled>Choisir une fonction</option>
+                                <option v-for="r in roles" :key="r.id" :value="r.name">{{ r.name }}</option>
+                            </select>
                         </div>
                     </div>
 

@@ -5,6 +5,7 @@ import '../../models/annulation_arriere.dart';
 import '../../models/paiement.dart';
 import '../../state/annulation_arriere_state.dart';
 import '../../state/auth_state.dart';
+import '../../state/role_permission_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/param_dialog.dart';
 
@@ -36,10 +37,12 @@ class _DerogationArriereDialog extends StatefulWidget {
 class _DerogationArriereDialogState extends State<_DerogationArriereDialog> {
   bool _isLoading = true;
   AnnulationArriere? _existing;
+  double? _soldeRestant;
+  String? _devise;
 
   bool _accepteContrat = false;
   final _ordonneParController = TextEditingController();
-  final _ordonneParFonctionController = TextEditingController();
+  String? _ordonneParFonction;
   final _montantController = TextEditingController();
   final _raisonController = TextEditingController();
   String _typeAnnulation = 'total';
@@ -54,24 +57,31 @@ class _DerogationArriereDialogState extends State<_DerogationArriereDialog> {
   @override
   void dispose() {
     _ordonneParController.dispose();
-    _ordonneParFonctionController.dispose();
     _montantController.dispose();
     _raisonController.dispose();
     super.dispose();
   }
 
   Future<void> _load() async {
-    final existing = await context.read<AnnulationArriereState>().fetchActive(widget.paiement.id);
+    final rolesState = context.read<RolePermissionState>();
+    final futures = <Future>[
+      context.read<AnnulationArriereState>().fetchContext(widget.paiement.id),
+      if (rolesState.roles.isEmpty) rolesState.loadLists(),
+    ];
+    final results = await Future.wait(futures);
     if (!mounted) return;
+    final ctx = results.first as ({double? soldeRestant, String? devise, AnnulationArriere? existing});
     setState(() {
-      _existing = existing;
+      _existing = ctx.existing;
+      _soldeRestant = ctx.soldeRestant;
+      _devise = ctx.devise;
       _isLoading = false;
     });
   }
 
   Future<void> _submit() async {
     if (!_accepteContrat) return;
-    if (_ordonneParController.text.trim().isEmpty || _ordonneParFonctionController.text.trim().isEmpty) {
+    if (_ordonneParController.text.trim().isEmpty || (_ordonneParFonction ?? '').isEmpty) {
       setState(() => _error = "Le nom et la fonction de l'ordonnateur sont requis.");
       return;
     }
@@ -117,7 +127,7 @@ class _DerogationArriereDialogState extends State<_DerogationArriereDialog> {
       typeAnnulation: _typeAnnulation,
       montantAnnule: montant,
       ordonnePar: _ordonneParController.text.trim(),
-      ordonneParFonction: _ordonneParFonctionController.text.trim(),
+      ordonneParFonction: _ordonneParFonction ?? '',
       raison: raison,
       contratAccepte: _accepteContrat,
     );
@@ -225,6 +235,21 @@ class _DerogationArriereDialogState extends State<_DerogationArriereDialog> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: AppColors.danger.withValues(alpha: 0.1),
+            border: Border.all(color: AppColors.danger.withValues(alpha: 0.25)),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            _soldeRestant != null
+                ? 'Solde restant dû pour ${widget.paiement.annee} : $_soldeRestant ${_devise ?? ''}'
+                : 'Solde restant non déterminable automatiquement — utilisez un montant précis.',
+            style: TextStyle(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
           constraints: const BoxConstraints(maxHeight: 220),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -247,7 +272,7 @@ class _DerogationArriereDialogState extends State<_DerogationArriereDialog> {
                         '${widget.paiement.nom} ${widget.paiement.prenom}, sur instruction expresse de '
                         "${_ordonneParController.text.trim().isEmpty ? '…' : _ordonneParController.text.trim()}, "
                         'en sa qualité de '
-                        "${_ordonneParFonctionController.text.trim().isEmpty ? '…' : _ordonneParFonctionController.text.trim()}.\n\n"
+                        "${_ordonneParFonction ?? '…'}.\n\n"
                         'Je reconnais que cette action :\n'
                         "• permet à l'étudiant de régler ses paiements de l'année en cours sans que le solde "
                         "de l'année précédente ne soit exigé au préalable ;\n"
@@ -292,10 +317,15 @@ class _DerogationArriereDialogState extends State<_DerogationArriereDialog> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: TextField(
-                        controller: _ordonneParFonctionController,
-                        onChanged: (_) => setState(() {}),
+                      child: DropdownButtonFormField<String>(
+                        initialValue: _ordonneParFonction,
                         decoration: const InputDecoration(labelText: 'Fonction'),
+                        items: context
+                            .watch<RolePermissionState>()
+                            .roles
+                            .map((r) => DropdownMenuItem(value: r.name, child: Text(r.name)))
+                            .toList(),
+                        onChanged: (v) => setState(() => _ordonneParFonction = v),
                       ),
                     ),
                   ],

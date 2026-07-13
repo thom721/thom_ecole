@@ -264,14 +264,15 @@ def _resolve_previous_year(
     return prev_annee, prev_paiement
 
 
-def _compute_previous_year_balance(prev_paiement) -> Optional[float]:
-    """Calcule le solde impayé (total_annuel - total_verse) à partir de la
-    dernière transaction non retournée du Paiement de l'année précédente.
-    Retourne None si non déterminable (pas de paiement, pas d'info_paiement
-    exploitable) — utilisé pour pré-remplir le montant "tout le reste"
-    d'une dérogation d'arriéré."""
+def _compute_previous_year_balance(prev_paiement) -> tuple:
+    """Calcule le solde impayé (total_annuel - total_verse) et sa devise à
+    partir de la dernière transaction non retournée du Paiement de l'année
+    précédente. Retourne (None, None) si non déterminable (pas de paiement,
+    pas d'info_paiement exploitable) — utilisé pour pré-remplir le montant
+    "tout le reste" d'une dérogation d'arriéré, et pour l'afficher avant
+    même de choisir le type d'annulation."""
     if not prev_paiement:
-        return None
+        return None, None
     pd_data = (
         json.loads(prev_paiement.paiement_details)
         if isinstance(prev_paiement.paiement_details, str)
@@ -281,7 +282,7 @@ def _compute_previous_year_balance(prev_paiement) -> Optional[float]:
     info_paiement = inner.get("info_paiement", {})
     valid = [(k, v) for k, v in info_paiement.items() if v.get("status") != "retourné"]
     if not valid:
-        return None
+        return None, None
     try:
         valid.sort(key=lambda x: datetime.strptime(x[0].replace("/", "-"), "%d-%m-%Y %H:%M"))
     except ValueError:
@@ -289,7 +290,8 @@ def _compute_previous_year_balance(prev_paiement) -> Optional[float]:
     _, last = valid[-1]
     total_verse = float(last.get("total_verse") or 0)
     total_annuel = float(last.get("total_annuel") or 0)
-    return max(0.0, total_annuel - total_verse)
+    devise = last.get("devise") or inner.get("devise")
+    return max(0.0, total_annuel - total_verse), devise
 
 
 def _check_arrears_previous_year(
