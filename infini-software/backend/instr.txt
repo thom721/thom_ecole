@@ -1,0 +1,12 @@
+# Arrêter le backend
+cd /opt/infini-software && docker compose stop backend
+
+# Copier directement dans le volume
+cp /tmp/infini_modifie.db /var/lib/docker/volumes/infini-software_infini_db/_data/infini.db
+
+# Redémarrer
+docker compose start backend
+
+
+PYTHONPATH=/var/www/admin.institutionlemignon.com/public_html \
+  alembic -c /var/www/admin.institutionlemignon.com/public_html/app/alembic.ini upgrade head
