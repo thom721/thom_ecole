@@ -50,9 +50,11 @@ class AppColors {
   static const sidebarTextMuted = Color(0xFF7C83A0);
   static const sidebarBorder = Color(0x12FFFFFF); // white 7%
 
-  // Toujours sombre : page de connexion bureau (school_client), indépendante
-  // du choix clair/sombre de l'application principale.
-  static const loginBg = Color(0xFF0D0D14);
+  // Accent de marque de la page de connexion — reste doré dans les deux
+  // thèmes (contrairement au reste de la palette, qui est réactive via
+  // appBg/inputBg/textPrimary/textMuted ci-dessus). Le fond, lui, suit
+  // désormais le thème choisi (voir LoginScreen) : ce n'est plus "toujours
+  // sombre" comme initialement conçu pour calquer school_client.
   static const loginGold = Color(0xFFC9A84C);
 
   static const danger = Color(0xFFE74C3C);
@@ -60,7 +62,8 @@ class AppColors {
   // Palette des cartes du dashboard (AdminDashComposante.vue) : bar (couleur
   // vive, identique dans les deux thèmes) + texte (variante claire en sombre
   // pour contraster sur fond sombre, variante foncée en clair).
-  static Map<String, _CardColor> get cardPalette => AppColors.isDark ? _darkCardPalette : _lightCardPalette;
+  static Map<String, _CardColor> get cardPalette =>
+      AppColors.isDark ? _darkCardPalette : _lightCardPalette;
 }
 
 const _darkCardPalette = <String, _CardColor>{
@@ -154,7 +157,11 @@ class _CardColor {
 class AppTheme {
   AppTheme._();
 
-  static TextStyle serif(double size, {FontWeight weight = FontWeight.bold, Color? color}) {
+  static TextStyle serif(
+    double size, {
+    FontWeight weight = FontWeight.bold,
+    Color? color,
+  }) {
     return GoogleFonts.playfairDisplay(
       fontSize: size,
       fontWeight: weight,
@@ -201,17 +208,25 @@ class AppTheme {
       ),
       dataTableTheme: DataTableThemeData(
         headingTextStyle: TextStyle(
-          color: brightness == Brightness.light ? const Color(0xFFE8EAF0) : AppColors.textMuted,
+          color: brightness == Brightness.light
+              ? const Color(0xFFE8EAF0)
+              : AppColors.textMuted,
           fontWeight: FontWeight.w600,
           fontSize: 11,
           letterSpacing: 0.6,
         ),
-        dataTextStyle: TextStyle(color: AppColors.textPrimary.withValues(alpha: 0.85), fontSize: 13),
+        dataTextStyle: TextStyle(
+          color: AppColors.textPrimary.withValues(alpha: 0.85),
+          fontSize: 13,
+        ),
         headingRowColor: WidgetStatePropertyAll(
-          brightness == Brightness.light ? const Color(0xFF1E2742) : Colors.transparent,
+          brightness == Brightness.light
+              ? const Color(0xFF1E2742)
+              : Colors.transparent,
         ),
         dataRowColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.hovered)) return AppColors.hoverOverlay;
+          if (states.contains(WidgetState.hovered))
+            return AppColors.hoverOverlay;
           return Colors.transparent;
         }),
       ),
@@ -221,7 +236,8 @@ class AppTheme {
       scrollbarTheme: ScrollbarThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.dragged)) return AppColors.accent;
-          if (states.contains(WidgetState.hovered)) return AppColors.accent.withValues(alpha: 0.8);
+          if (states.contains(WidgetState.hovered))
+            return AppColors.accent.withValues(alpha: 0.8);
           return AppColors.accent.withValues(alpha: 0.5);
         }),
         trackColor: WidgetStateProperty.all(Colors.transparent),

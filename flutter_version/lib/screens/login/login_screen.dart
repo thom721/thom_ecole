@@ -2,15 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/ip_storage.dart';
 import '../../state/auth_state.dart';
+import '../../state/theme_state.dart';
 import '../../theme/app_theme.dart';
 import '../shell/app_shell.dart';
 import 'first_login_password_screen.dart';
 
-const _gold = Color(0xFFC9A84C);
-const _loginBg = Color(0xFF0D0D14);
-const _inputBg = Color(0xFF111111);
-const _inputBorder = Color(0xFF3D3D48); // plus clair pour rester visible sur _loginBg
-const _mutedText = Color(0xFF7C7C7C);
 // #change_ip / #valider_id_server / #valider_profile (main_school1.ui:704-712) :
 // bleu, pas doré comme #btn_connexion — bordure 1px, fond plein bleu au survol.
 const _blueAction = Color(0xFF228BE6);
@@ -24,8 +20,11 @@ const _blueAction = Color(0xFF228BE6);
 /// "mot de passe oublié" : school_client n'en a pas, seulement la
 /// réinitialisation automatique de première connexion (voir
 /// FirstLoginPasswordScreen, qui reprend reset_password de la même .ui).
-/// Seules les couleurs/police (fond sombre, accent or, Playfair Display)
-/// restent une référence de STYLE reprise du reste de l'app (voir AppTheme).
+/// Fond/textes/champs suivent désormais le thème choisi (AppColors.appBg/
+/// inputBg/textPrimary/textMuted, réactifs via ThemeState) — seul l'accent
+/// or (AppColors.loginGold) et la police (Playfair Display) restent fixes
+/// comme couleur de marque, sur demande explicite (le fond "toujours
+/// sombre" façon school_client a été abandonné pour cet écran).
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -112,22 +111,22 @@ class _LoginScreenState extends State<LoginScreen> {
   InputDecoration _darkField({required String hint, Widget? suffixIcon}) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(color: Color(0xFF333333)),
+      hintStyle: TextStyle(color: AppColors.textMuted.withValues(alpha: 0.7)),
       filled: true,
-      fillColor: _inputBg,
+      fillColor: AppColors.inputBg,
       suffixIcon: suffixIcon,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: _inputBorder),
+        borderSide: BorderSide(color: AppColors.borderSubtle),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: _inputBorder),
+        borderSide: BorderSide(color: AppColors.borderSubtle),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: _gold),
+        borderSide: const BorderSide(color: AppColors.loginGold),
       ),
     );
   }
@@ -135,21 +134,62 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthState>();
+    final themeState = context.watch<ThemeState>();
 
     return Scaffold(
-      backgroundColor: _loginBg,
+      backgroundColor: AppColors.appBg,
       body: Column(
         children: [
-          // Équivalent de header_connexion/label_connect_3.
-          Container(
-            height: 48,
-            alignment: Alignment.center,
-            child: const Text(
-              'Application de gestion des écoles',
-              style: TextStyle(
-                color: _mutedText,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+          // Équivalent de header_connexion/label_connect_3, avec le
+          // sélecteur de thème ajouté en haut à droite (absent de
+          // main_school1.ui, cet écran n'était pas réactif au thème avant).
+          // Fond + bordure sur le bouton pour qu'il reste bien visible même
+          // quand sa couleur d'icône se fond dans l'arrière-plan.
+          Padding(
+            padding: const EdgeInsets.only(top: 12, right: 16),
+            child: SizedBox(
+              height: 40,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Text(
+                    'Application de gestion des écoles',
+                    style: TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Positioned(
+                    right: 0,
+                    child: Tooltip(
+                      message: themeState.isDark
+                          ? 'Passer au thème clair'
+                          : 'Passer au thème sombre',
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: () => themeState.setDark(!themeState.isDark),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: AppColors.cardBg,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppColors.borderSubtle),
+                          ),
+                          child: Icon(
+                            themeState.isDark
+                                ? Icons.dark_mode_outlined
+                                : Icons.light_mode_outlined,
+                            color: AppColors.loginGold,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -179,12 +219,14 @@ class _LoginScreenState extends State<LoginScreen> {
                             height: 64,
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.06),
+                              color: AppColors.textPrimary.withValues(
+                                alpha: 0.06,
+                              ),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
                               Icons.school,
-                              color: _gold,
+                              color: AppColors.loginGold,
                               size: 30,
                             ),
                           ),
@@ -213,8 +255,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         // l'autre (ServiceAuth.find_user_by_credentials()).
                         TextField(
                           controller: _emailController,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
                             fontSize: 13,
                           ),
                           decoration: _darkField(
@@ -227,8 +269,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         // Équivalent de password_2.
                         TextField(
                           controller: _passwordController,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
                             fontSize: 13,
                           ),
                           decoration: _darkField(
@@ -238,7 +280,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 _obscurePassword
                                     ? Icons.visibility_off_outlined
                                     : Icons.visibility_outlined,
-                                color: const Color(0xFF444444),
+                                color: AppColors.textMuted,
                                 size: 18,
                               ),
                               onPressed: () => setState(
@@ -260,8 +302,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             }),
                             child: Text(
                               'show ip',
-                              style: const TextStyle(
-                                color: _mutedText,
+                              style: TextStyle(
+                                color: AppColors.textMuted,
                                 fontSize: 12,
                               ),
                             ),
@@ -269,9 +311,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         // Équivalent de frame_238 (label_76/input_change_ip/change_ip).
                         if (_showIpPanel) ...[
-                          const Text(
+                          Text(
                             "Modifier l'ip",
-                            style: TextStyle(color: _mutedText, fontSize: 12),
+                            style: TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 12,
+                            ),
                           ),
                           const SizedBox(height: 8),
                           // Équivalent de frame_243/frame_242 (main_school1.ui:
@@ -281,8 +326,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           // largeur) — pas côte à côte comme avant.
                           TextField(
                             controller: _ipController,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
                               fontSize: 13,
                             ),
                             decoration: _darkField(hint: '192.168.0.110'),
@@ -304,16 +349,24 @@ class _LoginScreenState extends State<LoginScreen> {
                                       borderRadius: BorderRadius.circular(5),
                                     ),
                                   ).copyWith(
-                                    backgroundColor: WidgetStateProperty.resolveWith(
-                                      (states) => states.contains(WidgetState.hovered)
-                                          ? _blueAction
-                                          : null,
-                                    ),
-                                    foregroundColor: WidgetStateProperty.resolveWith(
-                                      (states) => states.contains(WidgetState.hovered)
-                                          ? Colors.white
-                                          : _blueAction,
-                                    ),
+                                    backgroundColor:
+                                        WidgetStateProperty.resolveWith(
+                                          (states) =>
+                                              states.contains(
+                                                WidgetState.hovered,
+                                              )
+                                              ? _blueAction
+                                              : null,
+                                        ),
+                                    foregroundColor:
+                                        WidgetStateProperty.resolveWith(
+                                          (states) =>
+                                              states.contains(
+                                                WidgetState.hovered,
+                                              )
+                                              ? Colors.white
+                                              : _blueAction,
+                                        ),
                                   ),
                               onPressed: _saveServerIp,
                               child: const Text('Modifier'),
@@ -338,29 +391,36 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: OutlinedButton(
                             style:
                                 OutlinedButton.styleFrom(
-                                  foregroundColor: _gold,
-                                  side: const BorderSide(color: _gold),
+                                  foregroundColor: AppColors.loginGold,
+                                  side: const BorderSide(
+                                    color: AppColors.loginGold,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                 ).copyWith(
                                   backgroundColor:
                                       WidgetStateProperty.resolveWith((states) {
-                                        if (auth.isLoading)
-                                          return const Color(0xFF333333);
+                                        if (auth.isLoading) {
+                                          return AppColors.textMuted.withValues(
+                                            alpha: 0.3,
+                                          );
+                                        }
                                         if (states.contains(
                                           WidgetState.hovered,
-                                        ))
-                                          return _gold;
+                                        )) {
+                                          return AppColors.loginGold;
+                                        }
                                         return null;
                                       }),
                                   foregroundColor:
                                       WidgetStateProperty.resolveWith((states) {
                                         if (states.contains(
                                           WidgetState.hovered,
-                                        ))
-                                          return _loginBg;
-                                        return _gold;
+                                        )) {
+                                          return AppColors.appBg;
+                                        }
+                                        return AppColors.loginGold;
                                       }),
                                 ),
                             onPressed: auth.isLoading ? null : _submit,
@@ -370,7 +430,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     width: 18,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      color: _gold,
+                                      color: AppColors.loginGold,
                                     ),
                                   )
                                 : const Text(
