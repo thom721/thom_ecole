@@ -3,6 +3,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:qr_flutter/qr_flutter.dart';
 
+import 'png_dpi.dart';
+
 /// Équivalent de generate_badge() (school_client, Controllers/Main.py:6144-
 /// 6267) : compose un badge 1013×638 (8.5×5.1cm @300DPI, comme l'original)
 /// avec QPainter — ici un Canvas hors-écran (PictureRecorder) produisant un
@@ -34,12 +36,22 @@ Future<Uint8List> renderBadgePng({
   const height = 638.0;
 
   final recorder = ui.PictureRecorder();
-  final canvas = ui.Canvas(recorder, const ui.Rect.fromLTWH(0, 0, width, height));
+  final canvas = ui.Canvas(
+    recorder,
+    const ui.Rect.fromLTWH(0, 0, width, height),
+  );
 
   // Fond blanc + template ("Template 1" bundle par défaut, ou le template
   // personnalisé choisi via le sélecteur "Template").
-  canvas.drawRect(const ui.Rect.fromLTWH(0, 0, width, height), ui.Paint()..color = const ui.Color(0xFFFFFFFF));
-  final bgBytes = templateBytes ?? Uint8List.view((await rootBundle.load('assets/badges/template_badge_1.jpg')).buffer);
+  canvas.drawRect(
+    const ui.Rect.fromLTWH(0, 0, width, height),
+    ui.Paint()..color = const ui.Color(0xFFFFFFFF),
+  );
+  final bgBytes =
+      templateBytes ??
+      Uint8List.view(
+        (await rootBundle.load('assets/badges/template_badge_1.jpg')).buffer,
+      );
   final bgImage = await _decodeImage(bgBytes);
   canvas.drawImageRect(
     bgImage,
@@ -58,38 +70,88 @@ Future<Uint8List> renderBadgePng({
   );
 
   // En-tête : nom de l'école — painter.drawText(0, 40, 1013, 50, AlignCenter, ...).
-  _drawCenteredText(canvas, schoolName, const ui.Rect.fromLTWH(0, 40, width, 50), fontSize: 28, bold: true, color: const ui.Color(0xFF003366));
+  _drawCenteredText(
+    canvas,
+    schoolName,
+    const ui.Rect.fromLTWH(0, 40, width, 50),
+    fontSize: 28,
+    bold: true,
+    color: const ui.Color(0xFF003366),
+  );
 
   // Cadre photo (97,127,234,261) — crop centré, comme KeepAspectRatioByExpanding + crop.
   const frame = ui.Rect.fromLTWH(97, 127, 234, 261);
   final photoImage = await _decodeImage(photoBytes);
-  final src = _centerCropRect(photoImage.width.toDouble(), photoImage.height.toDouble(), frame.width, frame.height);
+  final src = _centerCropRect(
+    photoImage.width.toDouble(),
+    photoImage.height.toDouble(),
+    frame.width,
+    frame.height,
+  );
   canvas.save();
   canvas.clipRect(frame);
   canvas.drawImageRect(photoImage, src, frame, ui.Paint());
   canvas.restore();
-  canvas.drawRect(frame, ui.Paint()..color = const ui.Color(0xFF003366)..style = ui.PaintingStyle.stroke..strokeWidth = 2);
+  canvas.drawRect(
+    frame,
+    ui.Paint()
+      ..color = const ui.Color(0xFF003366)
+      ..style = ui.PaintingStyle.stroke
+      ..strokeWidth = 2,
+  );
 
   // painter.drawText(100, 180, 1013, 200, AlignCenter, full_name) / (100, 220, 1013, 200, ..., classe).
-  _drawCenteredText(canvas, fullName, const ui.Rect.fromLTWH(100, 180, width, 200), fontSize: 24, bold: true);
-  _drawCenteredText(canvas, classeName, const ui.Rect.fromLTWH(100, 220, width, 200), fontSize: 20);
+  _drawCenteredText(
+    canvas,
+    fullName,
+    const ui.Rect.fromLTWH(100, 180, width, 200),
+    fontSize: 24,
+    bold: true,
+  );
+  _drawCenteredText(
+    canvas,
+    classeName,
+    const ui.Rect.fromLTWH(100, 220, width, 200),
+    fontSize: 20,
+  );
 
   // painter.drawText(x, y, text) — (x,y) est la ligne de base, pas le coin.
-  _drawBaselineText(canvas, identifiant, const ui.Offset(62, 475), fontSize: 18, bold: true);
-  _drawBaselineText(canvas, expirationLabel, const ui.Offset(300, 480), fontSize: 17);
-  _drawBaselineText(canvas, salleLabel, const ui.Offset(560, 480), fontSize: 17);
+  _drawBaselineText(
+    canvas,
+    identifiant,
+    const ui.Offset(62, 475),
+    fontSize: 18,
+    bold: true,
+  );
+  _drawBaselineText(
+    canvas,
+    expirationLabel,
+    const ui.Offset(300, 480),
+    fontSize: 17,
+  );
+  _drawBaselineText(
+    canvas,
+    salleLabel,
+    const ui.Offset(560, 480),
+    fontSize: 17,
+  );
 
   // QR code (880,530), ~90x90 — reprend generate_qrcode() (responsable).
   canvas.save();
   canvas.translate(880, 530);
-  QrPainter(data: qrData, version: QrVersions.auto, errorCorrectionLevel: QrErrorCorrectLevel.L)
-      .paint(canvas, const ui.Size(90, 90));
+  QrPainter(
+    data: qrData,
+    version: QrVersions.auto,
+    errorCorrectionLevel: QrErrorCorrectLevel.L,
+  ).paint(canvas, const ui.Size(90, 90));
   canvas.restore();
 
   final picture = recorder.endRecording();
   final image = await picture.toImage(width.toInt(), height.toInt());
   final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-  return bytes!.buffer.asUint8List();
+  // 300 DPI (8.5×5.1cm @300DPI, voir la doc de renderBadgePng) —
+  // `dart:ui` n'embarque aucune métadonnée de résolution de lui-même.
+  return injectPngDpi(bytes!.buffer.asUint8List(), dpi: 300);
 }
 
 Future<ui.Image> _decodeImage(Uint8List bytes) async {
@@ -98,7 +160,12 @@ Future<ui.Image> _decodeImage(Uint8List bytes) async {
   return frame.image;
 }
 
-ui.Rect _centerCropRect(double srcW, double srcH, double targetW, double targetH) {
+ui.Rect _centerCropRect(
+  double srcW,
+  double srcH,
+  double targetW,
+  double targetH,
+) {
   final srcRatio = srcW / srcH;
   final targetRatio = targetW / targetH;
   if (srcRatio > targetRatio) {
@@ -121,13 +188,27 @@ void _drawCenteredText(
   bool bold = false,
   ui.Color color = const ui.Color(0xFF000000),
 }) {
-  final paragraphBuilder = ui.ParagraphBuilder(
-    ui.ParagraphStyle(textAlign: ui.TextAlign.center, fontWeight: bold ? ui.FontWeight.bold : ui.FontWeight.normal),
-  )
-    ..pushStyle(ui.TextStyle(color: color, fontSize: fontSize, fontWeight: bold ? ui.FontWeight.bold : ui.FontWeight.normal))
-    ..addText(text);
-  final paragraph = paragraphBuilder.build()..layout(ui.ParagraphConstraints(width: rect.width));
-  canvas.drawParagraph(paragraph, ui.Offset(rect.left, rect.top + (rect.height - paragraph.height) / 2));
+  final paragraphBuilder =
+      ui.ParagraphBuilder(
+          ui.ParagraphStyle(
+            textAlign: ui.TextAlign.center,
+            fontWeight: bold ? ui.FontWeight.bold : ui.FontWeight.normal,
+          ),
+        )
+        ..pushStyle(
+          ui.TextStyle(
+            color: color,
+            fontSize: fontSize,
+            fontWeight: bold ? ui.FontWeight.bold : ui.FontWeight.normal,
+          ),
+        )
+        ..addText(text);
+  final paragraph = paragraphBuilder.build()
+    ..layout(ui.ParagraphConstraints(width: rect.width));
+  canvas.drawParagraph(
+    paragraph,
+    ui.Offset(rect.left, rect.top + (rect.height - paragraph.height) / 2),
+  );
 }
 
 /// Équivalent de painter.drawText(x, y, text) : (x,y) est la ligne de base
@@ -141,11 +222,25 @@ void _drawBaselineText(
   bool bold = false,
   ui.Color color = const ui.Color(0xFF000000),
 }) {
-  final paragraphBuilder = ui.ParagraphBuilder(
-    ui.ParagraphStyle(textAlign: ui.TextAlign.left, fontWeight: bold ? ui.FontWeight.bold : ui.FontWeight.normal),
-  )
-    ..pushStyle(ui.TextStyle(color: color, fontSize: fontSize, fontWeight: bold ? ui.FontWeight.bold : ui.FontWeight.normal))
-    ..addText(text);
-  final paragraph = paragraphBuilder.build()..layout(const ui.ParagraphConstraints(width: 600));
-  canvas.drawParagraph(paragraph, ui.Offset(baseline.dx, baseline.dy - fontSize * 0.8));
+  final paragraphBuilder =
+      ui.ParagraphBuilder(
+          ui.ParagraphStyle(
+            textAlign: ui.TextAlign.left,
+            fontWeight: bold ? ui.FontWeight.bold : ui.FontWeight.normal,
+          ),
+        )
+        ..pushStyle(
+          ui.TextStyle(
+            color: color,
+            fontSize: fontSize,
+            fontWeight: bold ? ui.FontWeight.bold : ui.FontWeight.normal,
+          ),
+        )
+        ..addText(text);
+  final paragraph = paragraphBuilder.build()
+    ..layout(const ui.ParagraphConstraints(width: 600));
+  canvas.drawParagraph(
+    paragraph,
+    ui.Offset(baseline.dx, baseline.dy - fontSize * 0.8),
+  );
 }

@@ -14,5 +14,17 @@
 	<true/>
 	<key>com.apple.security.files.user-selected.read-only</key>
 	<true/>
+	<!-- Exportation du badge (badge_builder/badge_screen) : écrit dans
+	     ~/Desktop/badge/{année}/{classe}/{nom}.png sans dialogue de
+	     sélection natif, sur demande explicite — voir
+	     lib/core/badge_output_path.dart. Une exception temporaire (comme
+	     ceci) est le mécanisme standard pour un accès à un dossier connu
+	     sans passer par un panneau Ouvrir/Enregistrer ; incompatible avec
+	     une distribution Mac App Store, mais cette app n'y est pas
+	     distribuée. -->
+	<key>com.apple.security.temporary-exception.files.home-relative-path.read-write</key>
+	<array>
+		<string>/Desktop/</string>
+	</array>
 </dict>
 </plist>

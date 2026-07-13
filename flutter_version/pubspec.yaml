@@ -43,8 +43,24 @@ dependencies:
   fl_chart: ^0.69.0
   qr_flutter: ^4.1.0
   camera: ^0.11.1
+  # `camera_avfoundation`/`camera_android_camerax`/`camera_web` (bundlées
+  # avec `camera`) ne couvrent QUE iOS/Android/Web — aucune implémentation
+  # officielle n'existe pour macOS/Windows/Linux (source d'une
+  # MissingPluginException sur availableCameras() sur ces plateformes,
+  # jamais remarquée jusqu'ici). `camera_desktop` fournit une
+  # implémentation `camera_platform_interface` unifiée pour ces 3
+  # plateformes desktop, sans changement de code Dart (mêmes appels
+  # availableCameras()/CameraController que partout ailleurs dans l'app).
+  # Remplace un essai précédent avec `camera_windows` seul (Windows
+  # uniquement) : Flutter refuse de compiler si les deux sont présents en
+  # même temps ("conflicting direct dependency implementations" pour la
+  # plateforme windows) — un seul paquet d'implémentation par plateforme.
+  camera_desktop: ^1.2.1
   path_provider: ^2.1.6
   url_launcher: ^6.3.2
+  # Export PDF recto-verso de l'éditeur de badge (badge_builder) — compose
+  # une page par face à partir des PNG déjà rendus par badge_layout_renderer.
+  pdf: ^3.11.1
 
 dev_dependencies:
   flutter_test:

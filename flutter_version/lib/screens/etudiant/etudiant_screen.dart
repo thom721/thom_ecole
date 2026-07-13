@@ -9,6 +9,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/data_table_card.dart';
 import '../../widgets/pill_button.dart';
 import '../../widgets/section_header.dart';
+import 'badge_builder/badge_builder_screen.dart';
 import 'badge_screen.dart';
 import 'etudiant_detail_screen.dart';
 
@@ -58,7 +59,7 @@ class EtudiantScreen extends StatefulWidget {
   State<EtudiantScreen> createState() => _EtudiantScreenState();
 }
 
-enum _Mode { list, add, edit, badge, diplome, certificat }
+enum _Mode { list, add, edit, badge, badgeBuilder, diplome, certificat }
 
 class _EtudiantScreenState extends State<EtudiantScreen> {
   final _searchController = TextEditingController();
@@ -106,6 +107,8 @@ class _EtudiantScreenState extends State<EtudiantScreen> {
         _selectedStudent = s;
         _mode = _Mode.badge;
       });
+
+  void _openBadgeBuilder() => setState(() => _mode = _Mode.badgeBuilder);
 
   void _openDiplome() => setState(() => _mode = _Mode.diplome);
 
@@ -165,20 +168,26 @@ class _EtudiantScreenState extends State<EtudiantScreen> {
   @override
   Widget build(BuildContext context) {
     if (_mode != _Mode.list) {
+      // L'éditeur de badge affiche sa propre flèche de retour (icône
+      // seule), en ligne avec son titre — pas de bandeau "Retour à la
+      // liste" séparé au-dessus, contrairement aux autres modes.
+      final showBackBanner = _mode != _Mode.badgeBuilder;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-            child: TextButton.icon(
-              onPressed: _backToList,
-              icon: const Icon(Icons.arrow_back, size: 16),
-              label: const Text('Retour à la liste'),
+          if (showBackBanner)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              child: TextButton.icon(
+                onPressed: _backToList,
+                icon: const Icon(Icons.arrow_back, size: 16),
+                label: const Text('Retour à la liste'),
+              ),
             ),
-          ),
           Expanded(
             child: switch (_mode) {
               _Mode.badge => BadgeScreen(initialStudent: _selectedStudent),
+              _Mode.badgeBuilder => BadgeBuilderScreen(onBack: _backToList),
               _Mode.diplome => const _DeadSearchTablePage(title: 'Diplôme'),
               _Mode.certificat => const _DeadSearchTablePage(title: 'Certificat'),
               _ => EtudiantDetailScreen(
@@ -252,6 +261,12 @@ class _EtudiantScreenState extends State<EtudiantScreen> {
                       colorKey: 'rose',
                       icon: Icons.badge_outlined,
                       onPressed: _openBadge,
+                    ),
+                    PillButton(
+                      label: 'Construire la badge',
+                      colorKey: 'purple',
+                      icon: Icons.dashboard_customize_outlined,
+                      onPressed: _openBadgeBuilder,
                     ),
                   ],
                 ),

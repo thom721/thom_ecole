@@ -9,20 +9,39 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import '../../core/badge_output_path.dart';
 import '../../core/print_gate.dart';
+import '../../models/badge_layout.dart';
 import '../../models/student.dart';
+import '../../services/badge_layout_store.dart';
 import '../../services/template_store.dart';
 import '../../state/profile_state.dart';
 import '../../state/students_state.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/badge_layout_renderer.dart';
 import '../../widgets/badge_renderer.dart';
 import '../../widgets/section_header.dart';
 
-const _salles = {'A': 'Salle A', 'B': 'Salle B', 'C': 'Salle C', 'D': 'Salle D'};
+const _salles = {
+  'A': 'Salle A',
+  'B': 'Salle B',
+  'C': 'Salle C',
+  'D': 'Salle D',
+};
 
 const _moisNoms = [
-  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
+  'Janvier',
+  'Février',
+  'Mars',
+  'Avril',
+  'Mai',
+  'Juin',
+  'Juillet',
+  'Août',
+  'Septembre',
+  'Octobre',
+  'Novembre',
+  'Décembre',
 ];
 
 /// Équivalent de combo_template (Main.py:637-640) : un simple sélecteur —
@@ -30,7 +49,10 @@ const _moisNoms = [
 /// sur demande explicite) en plus de la page Profil ("Template badge 1/2",
 /// lib/screens/profile/profile_screen.dart) — les deux écrans partagent le
 /// même stockage local (TemplateStore).
-const _templates = {'template_badge_1': 'Template 1', 'template_badge_2': 'Template 2'};
+const _templates = {
+  'template_badge_1': 'Template 1',
+  'template_badge_2': 'Template 2',
+};
 
 /// Équivalent de ABadge (Resources/main_school1.ui:5457-6456) — page
 /// "Badge / Carte d'identité" — et de make_an_identity_card()/
@@ -41,9 +63,16 @@ const _templates = {'template_badge_1': 'Template 1', 'template_badge_2': 'Templ
 /// actions de génération (avec ou sans synchronisation de la photo).
 ///
 /// Différences disclosées par rapport au bureau :
-/// - Liste/flux caméra USB : `camera_macos` (AVFoundation) au lieu de
-///   QMediaDevices + OpenCV — même résultat (sélection du périphérique,
-///   aperçu live, capture d'une image), implémentation différente.
+/// - Liste/flux caméra USB : package cross-platform `camera` — sur
+///   desktop (macOS/Windows/Linux), aucune des implémentations officielles
+///   bundlées (camera_avfoundation/camera_android_camerax/camera_web) ne
+///   couvre quoi que ce soit ; sans `camera_desktop` en dépendance directe
+///   dans pubspec.yaml, availableCameras() lève une MissingPluginException
+///   sur macOS ET Windows et le sélecteur reste vide sans le moindre
+///   message (piégé une première fois sur macOS même, où on le supposait
+///   à tort déjà fonctionnel) — au lieu de QMediaDevices + OpenCV côté
+///   bureau, même résultat (sélection du périphérique, aperçu live,
+///   capture d'une image), implémentation différente.
 /// - Caméra IP (téléphone) : le bureau ouvre un flux vidéo MJPEG continu
 ///   (cv2.VideoCapture('http://ip:8080/video')) ; ici l'aperçu "live" est
 ///   obtenu par interrogation répétée (toutes les ~700 ms) de l'endpoint
@@ -82,7 +111,12 @@ class BadgeScreen extends StatefulWidget {
 class _BadgeScreenState extends State<BadgeScreen> {
   final _searchController = TextEditingController();
   final _ipController = TextEditingController();
-  final _ipDio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 3), receiveTimeout: const Duration(seconds: 3)));
+  final _ipDio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 3),
+      receiveTimeout: const Duration(seconds: 3),
+    ),
+  );
 
   Student? _selected;
   Uint8List? _photoBytes;
@@ -92,6 +126,12 @@ class _BadgeScreenState extends State<BadgeScreen> {
   bool _generating = false;
   bool _uploadingTemplate = false;
   String? _error;
+
+  // Gabarits construits dans l'éditeur visuel (screens/etudiant/
+  // badge_builder/) — source distincte des 2 templates fixes ci-dessus ;
+  // `null` = on reste sur le chemin de génération existant, inchangé.
+  List<BadgeLayoutTemplate> _customLayouts = [];
+  String? _customLayoutId;
 
   // Date d'expiration ("Juin 2026" sur le bureau, codée en dur) — ici
   // sélectionnable (mois + année), ajouté sur demande explicite.
@@ -103,6 +143,7 @@ class _BadgeScreenState extends State<BadgeScreen> {
   CameraDescription? _selectedCamera;
   CameraController? _cameraController;
   bool _cameraInitialized = false;
+  String? _cameraLoadError;
   bool _previewRunning = false;
 
   // ── Rescan auto des périphériques (stop_search_cam, Main.py:5665) ──────
@@ -125,8 +166,17 @@ class _BadgeScreenState extends State<BadgeScreen> {
       if (widget.initialStudent != null) _selectStudent(widget.initialStudent!);
     });
     _loadCameras();
-    _scanTimer = Timer.periodic(const Duration(seconds: 2), (_) => _loadCameras());
+    _scanTimer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => _loadCameras(),
+    );
     _loadTemplates();
+    _loadCustomLayouts();
+  }
+
+  Future<void> _loadCustomLayouts() async {
+    final layouts = await BadgeLayoutStore.instance.list();
+    if (mounted) setState(() => _customLayouts = layouts);
   }
 
   Future<void> _loadTemplates() async {
@@ -154,6 +204,10 @@ class _BadgeScreenState extends State<BadgeScreen> {
       if (!mounted) return;
       setState(() {
         _cameras = cameras;
+        // L'erreur d'un scan précédent (permission refusée, etc.) ne
+        // s'applique plus une fois qu'on a une réponse exploitable — la
+        // garder affichée après un scan réussi induirait en erreur.
+        _cameraLoadError = null;
         // Si la caméra sélectionnée a disparu (débranché), réinitialiser.
         if (_selectedCamera != null &&
             !_cameras.any((c) => c.name == _selectedCamera!.name)) {
@@ -164,8 +218,13 @@ class _BadgeScreenState extends State<BadgeScreen> {
           _previewRunning = false;
         }
       });
-    } catch (_) {
-      // Aucune permission ou aucun périphérique : le sélecteur reste vide.
+    } catch (e) {
+      // Affiché explicitement plutôt qu'avalé en silence : sur macOS, une
+      // liste vide sans le moindre message masquait jusqu'ici la cause
+      // réelle (permission Caméra jamais accordée dans Réglages Système >
+      // Confidentialité, ou aucun périphérique détecté par AVFoundation).
+      if (!mounted) return;
+      setState(() => _cameraLoadError = e.toString());
     }
   }
 
@@ -174,7 +233,10 @@ class _BadgeScreenState extends State<BadgeScreen> {
   void _toggleScan() {
     setState(() => _scanActive = !_scanActive);
     if (_scanActive) {
-      _scanTimer = Timer.periodic(const Duration(seconds: 2), (_) => _loadCameras());
+      _scanTimer = Timer.periodic(
+        const Duration(seconds: 2),
+        (_) => _loadCameras(),
+      );
     } else {
       _scanTimer?.cancel();
     }
@@ -201,7 +263,8 @@ class _BadgeScreenState extends State<BadgeScreen> {
       });
     } catch (e) {
       await ctrl.dispose();
-      if (mounted) setState(() => _error = 'Impossible d\'initialiser la caméra : $e');
+      if (mounted)
+        setState(() => _error = 'Impossible d\'initialiser la caméra : $e');
     }
   }
 
@@ -229,8 +292,12 @@ class _BadgeScreenState extends State<BadgeScreen> {
   /// ici ou depuis la page Profil, TemplateStore est commun aux deux).
   void _onTemplateChanged(String? value) {
     if (value == null) return;
-    if (value == 'template_badge_2' && _templateBytes['template_badge_2'] == null) {
-      setState(() => _error = 'Aucun "Template badge 2" importé — utilisez le bouton "Choisir template".');
+    if (value == 'template_badge_2' &&
+        _templateBytes['template_badge_2'] == null) {
+      setState(
+        () => _error =
+            'Aucun "Template badge 2" importé — utilisez le bouton "Choisir template".',
+      );
       return;
     }
     setState(() {
@@ -263,6 +330,15 @@ class _BadgeScreenState extends State<BadgeScreen> {
   }
 
   String _formatExpiration() => '${_moisNoms[_expMonth - 1]} $_expYear';
+
+  BadgeLayoutTemplate? _findCustomLayout() {
+    final id = _customLayoutId;
+    if (id == null) return null;
+    for (final l in _customLayouts) {
+      if (l.id == id) return l;
+    }
+    return null;
+  }
 
   /// Équivalent de active_camera_ip() (Main.py:5744) : vérifie que l'IP
   /// répond avant d'activer le flux (ping côté bureau, GET HTTP court ici).
@@ -308,7 +384,8 @@ class _BadgeScreenState extends State<BadgeScreen> {
           'http://$ip:8080/photo.jpg',
           options: Options(responseType: ResponseType.bytes),
         );
-        if (mounted) setState(() => _ipPreviewBytes = Uint8List.fromList(response.data!));
+        if (mounted)
+          setState(() => _ipPreviewBytes = Uint8List.fromList(response.data!));
       } catch (_) {
         // Frame manquée : on garde la précédente, comme un flux vidéo réel.
       }
@@ -354,7 +431,9 @@ class _BadgeScreenState extends State<BadgeScreen> {
     if (_photoBytes != null) return _photoBytes;
     final base64Photo = state.currentDetail?.photoBase64;
     if (base64Photo == null || base64Photo.isEmpty) return null;
-    final raw = base64Photo.contains(',') ? base64Photo.split(',').last : base64Photo;
+    final raw = base64Photo.contains(',')
+        ? base64Photo.split(',').last
+        : base64Photo;
     try {
       return base64Decode(raw);
     } catch (_) {
@@ -370,7 +449,10 @@ class _BadgeScreenState extends State<BadgeScreen> {
 
     final photoBytes = _currentPhotoBytes(state);
     if (photoBytes == null) {
-      setState(() => _error = 'Photo de l’étudiant manquante : capturez ou choisissez un fichier.');
+      setState(
+        () => _error =
+            'Photo de l’étudiant manquante : capturez ou choisissez un fichier.',
+      );
       return null;
     }
 
@@ -385,19 +467,40 @@ class _BadgeScreenState extends State<BadgeScreen> {
           ? '${detail.adresseResponsable} \n ${detail.telephoneResponsable ?? ''}'
           : 'responsable info';
 
-      final png = await renderBadgePng(
-        schoolName: schoolName,
-        fullName: '${detail.nom} ${detail.prenom}',
-        classeName: detail.classeActuelle?.nomClasse ?? '',
-        identifiant: detail.identifiant,
-        salleLabel: _salles[_salle] ?? '',
-        expirationLabel: _formatExpiration(),
-        photoBytes: photoBytes,
-        qrData: responsable,
-        templateBytes: _templateBytes[_template],
-      );
+      final customLayout = _findCustomLayout();
+      final png = customLayout != null
+          ? await renderBadgeFromLayout(
+              layout: customLayout,
+              side: customLayout.recto,
+              placeholderValues: {
+                '{{nom}}': detail.nom,
+                '{{prenom}}': detail.prenom,
+                '{{classe}}': detail.classeActuelle?.nomClasse ?? '',
+                '{{identifiant}}': detail.identifiant,
+                '{{expiration}}': _formatExpiration(),
+                '{{salle}}': _salles[_salle] ?? '',
+              },
+              photoBytes: photoBytes,
+              qrData: responsable,
+            )
+          : await renderBadgePng(
+              schoolName: schoolName,
+              fullName: '${detail.nom} ${detail.prenom}',
+              classeName: detail.classeActuelle?.nomClasse ?? '',
+              identifiant: detail.identifiant,
+              salleLabel: _salles[_salle] ?? '',
+              expirationLabel: _formatExpiration(),
+              photoBytes: photoBytes,
+              qrData: responsable,
+              templateBytes: _templateBytes[_template],
+            );
 
-      final file = File('${Directory.systemTemp.path}/badge_${detail.identifiant}.png');
+      final file = badgeOutputFile(
+        anneeLabel: detail.classeActuelle?.anneeLabel ?? '',
+        classeName: detail.classeActuelle?.nomClasse ?? '',
+        fullName: '${detail.nom} ${detail.prenom}',
+        extension: 'png',
+      );
       await file.writeAsBytes(png);
       if (Platform.isMacOS) {
         await Process.run('open', [file.path]);
@@ -409,7 +512,10 @@ class _BadgeScreenState extends State<BadgeScreen> {
 
       if (sync) {
         final dataUri = 'data:image/jpeg;base64,${base64Encode(photoBytes)}';
-        final error = await state.saveBadgePhoto(studentId: selected.id, photoBase64: dataUri);
+        final error = await state.saveBadgePhoto(
+          studentId: selected.id,
+          photoBase64: dataUri,
+        );
         if (error != null && mounted) {
           setState(() => _error = error);
         }
@@ -424,14 +530,20 @@ class _BadgeScreenState extends State<BadgeScreen> {
     if (!canPrintNonReceipt(context)) return;
     final png = await _generate(sync: false);
     if (!mounted || png == null) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Badge généré et ouvert.')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Badge généré et ouvert.')));
   }
 
   Future<void> _onEnregistrer() async {
     final png = await _generate(sync: true);
     if (!mounted || png == null) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Badge généré ; photo synchronisée sur la fiche de l’étudiant.')),
+      const SnackBar(
+        content: Text(
+          'Badge généré ; photo synchronisée sur la fiche de l’étudiant.',
+        ),
+      ),
     );
   }
 
@@ -470,29 +582,35 @@ class _BadgeScreenState extends State<BadgeScreen> {
           children: [
             Expanded(
               flex: 3,
-              child: _BadgePreview(
-                templateBytes: _templateBytes[_template],
-                photoBytes: photoBytes,
-                fullName: detail != null ? '${detail.nom} ${detail.prenom}' : 'Full Name',
-                classeName: detail?.classeActuelle?.nomClasse ?? 'Classe',
-                identifiant: detail?.identifiant ?? 'Id Card',
-                salleLabel: _salles[_salle] ?? '',
-                expirationLabel: _formatExpiration(),
-                qrData: (detail?.adresseResponsable?.isNotEmpty ?? false)
-                    ? '${detail!.adresseResponsable} \n ${detail.telephoneResponsable ?? ''}'
-                    : 'responsable info',
-              ),
+              child: _customLayoutId != null
+                  ? _CustomLayoutPreviewNotice(
+                      layoutName: _findCustomLayout()?.name ?? '',
+                    )
+                  : _BadgePreview(
+                      templateBytes: _templateBytes[_template],
+                      photoBytes: photoBytes,
+                      fullName: detail != null
+                          ? '${detail.nom} ${detail.prenom}'
+                          : 'Full Name',
+                      classeName: detail?.classeActuelle?.nomClasse ?? 'Classe',
+                      identifiant: detail?.identifiant ?? 'Id Card',
+                      salleLabel: _salles[_salle] ?? '',
+                      expirationLabel: _formatExpiration(),
+                      qrData: (detail?.adresseResponsable?.isNotEmpty ?? false)
+                          ? '${detail!.adresseResponsable} \n ${detail.telephoneResponsable ?? ''}'
+                          : 'responsable info',
+                    ),
             ),
             const SizedBox(width: 16),
-            Expanded(
-              flex: 2,
-              child: _buildSearchPanel(state),
-            ),
+            Expanded(flex: 2, child: _buildSearchPanel(state)),
           ],
         ),
         const SizedBox(height: 16),
         if (_error != null) ...[
-          Text(_error!, style: const TextStyle(color: AppColors.danger, fontSize: 12)),
+          Text(
+            _error!,
+            style: const TextStyle(color: AppColors.danger, fontSize: 12),
+          ),
           const SizedBox(height: 12),
         ],
         // ── Ligne du bas : aperçu caméra + contrôles (widget_19) ────────────
@@ -537,15 +655,28 @@ class _BadgeScreenState extends State<BadgeScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : ListView.separated(
                     itemCount: state.liveSearchResults.length,
-                    separatorBuilder: (_, _) => Divider(height: 1, color: AppColors.borderSubtle),
+                    separatorBuilder: (_, _) =>
+                        Divider(height: 1, color: AppColors.borderSubtle),
                     itemBuilder: (context, index) {
                       final s = state.liveSearchResults[index];
                       final active = _selected?.id == s.id;
                       return ListTile(
                         dense: true,
                         selected: active,
-                        title: Text('${s.nom} ${s.prenom}', style: TextStyle(color: AppColors.textPrimary, fontSize: 13)),
-                        subtitle: Text(s.identifiant, style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                        title: Text(
+                          '${s.nom} ${s.prenom}',
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 13,
+                          ),
+                        ),
+                        subtitle: Text(
+                          s.identifiant,
+                          style: TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 11,
+                          ),
+                        ),
                         onTap: () => _selectStudent(s),
                       );
                     },
@@ -560,13 +691,23 @@ class _BadgeScreenState extends State<BadgeScreen> {
     Widget content;
     if (_isIpCamera && _previewRunning) {
       content = _ipPreviewBytes != null
-          ? Image.memory(_ipPreviewBytes!, fit: BoxFit.contain, gaplessPlayback: true)
+          ? Image.memory(
+              _ipPreviewBytes!,
+              fit: BoxFit.contain,
+              gaplessPlayback: true,
+            )
           : const Center(child: CircularProgressIndicator());
-    } else if (_previewRunning && _cameraController != null && _cameraInitialized) {
+    } else if (_previewRunning &&
+        _cameraController != null &&
+        _cameraInitialized) {
       content = CameraPreview(_cameraController!);
     } else {
       content = Center(
-        child: Icon(Icons.videocam_off_outlined, color: AppColors.textMuted, size: 32),
+        child: Icon(
+          Icons.videocam_off_outlined,
+          color: AppColors.textMuted,
+          size: 32,
+        ),
       );
     }
 
@@ -606,13 +747,22 @@ class _BadgeScreenState extends State<BadgeScreen> {
               ),
               const SizedBox(width: 8),
               _checkingIp
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : OutlinedButton(
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: _isIpCamera ? const Color(0xFF34A853) : const Color(0xFFFCBC05),
+                        foregroundColor: _isIpCamera
+                            ? const Color(0xFF34A853)
+                            : const Color(0xFFFCBC05),
                       ),
                       onPressed: () => _toggleIpCamera(!_isIpCamera),
-                      child: Text(_isIpCamera ? 'IP active' : 'Ip desactive', style: const TextStyle(fontSize: 11)),
+                      child: Text(
+                        _isIpCamera ? 'IP active' : 'Ip desactive',
+                        style: const TextStyle(fontSize: 11),
+                      ),
                     ),
             ],
           ),
@@ -623,8 +773,18 @@ class _BadgeScreenState extends State<BadgeScreen> {
               Expanded(
                 child: DropdownButtonFormField<String>(
                   initialValue: _template,
-                  decoration: const InputDecoration(labelText: 'Template', isDense: true),
-                  items: _templates.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
+                  decoration: const InputDecoration(
+                    labelText: 'Template',
+                    isDense: true,
+                  ),
+                  items: _templates.entries
+                      .map(
+                        (e) => DropdownMenuItem(
+                          value: e.key,
+                          child: Text(e.value),
+                        ),
+                      )
+                      .toList(),
                   onChanged: _onTemplateChanged,
                 ),
               ),
@@ -632,7 +792,11 @@ class _BadgeScreenState extends State<BadgeScreen> {
               _uploadingTemplate
                   ? const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 12),
-                      child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                      child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
                     )
                   : IconButton(
                       tooltip: 'Choisir template',
@@ -643,12 +807,40 @@ class _BadgeScreenState extends State<BadgeScreen> {
               Expanded(
                 child: DropdownButtonFormField<String>(
                   initialValue: _salle,
-                  decoration: const InputDecoration(labelText: 'Salle', isDense: true),
-                  items: _salles.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
+                  decoration: const InputDecoration(
+                    labelText: 'Salle',
+                    isDense: true,
+                  ),
+                  items: _salles.entries
+                      .map(
+                        (e) => DropdownMenuItem(
+                          value: e.key,
+                          child: Text(e.value),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (v) => setState(() => _salle = v ?? _salle),
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 14),
+          DropdownButtonFormField<String?>(
+            initialValue: _customLayoutId,
+            decoration: const InputDecoration(
+              labelText:
+                  'Gabarit personnalisé (éditeur visuel — bouton "Construire la badge" à côté de "Badge")',
+              isDense: true,
+            ),
+            items: [
+              const DropdownMenuItem(
+                value: null,
+                child: Text('Aucun — utiliser Template ci-dessus'),
+              ),
+              for (final l in _customLayouts)
+                DropdownMenuItem(value: l.id, child: Text(l.name)),
+            ],
+            onChanged: (v) => setState(() => _customLayoutId = v),
           ),
           const SizedBox(height: 14),
           Row(
@@ -656,9 +848,13 @@ class _BadgeScreenState extends State<BadgeScreen> {
               Expanded(
                 child: DropdownButtonFormField<int>(
                   initialValue: _expMonth,
-                  decoration: const InputDecoration(labelText: 'Mois d’expiration', isDense: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Mois d’expiration',
+                    isDense: true,
+                  ),
                   items: [
-                    for (var m = 1; m <= 12; m++) DropdownMenuItem(value: m, child: Text(_moisNoms[m - 1])),
+                    for (var m = 1; m <= 12; m++)
+                      DropdownMenuItem(value: m, child: Text(_moisNoms[m - 1])),
                   ],
                   onChanged: (v) => setState(() => _expMonth = v ?? _expMonth),
                 ),
@@ -667,9 +863,16 @@ class _BadgeScreenState extends State<BadgeScreen> {
               Expanded(
                 child: DropdownButtonFormField<int>(
                   initialValue: _expYear,
-                  decoration: const InputDecoration(labelText: 'Année d’expiration', isDense: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Année d’expiration',
+                    isDense: true,
+                  ),
                   items: [
-                    for (var y = DateTime.now().year; y <= DateTime.now().year + 5; y++)
+                    for (
+                      var y = DateTime.now().year;
+                      y <= DateTime.now().year + 5;
+                      y++
+                    )
                       DropdownMenuItem(value: y, child: Text('$y')),
                   ],
                   onChanged: (v) => setState(() => _expYear = v ?? _expYear),
@@ -683,13 +886,22 @@ class _BadgeScreenState extends State<BadgeScreen> {
               Expanded(
                 child: DropdownButtonFormField<String>(
                   initialValue: _isIpCamera ? 'ip' : _selectedCamera?.name,
-                  decoration: const InputDecoration(labelText: 'Choisir La camera', isDense: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Choisir La camera',
+                    isDense: true,
+                  ),
                   items: [
-                    ..._cameras.map((c) => DropdownMenuItem(
-                          value: c.name,
-                          child: Text(c.name, overflow: TextOverflow.ellipsis),
-                        )),
-                    if (_isIpCamera) const DropdownMenuItem(value: 'ip', child: Text('Camera ip')),
+                    ..._cameras.map(
+                      (c) => DropdownMenuItem(
+                        value: c.name,
+                        child: Text(c.name, overflow: TextOverflow.ellipsis),
+                      ),
+                    ),
+                    if (_isIpCamera)
+                      const DropdownMenuItem(
+                        value: 'ip',
+                        child: Text('Camera ip'),
+                      ),
                   ],
                   onChanged: (v) {
                     if (v == 'ip') return;
@@ -708,11 +920,30 @@ class _BadgeScreenState extends State<BadgeScreen> {
                 onPressed: _toggleScan,
                 child: Text(
                   _scanActive ? 'Arrêté' : 'Relancé',
-                  style: TextStyle(fontSize: 12, color: _scanActive ? AppColors.danger : AppColors.accentLight),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _scanActive
+                        ? AppColors.danger
+                        : AppColors.accentLight,
+                  ),
                 ),
               ),
             ],
           ),
+          if (_cameraLoadError != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Caméras indétectables : $_cameraLoadError\n'
+              'Vérifiez Réglages Système > Confidentialité et sécurité > Caméra pour cette application.',
+              style: TextStyle(fontSize: 11, color: AppColors.danger),
+            ),
+          ] else if (_cameras.isEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Aucune caméra détectée sur cet appareil.',
+              style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+            ),
+          ],
           const SizedBox(height: 16),
           Row(
             children: [
@@ -720,17 +951,27 @@ class _BadgeScreenState extends State<BadgeScreen> {
                 onPressed: _onCaptureButton,
                 child: Text(
                   _previewRunning ? 'Capturer' : 'Prendre Photo',
-                  style: TextStyle(color: _previewRunning ? const Color(0xFF34A853) : const Color(0xFFFCBC05)),
+                  style: TextStyle(
+                    color: _previewRunning
+                        ? const Color(0xFF34A853)
+                        : const Color(0xFFFCBC05),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
               TextButton(
                 onPressed: _pickPhoto,
-                child: const Text('Charger Photo', style: TextStyle(color: Color(0xFF1A73E8))),
+                child: const Text(
+                  'Charger Photo',
+                  style: TextStyle(color: Color(0xFF1A73E8)),
+                ),
               ),
               const Spacer(),
               OutlinedButton(
-                style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger, side: const BorderSide(color: AppColors.danger)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.danger,
+                  side: const BorderSide(color: AppColors.danger),
+                ),
                 onPressed: _generating ? null : _onGenerer,
                 child: const Text('Générer le Badge'),
               ),
@@ -747,11 +988,65 @@ class _BadgeScreenState extends State<BadgeScreen> {
               ),
               onPressed: _generating ? null : _onEnregistrer,
               child: _generating
-                  ? const SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                      height: 14,
+                      width: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : const Text('Générer le Badge et enregistrer la photo'),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Remplace _BadgePreview quand un gabarit personnalisé est sélectionné :
+/// contrairement aux 2 templates fixes, un gabarit de l'éditeur visuel n'a
+/// pas d'équivalent "aperçu approximatif à coordonnées figées" à
+/// reconstruire ici — le vrai rendu (widgets/badge_layout_renderer.dart)
+/// reste la seule source de vérité, visible via "Générer le Badge".
+class _CustomLayoutPreviewNotice extends StatelessWidget {
+  const _CustomLayoutPreviewNotice({required this.layoutName});
+
+  final String layoutName;
+
+  @override
+  Widget build(BuildContext context) {
+    return AspectRatio(
+      aspectRatio: 1013 / 638,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: AppColors.borderSubtle),
+          borderRadius: BorderRadius.circular(16),
+          color: AppColors.panelBg,
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.dashboard_customize_outlined,
+                size: 32,
+                color: AppColors.textMuted,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Gabarit personnalisé sélectionné : $layoutName',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12.5, color: AppColors.textMuted),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Utilisez "Générer le Badge" pour voir le rendu réel.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -803,7 +1098,10 @@ class _BadgePreview extends StatelessWidget {
                 Positioned.fill(
                   child: templateBytes != null
                       ? Image.memory(templateBytes!, fit: BoxFit.cover)
-                      : Image.asset('assets/badges/template_badge_1.jpg', fit: BoxFit.cover),
+                      : Image.asset(
+                          'assets/badges/template_badge_1.jpg',
+                          fit: BoxFit.cover,
+                        ),
                 ),
                 Positioned(
                   left: 97 * scale,
@@ -811,10 +1109,20 @@ class _BadgePreview extends StatelessWidget {
                   width: 234 * scale,
                   height: 261 * scale,
                   child: Container(
-                    decoration: BoxDecoration(border: Border.all(color: const Color(0xFF003366), width: 2)),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: const Color(0xFF003366),
+                        width: 2,
+                      ),
+                    ),
                     child: photoBytes != null
                         ? Image.memory(photoBytes!, fit: BoxFit.cover)
-                        : Center(child: Text('Photo', style: TextStyle(color: AppColors.textMuted))),
+                        : Center(
+                            child: Text(
+                              'Photo',
+                              style: TextStyle(color: AppColors.textMuted),
+                            ),
+                          ),
                   ),
                 ),
                 // painter.drawText(100, 180, 1013, 200, AlignCenter, full_name) / (100, 220, 1013, 200, ..., classe).
@@ -824,9 +1132,15 @@ class _BadgePreview extends StatelessWidget {
                   width: 1013 * scale,
                   height: 200 * scale,
                   child: Center(
-                    child: Text(fullName,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 24 * scale, fontWeight: FontWeight.bold, color: const Color(0xFF111827))),
+                    child: Text(
+                      fullName,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 24 * scale,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF111827),
+                      ),
+                    ),
                   ),
                 ),
                 Positioned(
@@ -835,24 +1149,43 @@ class _BadgePreview extends StatelessWidget {
                   width: 1013 * scale,
                   height: 200 * scale,
                   child: Center(
-                    child: Text(classeName, textAlign: TextAlign.center, style: TextStyle(fontSize: 20 * scale, color: const Color(0xFF374151))),
+                    child: Text(
+                      classeName,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 20 * scale,
+                        color: const Color(0xFF374151),
+                      ),
+                    ),
                   ),
                 ),
                 // painter.drawText(x, y, text) : (x,y) = ligne de base.
                 Positioned(
                   left: 62 * scale,
                   top: (475 - 18 * 0.8) * scale,
-                  child: Text(identifiant, style: TextStyle(fontSize: 18 * scale, fontWeight: FontWeight.bold)),
+                  child: Text(
+                    identifiant,
+                    style: TextStyle(
+                      fontSize: 18 * scale,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
                 Positioned(
                   left: 300 * scale,
                   top: (480 - 17 * 0.8) * scale,
-                  child: Text(expirationLabel, style: TextStyle(fontSize: 17 * scale)),
+                  child: Text(
+                    expirationLabel,
+                    style: TextStyle(fontSize: 17 * scale),
+                  ),
                 ),
                 Positioned(
                   left: 560 * scale,
                   top: (480 - 17 * 0.8) * scale,
-                  child: Text(salleLabel, style: TextStyle(fontSize: 17 * scale)),
+                  child: Text(
+                    salleLabel,
+                    style: TextStyle(fontSize: 17 * scale),
+                  ),
                 ),
                 Positioned(
                   left: 880 * scale,
