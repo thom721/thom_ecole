@@ -31,6 +31,7 @@ Les établissements scolaires gèrent manuellement ou via des outils disparates 
 ### 4.2 Gestion des notes et évaluations
 - En tant que professeur, je saisis les notes des étudiants par cours, avec validation de séquence (impossible de saisir une période ultérieure avant la précédente).
 - En tant que direction, je peux consulter les moyennes et générer un bulletin PDF.
+- En tant qu'utilisateur habilité ("Supprimer note"), je supprime les notes d'un mois pour tout un niveau/classe/année, ou pour un seul étudiant de cette classe si je précise son identifiant (§7 septies).
 
 ### 4.3 Présences
 - En tant que professeur/personnel, je fais l'appel quotidien par classe.
@@ -43,6 +44,7 @@ Les établissements scolaires gèrent manuellement ou via des outils disparates 
 - En tant que comptable, j'enregistre une dépense ou une autre transaction ponctuelle.
 - En tant qu'administrateur, je peux gérer des prêts (loans) avec taux d'intérêt et suivi de remboursement.
 - En tant qu'administrateur, je gère la paie du personnel — salaire fixe ou calculé à l'heure par cours/année académique, versements partiels, bilan mensuel (§7 quater).
+- En tant que caissier/admin, j'accorde une dérogation manuelle et réversible au blocage de paiement d'arriéré (année précédente impayée) pour un étudiant, avec motif et ordonnateur obligatoires (§7 sexies).
 
 ### 4.5 Promotions de fin d'année
 - En tant que direction, je déclenche la promotion en masse des étudiants vers la classe/année supérieure, avec calcul automatique de la moyenne pondérée par coefficients.
@@ -129,6 +131,23 @@ Voir `docs/ecole_nginx.md` §10 pour le détail technique complet (bug racine du
 - En tant qu'administrateur, toute création/modification de versement de salaire (Payroll) est désormais journalisée dans l'historique des actions (Log), comme les paiements, ventes et dépenses le sont déjà.
 - En tant qu'administrateur, je retrouve sur le web les mêmes fonctionnalités de gestion du personnel/professeurs que sur le bureau : activer/désactiver un compte et réinitialiser un mot de passe directement depuis le formulaire de modification, salaire fixe (et type de paiement pour un professeur), et un indicateur visuel quand une fiche Personnel/Professeur est une "casquette" liée à l'autre (double rôle).
 - En tant qu'administrateur, je gère un catalogue de produits (ajout, catégories) depuis Trésorerie → Produits sur le web, et j'imprime la charge d'enseignement d'un professeur ainsi que le rapport Payroll/l'historique des salaires depuis les pages Cours et Rapport du web — fonctionnalités déjà disponibles côté bureau, absentes du web jusqu'ici.
+
+## 7 sexies. Mise à jour — dérogation d'arriéré (livré)
+
+Voir `docs/ecole_nginx.md` §11 pour le détail technique complet (modèle `AnnulationArriere`, routes, règle de blocage). Web (`Paiements.vue`) et Flutter (`derogation_arriere_dialog.dart`) exposent le même flux.
+
+- En tant que caissier, je suis bloqué pour enregistrer un nouveau paiement d'écolage tant qu'un solde impayé existe pour l'année académique **précédente** de cet étudiant (pas d'autres années plus anciennes) — sauf première inscription, gap year, ou dérogation active.
+- En tant que caissier/admin habilité ("Annuler arriéré"), j'accorde une dérogation manuelle et réversible sur la ligne de paiement bloquée : type "tout le reste" (solde calculé automatiquement) ou montant précis, avec ordonnateur (nom + fonction), motif et acceptation d'un texte d'engagement obligatoires. L'historique de paiement original n'est jamais modifié — seule l'existence d'une dérogation active lève le blocage.
+- Avant de choisir le montant, le bouton de dérogation affiche le **solde restant dû** (avec sa devise) et l'**historique complet** des dérogations déjà accordées/révoquées pour cet étudiant et cette année — ajouté après coup (endpoint `GET /annulation-arriere` initialement muet sur ce contexte), pour éviter de créer une dérogation "à l'aveugle".
+- En tant que caissier/admin habilité, je peux révoquer une dérogation active à tout moment (motif obligatoire) — rétablit immédiatement le blocage.
+- Toute création/révocation est journalisée (Log) avec le motif, l'ordonnateur et le rôle de l'exécutant au moment de l'action (snapshot, indépendant d'un changement de rôle ultérieur).
+
+## 7 septies. Mise à jour — suppression de notes restreinte à un étudiant (livré)
+
+Voir `docs/ecole_nginx.md` §12 pour le détail technique complet. Web (`Notes.vue`) et Flutter (`notes_screen.dart::_DeleteNotesDialog`) exposent le même flux — la suppression groupée par niveau/classe/année/mois existait déjà des deux côtés, seul un critère optionnel supplémentaire est ajouté.
+
+- En tant qu'utilisateur habilité ("Supprimer note"), je peux restreindre la suppression à un seul étudiant de la classe choisie via son identifiant, plutôt qu'à toute la classe.
+- Champ laissé vide : comportement identique à avant cet ajout, aucune régression sur la suppression groupée existante.
 
 ## 7. Mise à jour — installation multiplateforme (livré)
 
