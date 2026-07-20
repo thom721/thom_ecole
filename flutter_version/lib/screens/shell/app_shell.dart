@@ -66,6 +66,7 @@ const List<NavItem> kAllNavItems = [...kMainNavItems, ...kSecondaryNavItems];
 
 class NavSubItem {
   const NavSubItem(this.id, this.label, this.icon);
+
   /// Format "parentId.sousId" — même format utilisé dans accessible_tabs.
   final String id;
   final String label;
@@ -78,8 +79,16 @@ class NavSubItem {
 /// d'onglets principaux.
 const Map<String, List<NavSubItem>> kSubNavItems = {
   'home': [
-    NavSubItem('home.suivi_paiement', 'Suivi de paiement', Icons.show_chart_outlined),
-    NavSubItem('home.stats_etudiant', 'Statistiques étudiants', Icons.groups_outlined),
+    NavSubItem(
+      'home.suivi_paiement',
+      'Suivi de paiement',
+      Icons.show_chart_outlined,
+    ),
+    NavSubItem(
+      'home.stats_etudiant',
+      'Statistiques étudiants',
+      Icons.groups_outlined,
+    ),
     NavSubItem('home.classes', 'Détail des classes', Icons.apartment_outlined),
   ],
   'etudiant': [
@@ -95,8 +104,16 @@ const Map<String, List<NavSubItem>> kSubNavItems = {
     NavSubItem('vente.produits', 'Produits', Icons.inventory_2_outlined),
     NavSubItem('vente.depenses', 'Dépenses', Icons.payments_outlined),
     NavSubItem('vente.prets', 'Prêts', Icons.handshake_outlined),
-    NavSubItem('vente.payroll', 'Payroll', Icons.account_balance_wallet_outlined),
-    NavSubItem('vente.transactions', 'Autre transaction', Icons.receipt_long_outlined),
+    NavSubItem(
+      'vente.payroll',
+      'Payroll',
+      Icons.account_balance_wallet_outlined,
+    ),
+    NavSubItem(
+      'vente.transactions',
+      'Autre transaction',
+      Icons.receipt_long_outlined,
+    ),
   ],
   'profile': [
     NavSubItem('profile.ecole', "Profil de l'école", Icons.apartment_outlined),
@@ -145,6 +162,14 @@ class _AppShellState extends State<AppShell> {
   bool _dialogShown = false;
   bool _tabsDialogShown = false;
 
+  /// Capturée dans [didChangeDependencies] plutôt que relue via
+  /// `context.read` dans [dispose] : à ce moment l'élément peut déjà être
+  /// désactivé (démontage groupé de l'arbre de widgets), et une recherche
+  /// d'ancêtre y est explicitement interdite par Flutter ("Looking up a
+  /// deactivated widget's ancestor is unsafe").
+  late AuthState _authState;
+  bool _authStateCaptured = false;
+
   @override
   void initState() {
     super.initState();
@@ -158,12 +183,20 @@ class _AppShellState extends State<AppShell> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_authStateCaptured) {
+      _authState = context.read<AuthState>();
+      _authStateCaptured = true;
+    }
+  }
+
+  @override
   void dispose() {
     _inactivityTimer?.cancel();
     HardwareKeyboard.instance.removeHandler(_onKeyEvent);
-    final auth = context.read<AuthState>();
-    auth.stopTabWatcher();
-    auth.removeListener(_onAuthChanged);
+    _authState.stopTabWatcher();
+    _authState.removeListener(_onAuthChanged);
     super.dispose();
   }
 
@@ -286,9 +319,9 @@ class _AppShellState extends State<AppShell> {
   Future<void> _actualiser() async {
     await context.read<ReferenceDataState>().refresh();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Données actualisées.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Données actualisées.')));
   }
 
   void _select(String id) {
@@ -331,7 +364,9 @@ class _AppShellState extends State<AppShell> {
                 Icon(
                   item.icon,
                   size: 18,
-                  color: selected ? AppColors.accent : AppColors.sidebarTextMuted,
+                  color: selected
+                      ? AppColors.accent
+                      : AppColors.sidebarTextMuted,
                 ),
                 if (!_isCollapsed) ...[
                   const SizedBox(width: 10),
@@ -392,117 +427,110 @@ class _AppShellState extends State<AppShell> {
       onPointerMove: (_) => _resetInactivityTimer(),
       onPointerSignal: (_) => _resetInactivityTimer(),
       child: Scaffold(
-      backgroundColor: AppColors.appBg,
-      body: Column(
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  width: sidebarWidth,
-                  decoration: BoxDecoration(
-                    color: AppColors.sidebarBg,
-                    border: Border(
-                      right: BorderSide(color: AppColors.sidebarBorder),
+        backgroundColor: AppColors.appBg,
+        body: Column(
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    width: sidebarWidth,
+                    decoration: BoxDecoration(
+                      color: AppColors.sidebarBg,
+                      border: Border(
+                        right: BorderSide(color: AppColors.sidebarBorder),
+                      ),
                     ),
-                  ),
-                  // En-tête et pied (profil) fixes, seule la nav défile dans
-                  // l'Expanded+SingleChildScrollView ci-dessous — gardait
-                  // tout en un seul bloc défilant auparavant, mais l'en-tête
-                  // doit rester visible quel que soit le défilement de la
-                  // nav.
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Container(height: 3, color: AppColors.accent),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 18,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(color: AppColors.sidebarBorder),
+                    // En-tête et pied (profil) fixes, seule la nav défile dans
+                    // l'Expanded+SingleChildScrollView ci-dessous — gardait
+                    // tout en un seul bloc défilant auparavant, mais l'en-tête
+                    // doit rester visible quel que soit le défilement de la
+                    // nav.
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Container(height: 3, color: AppColors.accent),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 18,
                           ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: collapsed
-                              ? MainAxisAlignment.center
-                              : MainAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 36,
-                              height: 36,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: AppColors.accent,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Text(
-                                'L',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 17,
-                                ),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: AppColors.sidebarBorder,
                               ),
                             ),
-                            if (!collapsed) ...[
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text('Lekol360',
-                                        style: AppTheme.serif(15, color: AppColors.sidebarText)),
-                                    Text(
-                                      'Espace Admin',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: AppColors.sidebarTextMuted,
-                                      ),
-                                    ),
-                                  ],
+                          ),
+                          child: Row(
+                            mainAxisAlignment: collapsed
+                                ? MainAxisAlignment.center
+                                : MainAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: AppColors.accent,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Text(
+                                  'L',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 17,
+                                  ),
                                 ),
                               ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: SingleChildScrollView(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                if (!collapsed)
-                                  Padding(
-                                    padding: EdgeInsets.fromLTRB(16, 4, 16, 6),
-                                    child: Text(
-                                      'NAVIGATION',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        letterSpacing: 1.2,
-                                        color: AppColors.sidebarTextMuted,
-                                        fontWeight: FontWeight.w600,
+                              if (!collapsed) ...[
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'Lekol360',
+                                        style: AppTheme.serif(
+                                          15,
+                                          color: AppColors.sidebarText,
+                                        ),
                                       ),
-                                    ),
+                                      Text(
+                                        'Espace Admin',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppColors.sidebarTextMuted,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ...mainItems.map(_navTile),
-                                if (secondaryItems.isNotEmpty) ...[
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
                                   if (!collapsed)
                                     Padding(
                                       padding: EdgeInsets.fromLTRB(
                                         16,
-                                        16,
+                                        4,
                                         16,
                                         6,
                                       ),
                                       child: Text(
-                                        'GESTION',
+                                        'NAVIGATION',
                                         style: TextStyle(
                                           fontSize: 10,
                                           letterSpacing: 1.2,
@@ -510,116 +538,139 @@ class _AppShellState extends State<AppShell> {
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
-                                    )
-                                  else
-                                    Divider(
-                                      height: 16,
-                                      color: AppColors.sidebarBorder,
                                     ),
-                                  ...secondaryItems.map(_navTile),
+                                  ...mainItems.map(_navTile),
+                                  if (secondaryItems.isNotEmpty) ...[
+                                    if (!collapsed)
+                                      Padding(
+                                        padding: EdgeInsets.fromLTRB(
+                                          16,
+                                          16,
+                                          16,
+                                          6,
+                                        ),
+                                        child: Text(
+                                          'GESTION',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            letterSpacing: 1.2,
+                                            color: AppColors.sidebarTextMuted,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      )
+                                    else
+                                      Divider(
+                                        height: 16,
+                                        color: AppColors.sidebarBorder,
+                                      ),
+                                    ...secondaryItems.map(_navTile),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      _ThemeToggleTile(
-                        collapsed: collapsed,
-                        isDark: themeState.isDark,
-                        onToggle: () => context.read<ThemeState>().toggle(),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          border: Border(
-                            top: BorderSide(color: AppColors.sidebarBorder),
-                          ),
+                        _ThemeToggleTile(
+                          collapsed: collapsed,
+                          isDark: themeState.isDark,
+                          onToggle: () => context.read<ThemeState>().toggle(),
                         ),
-                        child: Row(
-                          mainAxisAlignment: collapsed
-                              ? MainAxisAlignment.center
-                              : MainAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 34,
-                              height: 34,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [AppColors.accent, Color(0xFF6EE7B7)],
-                                ),
-                              ),
-                              child: Text(
-                                (auth.user?.email ?? '?').characters.first
-                                    .toUpperCase(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              top: BorderSide(color: AppColors.sidebarBorder),
                             ),
-                            if (!collapsed) ...[
-                              const SizedBox(width: 10),
-                              Expanded(
+                          ),
+                          child: Row(
+                            mainAxisAlignment: collapsed
+                                ? MainAxisAlignment.center
+                                : MainAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 34,
+                                height: 34,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      AppColors.accent,
+                                      Color(0xFF6EE7B7),
+                                    ],
+                                  ),
+                                ),
                                 child: Text(
-                                  auth.user?.email ?? '',
-                                  overflow: TextOverflow.ellipsis,
+                                  (auth.user?.email ?? '?').characters.first
+                                      .toUpperCase(),
                                   style: const TextStyle(
-                                    fontSize: 12.5,
-                                    color: AppColors.sidebarText,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
                                   ),
                                 ),
                               ),
+                              if (!collapsed) ...[
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    auth.user?.email ?? '',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 12.5,
+                                      color: AppColors.sidebarText,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ],
-                          ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _TopBar(
-                        currentLabel: currentLabel,
-                        collapsed: _collapsed,
-                        onToggleCollapse: narrow
-                            ? null
-                            : () => setState(() => _collapsed = !_collapsed),
-                        onLogout: () => _logout(auth),
-                      ),
-                      Expanded(
-                        child: Container(
-                          color: AppColors.appBg,
-                          child: _buildPage(_currentPageId),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _TopBar(
+                          currentLabel: currentLabel,
+                          collapsed: _collapsed,
+                          onToggleCollapse: narrow
+                              ? null
+                              : () => setState(() => _collapsed = !_collapsed),
+                          onLogout: () => _logout(auth),
                         ),
-                      ),
-                    ],
+                        Expanded(
+                          child: Container(
+                            color: AppColors.appBg,
+                            child: _buildPage(_currentPageId),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(
-              color: AppColors.appBg,
-              border: Border(top: BorderSide(color: AppColors.borderSubtle)),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.appBg,
+                border: Border(top: BorderSide(color: AppColors.borderSubtle)),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                'Lekol360 © ${DateTime.now().year} · Version 1.0.1',
+                style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+              ),
             ),
-            alignment: Alignment.center,
-            child: Text(
-              'Lekol360 © ${DateTime.now().year} · Version 1.0.1',
-              style: TextStyle(fontSize: 11, color: AppColors.textMuted),
-            ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ), // Listener
     );
   }
@@ -876,7 +927,11 @@ class _InactivityDialogState extends State<_InactivityDialog> {
                 color: amber.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.warning_amber_rounded, color: amber, size: 32),
+              child: const Icon(
+                Icons.warning_amber_rounded,
+                color: amber,
+                size: 32,
+              ),
             ),
             const SizedBox(height: 20),
             const Text(
@@ -1029,23 +1084,41 @@ class _TabsModifiedDialogState extends State<_TabsModifiedDialog> {
                 color: accent.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.lock_person_outlined, color: accent, size: 32),
+              child: const Icon(
+                Icons.lock_person_outlined,
+                color: accent,
+                size: 32,
+              ),
             ),
             const SizedBox(height: 20),
             const Text(
               'Accès modifiés',
-              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 10),
             RichText(
               textAlign: TextAlign.center,
               text: TextSpan(
-                style: const TextStyle(color: Color(0xFFa0a0b8), fontSize: 14, height: 1.5),
+                style: const TextStyle(
+                  color: Color(0xFFa0a0b8),
+                  fontSize: 14,
+                  height: 1.5,
+                ),
                 children: [
-                  const TextSpan(text: 'Vos droits d\'accès ont été modifiés par l\'administrateur.\nDéconnexion automatique dans '),
+                  const TextSpan(
+                    text:
+                        'Vos droits d\'accès ont été modifiés par l\'administrateur.\nDéconnexion automatique dans ',
+                  ),
                   TextSpan(
                     text: '$_remaining',
-                    style: const TextStyle(color: accent, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: accent,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const TextSpan(text: ' secondes.'),
                 ],
@@ -1073,9 +1146,14 @@ class _TabsModifiedDialogState extends State<_TabsModifiedDialog> {
                   backgroundColor: accent,
                   foregroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-                child: const Text('Se déconnecter maintenant', style: TextStyle(fontWeight: FontWeight.w600)),
+                child: const Text(
+                  'Se déconnecter maintenant',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
               ),
             ),
           ],
