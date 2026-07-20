@@ -142,6 +142,7 @@ const deleteFilters = reactive({
   classe_id: "",
   annee_academique: "",
   mois: "",
+  identifiant: "", // optionnel — restreint la suppression à UN étudiant de la classe
 });
 const deletePreview = ref(null); // { etudiants_concernes, notes_a_supprimer } | null
 const deletePreviewLoading = ref(false);
@@ -155,8 +156,13 @@ const deleteFiltersComplete = computed(() =>
   !!(deleteFilters.niveau_id && deleteFilters.classe_id && deleteFilters.annee_academique && deleteFilters.mois)
 );
 
+// undefined (pas "") pour qu'axios omette le paramètre/champ plutôt que
+// d'envoyer une chaîne vide — même comportement que côté Flutter
+// (note_state.dart::previewDeleteNotes/deleteNotes).
+const trimmedIdentifiant = computed(() => deleteFilters.identifiant.trim() || undefined);
+
 watch(
-  () => [deleteFilters.niveau_id, deleteFilters.classe_id, deleteFilters.annee_academique, deleteFilters.mois],
+  () => [deleteFilters.niveau_id, deleteFilters.classe_id, deleteFilters.annee_academique, deleteFilters.mois, deleteFilters.identifiant],
   () => { deletePreview.value = null; }
 );
 watch(
@@ -169,6 +175,7 @@ const openDeleteNotesModal = () => {
   deleteFilters.classe_id = "";
   deleteFilters.annee_academique = "";
   deleteFilters.mois = "";
+  deleteFilters.identifiant = "";
   deletePreview.value = null;
   modalDeleteNotes.value = true;
 };
@@ -180,7 +187,13 @@ const previewDeleteNotes = async () => {
   deletePreview.value = null;
   try {
     const { data } = await axios.get(`${url}/coursEtudiant/notes/apercu-suppression`, {
-      params: { ...deleteFilters },
+      params: {
+        niveau_id: deleteFilters.niveau_id,
+        classe_id: deleteFilters.classe_id,
+        annee_academique: deleteFilters.annee_academique,
+        mois: deleteFilters.mois,
+        identifiant: trimmedIdentifiant.value,
+      },
     });
     deletePreview.value = data;
   } catch (e) {
@@ -199,7 +212,8 @@ const confirmDeleteNotes = async () => {
     title: "Suppression définitive",
     html: `Vous allez supprimer <b>${deletePreview.value.notes_a_supprimer}</b> note(s) `
         + `pour <b>${deletePreview.value.etudiants_concernes}</b> étudiant(s) `
-        + `(${deleteFilters.mois}, ${deleteFilters.annee_academique}). `
+        + `(${deleteFilters.mois}, ${deleteFilters.annee_academique})`
+        + (trimmedIdentifiant.value ? ` — étudiant <b>${trimmedIdentifiant.value}</b> uniquement` : "") + `. `
         + `Cette action est irréversible.<br><br>Tapez <b>SUPPRIMER</b> pour confirmer.`,
     input: "text",
     inputPlaceholder: "SUPPRIMER",
@@ -213,7 +227,15 @@ const confirmDeleteNotes = async () => {
 
   deleteInFlight.value = true;
   try {
-    const { data } = await axios.delete(`${url}/coursEtudiant/notes/suppression`, { data: { ...deleteFilters } });
+    const { data } = await axios.delete(`${url}/coursEtudiant/notes/suppression`, {
+      data: {
+        niveau_id: deleteFilters.niveau_id,
+        classe_id: deleteFilters.classe_id,
+        annee_academique: deleteFilters.annee_academique,
+        mois: deleteFilters.mois,
+        identifiant: trimmedIdentifiant.value,
+      },
+    });
     Swal.fire({ icon: "success", text: data.success, timer: 2500, showConfirmButton: false });
     deletePreview.value = null;
     closeDeleteNotesModal();
@@ -444,7 +466,7 @@ const actions = [
         </template>
         <template #content>
             <p class="text-sm text-slate-500 mb-3">
-              Supprime les notes d'un mois précis pour tous les étudiants du niveau / classe / année choisis. Cette action est irréversible.
+              Supprime les notes d'un mois précis pour tous les étudiants du niveau / classe / année choisis (ou un seul étudiant si son identifiant est précisé ci-dessous). Cette action est irréversible.
             </p>
 
             <div class="grid grid-cols-2 gap-4">
@@ -476,6 +498,12 @@ const actions = [
                   <option v-for="m in month" :key="m" :value="m">{{ m }}</option>
                 </select>
               </div>
+            </div>
+
+            <div class="pt-4">
+              <label class="text-sm">Étudiant (optionnel)</label>
+              <input type="text" v-model="deleteFilters.identifiant" class="input-select"
+                placeholder="Identifiant — laissez vide pour toute la classe" />
             </div>
 
             <div class="pt-4 flex items-center gap-3">

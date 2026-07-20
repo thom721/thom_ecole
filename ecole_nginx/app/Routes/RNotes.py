@@ -530,13 +530,24 @@ async def store_note(
 # SUPPRESSION GROUPÉE DE NOTES (par niveau / classe / année / mois)
 # ============================================================================
 def _query_cours_etudiants_for_suppression(
-    db: Session, niveau_id: str, classe_id: str, annee_academique: str
+    db: Session,
+    niveau_id: str,
+    classe_id: str,
+    annee_academique: str,
+    identifiant: Optional[str] = None,
 ):
-    return db.query(CoursEtudiant).filter(
+    query = db.query(CoursEtudiant).filter(
         CoursEtudiant.niveau == niveau_id,
         CoursEtudiant.classe == classe_id,
         CoursEtudiant.annee_academique == annee_academique,
-    ).all()
+    )
+    if identifiant:
+        # Restreint à UN étudiant précis de la classe (bouton "supprimer les
+        # notes de cet étudiant" côté Flutter) plutôt qu'à toute la classe —
+        # même filtre que la colonne "IDENTIFIANT" déjà affichée dans la
+        # liste, pas un nouvel identifiant opaque à introduire côté UI.
+        query = query.filter(CoursEtudiant.identifiant == identifiant)
+    return query.all()
 
 
 @router_note.get("/coursEtudiant/notes/apercu-suppression", response_model=DeleteNotesPreviewResponse)
@@ -545,13 +556,16 @@ def preview_delete_notes(
     classe_id: str,
     annee_academique: str,
     mois: str,
+    identifiant: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(check_permission("Supprimer note")),
 ):
     """Aperçu (lecture seule) du nombre d'étudiants/notes qui seraient
     affectés par une suppression, pour confirmation avant l'action réelle.
     """
-    rows = _query_cours_etudiants_for_suppression(db, niveau_id, classe_id, annee_academique)
+    rows = _query_cours_etudiants_for_suppression(
+        db, niveau_id, classe_id, annee_academique, identifiant
+    )
 
     etudiants_concernes = 0
     notes_a_supprimer = 0
@@ -589,7 +603,7 @@ def delete_notes(
         raise HTTPException(status_code=422, detail={"errors": "Classe introuvable"})
 
     rows = _query_cours_etudiants_for_suppression(
-        db, request.niveau_id, request.classe_id, request.annee_academique
+        db, request.niveau_id, request.classe_id, request.annee_academique, request.identifiant
     )
 
     etudiants_affectes = 0
@@ -604,7 +618,8 @@ def delete_notes(
             row.data_etudiant = json.dumps(data)
             db.add(row)
             db.add(Log(
-                action="Suppression groupée de notes (mois)",
+                action="Suppression de notes (mois, étudiant unique)" if request.identifiant
+                else "Suppression groupée de notes (mois)",
                 user_id=current_user.id,
                 model_type="CoursEtudiant",
                 model_id=row.id,
@@ -612,6 +627,7 @@ def delete_notes(
                 reason=(
                     f"{niveau.name} / {classe.nom_classe} / "
                     f"{request.annee_academique} / {request.mois}"
+                    + (f" / étudiant {request.identifiant}" if request.identifiant else "")
                     + (f" — {request.raison}" if request.raison else "")
                 )[:255],
             ))

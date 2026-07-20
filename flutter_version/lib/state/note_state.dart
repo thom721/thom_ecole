@@ -40,8 +40,18 @@ class NoteState extends ChangeNotifier {
 
   /// Ordre exact de self.mois_ (Main.py:629) — année scolaire, pas calendaire.
   static const moisAnneeScolaire = [
-    'Septembre', 'Octobre', 'Novembre', 'Décembre', 'Janvier', 'Février',
-    'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août',
+    'Septembre',
+    'Octobre',
+    'Novembre',
+    'Décembre',
+    'Janvier',
+    'Février',
+    'Mars',
+    'Avril',
+    'Mai',
+    'Juin',
+    'Juillet',
+    'Août',
   ];
 
   List<CoursEtudiantRecord> items = [];
@@ -83,10 +93,10 @@ class NoteState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _apiClient.get('coursEtudiant', query: {
-        'page': page,
-        if (searchTerm.isNotEmpty) 'search': searchTerm,
-      });
+      final response = await _apiClient.get(
+        'coursEtudiant',
+        query: {'page': page, if (searchTerm.isNotEmpty) 'search': searchTerm},
+      );
       final data = response.data as Map<String, dynamic>;
       items = ((data['data'] as List?) ?? const [])
           .map((e) => CoursEtudiantRecord.fromJson(e as Map<String, dynamic>))
@@ -114,15 +124,20 @@ class NoteState extends ChangeNotifier {
     isSearching = true;
     notifyListeners();
     try {
-      final response = await _apiClient.post('cours-etudiant-add-note', data: {
-        'niveau': niveauId,
-        'cours': coursId,
-        'class': classeId,
-        'annee_academique': anneeAcademiqueId,
-        'faculte': faculteId,
-        'session': session,
-      });
-      final datas = (response.data as Map<String, dynamic>)['datas'] as Map<String, dynamic>;
+      final response = await _apiClient.post(
+        'cours-etudiant-add-note',
+        data: {
+          'niveau': niveauId,
+          'cours': coursId,
+          'class': classeId,
+          'annee_academique': anneeAcademiqueId,
+          'faculte': faculteId,
+          'session': session,
+        },
+      );
+      final datas =
+          (response.data as Map<String, dynamic>)['datas']
+              as Map<String, dynamic>;
       return (result: NoteSearchResult.fromJson(datas), error: null);
     } catch (e) {
       return (result: null, error: _extractError(e));
@@ -143,17 +158,24 @@ class NoteState extends ChangeNotifier {
     required List<NoteSearchStudent> students,
   }) async {
     try {
-      final response = await _apiClient.post('cours-etudiant-edit-note', data: {
-        'cours': coursNom,
-        'examen': examen,
-        'annee_academique': anneeAcademique,
-        'type_matiere': typeMatiere,
-        'notes': students.map((s) => {'id': s.id, 'identifiant': s.identifiant}).toList(),
-      });
-      final success = (response.data as Map<String, dynamic>)['success'] as List?;
+      final response = await _apiClient.post(
+        'cours-etudiant-edit-note',
+        data: {
+          'cours': coursNom,
+          'examen': examen,
+          'annee_academique': anneeAcademique,
+          'type_matiere': typeMatiere,
+          'notes': students
+              .map((s) => {'id': s.id, 'identifiant': s.identifiant})
+              .toList(),
+        },
+      );
+      final success =
+          (response.data as Map<String, dynamic>)['success'] as List?;
       return {
         for (final item in success ?? const [])
-          (item as Map<String, dynamic>)['etudiant_id'].toString(): (item['note'] as num).toDouble(),
+          (item as Map<String, dynamic>)['etudiant_id'].toString():
+              (item['note'] as num).toDouble(),
       };
     } catch (_) {
       return {};
@@ -176,18 +198,29 @@ class NoteState extends ChangeNotifier {
     isSubmitting = true;
     notifyListeners();
     try {
-      await _apiClient.post('coursEtudiant', data: {
-        'controle': controle,
-        'examen': examen,
-        'cours': coursNom,
-        'type_matiere': typeMatiere,
-        'coefficients': coefficients,
-        'session': session,
-        'note_de_passage': noteDePassage ?? 0.0,
-        'professeur_id': professeurId,
-        'annee_academique': anneeAcademique,
-        'notes': students.map((s) => {'id': s.id, 'identifiant': s.identifiant, 'note': s.note ?? 0}).toList(),
-      });
+      await _apiClient.post(
+        'coursEtudiant',
+        data: {
+          'controle': controle,
+          'examen': examen,
+          'cours': coursNom,
+          'type_matiere': typeMatiere,
+          'coefficients': coefficients,
+          'session': session,
+          'note_de_passage': noteDePassage ?? 0.0,
+          'professeur_id': professeurId,
+          'annee_academique': anneeAcademique,
+          'notes': students
+              .map(
+                (s) => {
+                  'id': s.id,
+                  'identifiant': s.identifiant,
+                  'note': s.note ?? 0,
+                },
+              )
+              .toList(),
+        },
+      );
       return null;
     } catch (e) {
       return _extractError(e);
@@ -200,7 +233,11 @@ class NoteState extends ChangeNotifier {
   /// Équivalent de print_bulletin() → POST v1/imprime-bulletin (PDF), ouvert
   /// avec le lecteur par défaut du système (motif de
   /// PaiementState.printRecu()).
-  Future<String?> printBulletin(String coursEtudiantId, {String? mois, String? session}) async {
+  Future<String?> printBulletin(
+    String coursEtudiantId, {
+    String? mois,
+    String? session,
+  }) async {
     printingId = coursEtudiantId;
     notifyListeners();
     try {
@@ -209,7 +246,9 @@ class NoteState extends ChangeNotifier {
         data: {'bulletin': coursEtudiantId, 'mois': mois, 'session': session},
         options: Options(responseType: ResponseType.bytes),
       );
-      final file = File('${Directory.systemTemp.path}/bulletin_$coursEtudiantId.pdf');
+      final file = File(
+        '${Directory.systemTemp.path}/bulletin_$coursEtudiantId.pdf',
+      );
       await file.writeAsBytes(response.data as List<int>);
       await _openFile(file.path);
       return null;
@@ -235,10 +274,16 @@ class NoteState extends ChangeNotifier {
     try {
       final response = await _apiClient.dio.post(
         'imprime-mas-bulletin',
-        data: {'annee_academique': anneeAcademiqueNom, 'classe': classeId, 'mois': mois},
+        data: {
+          'annee_academique': anneeAcademiqueNom,
+          'classe': classeId,
+          'mois': mois,
+        },
         options: Options(responseType: ResponseType.bytes),
       );
-      final file = File('${Directory.systemTemp.path}/bulletin_classe_${classeId}_$mois.pdf');
+      final file = File(
+        '${Directory.systemTemp.path}/bulletin_classe_${classeId}_$mois.pdf',
+      );
       await file.writeAsBytes(response.data as List<int>);
       await _openFile(file.path);
       return null;
@@ -253,12 +298,18 @@ class NoteState extends ChangeNotifier {
   /// Équivalent de l'aperçu (lecture seule) côté web,
   /// GET v1/coursEtudiant/notes/apercu-suppression — compte les
   /// étudiants/notes qui seraient affectés avant d'autoriser la suppression.
+  /// [identifiant] (optionnel, absent du web) restreint le comptage à UN
+  /// seul étudiant de la classe plutôt qu'à tous — n'ajoute rien à la
+  /// requête si vide/null, donc le comportement par défaut (toute la
+  /// classe) reste identique à avant.
   Future<({int? etudiants, int? notes, String? error})> previewDeleteNotes({
     required String niveauId,
     required String classeId,
     required String anneeAcademique,
     required String mois,
+    String? identifiant,
   }) async {
+    final trimmedIdentifiant = identifiant?.trim();
     try {
       final response = await _apiClient.get(
         'coursEtudiant/notes/apercu-suppression',
@@ -267,6 +318,8 @@ class NoteState extends ChangeNotifier {
           'classe_id': classeId,
           'annee_academique': anneeAcademique,
           'mois': mois,
+          if (trimmedIdentifiant != null && trimmedIdentifiant.isNotEmpty)
+            'identifiant': trimmedIdentifiant,
         },
       );
       final data = response.data as Map<String, dynamic>;
@@ -288,14 +341,18 @@ class NoteState extends ChangeNotifier {
   /// /coursEtudiant/notes en traitant "notes" comme un id.
   /// Doit toujours être précédée d'un [previewDeleteNotes] à jour (imposé
   /// côté écran, pas ici) pour éviter de supprimer sur la base d'une
-  /// sélection différente de celle vérifiée par l'utilisateur.
+  /// sélection différente de celle vérifiée par l'utilisateur. [identifiant]
+  /// (optionnel) restreint la suppression à UN seul étudiant — voir
+  /// [previewDeleteNotes].
   Future<String?> deleteNotes({
     required String niveauId,
     required String classeId,
     required String anneeAcademique,
     required String mois,
     String? raison,
+    String? identifiant,
   }) async {
+    final trimmedIdentifiant = identifiant?.trim();
     try {
       await _apiClient.dio.delete(
         'coursEtudiant/notes/suppression',
@@ -305,6 +362,8 @@ class NoteState extends ChangeNotifier {
           'annee_academique': anneeAcademique,
           'mois': mois,
           if (raison != null) 'raison': raison,
+          if (trimmedIdentifiant != null && trimmedIdentifiant.isNotEmpty)
+            'identifiant': trimmedIdentifiant,
         },
       );
       return null;
@@ -330,12 +389,15 @@ class NoteState extends ChangeNotifier {
         final detail = data['detail'];
         if (detail is Map && detail['errors'] != null) {
           final errors = detail['errors'];
-          if (errors is Map) return errors.values.expand((v) => v is List ? v : [v]).join('\n');
+          if (errors is Map)
+            return errors.values.expand((v) => v is List ? v : [v]).join('\n');
           return errors.toString();
         }
         if (detail != null) return detail.toString();
         if (data['errors'] is Map) {
-          final errors = (data['errors'] as Map).values.expand((v) => v is List ? v : [v]).join('\n');
+          final errors = (data['errors'] as Map).values
+              .expand((v) => v is List ? v : [v])
+              .join('\n');
           if (errors.isNotEmpty) return errors;
         }
         if (data['errors'] != null) return data['errors'].toString();

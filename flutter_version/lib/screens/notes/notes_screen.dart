@@ -377,6 +377,7 @@ class _DeleteNotesDialogState extends State<_DeleteNotesDialog> {
   String? _anneeAcademique;
   String? _mois;
   String? _error;
+  final _identifiantController = TextEditingController();
 
   bool _isPreviewing = false;
   int? _previewEtudiants;
@@ -388,6 +389,19 @@ class _DeleteNotesDialogState extends State<_DeleteNotesDialog> {
       _classeId != null &&
       _anneeAcademique != null &&
       _mois != null;
+
+  /// `null` si le champ est vide — restreint la suppression à un seul
+  /// étudiant de la classe quand renseigné (voir NoteState.deleteNotes).
+  String? get _identifiant {
+    final v = _identifiantController.text.trim();
+    return v.isEmpty ? null : v;
+  }
+
+  @override
+  void dispose() {
+    _identifiantController.dispose();
+    super.dispose();
+  }
 
   void _resetPreview() {
     _previewEtudiants = null;
@@ -406,6 +420,7 @@ class _DeleteNotesDialogState extends State<_DeleteNotesDialog> {
       classeId: _classeId!,
       anneeAcademique: _anneeAcademique!,
       mois: _mois!,
+      identifiant: _identifiant,
     );
     if (!mounted) return;
     setState(() {
@@ -421,13 +436,16 @@ class _DeleteNotesDialogState extends State<_DeleteNotesDialog> {
 
   Future<void> _confirmDelete() async {
     if (_previewNotes == null || _previewNotes == 0) return;
+    final identifiant = _identifiant;
     final raison = await showReasonDialog(
       context: context,
       title: 'Suppression définitive',
       message:
           'Vous allez supprimer $_previewNotes note(s) pour $_previewEtudiants '
-          'étudiant(s) ($_mois, $_anneeAcademique). Cette action est '
-          'irréversible. Indiquez la raison de cette suppression.',
+          'étudiant(s) ($_mois, $_anneeAcademique)'
+          '${identifiant != null ? ' — étudiant $identifiant uniquement' : ''}. '
+          'Cette action est irréversible. Indiquez la raison de cette '
+          'suppression.',
       confirmLabel: 'Supprimer définitivement',
     );
     if (raison == null || !mounted) return;
@@ -439,6 +457,7 @@ class _DeleteNotesDialogState extends State<_DeleteNotesDialog> {
       anneeAcademique: _anneeAcademique!,
       mois: _mois!,
       raison: raison,
+      identifiant: identifiant,
     );
     if (!mounted) return;
     setState(() => _isDeleting = false);
@@ -447,9 +466,9 @@ class _DeleteNotesDialogState extends State<_DeleteNotesDialog> {
       return;
     }
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Notes supprimées avec succès.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Notes supprimées avec succès.')),
+    );
   }
 
   @override
@@ -464,7 +483,9 @@ class _DeleteNotesDialogState extends State<_DeleteNotesDialog> {
         children: [
           Text(
             "Supprime les notes d'un mois précis pour tous les étudiants du "
-            "niveau / classe / année choisis. Cette action est irréversible.",
+            "niveau / classe / année choisis (ou un seul étudiant si son "
+            "identifiant est précisé ci-dessous). Cette action est "
+            "irréversible.",
             style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
           ),
           const SizedBox(height: 16),
@@ -487,7 +508,8 @@ class _DeleteNotesDialogState extends State<_DeleteNotesDialog> {
             decoration: const InputDecoration(labelText: 'Classe'),
             items: classesForNiveau
                 .map(
-                  (c) => DropdownMenuItem(value: c.id, child: Text(c.nomClasse)),
+                  (c) =>
+                      DropdownMenuItem(value: c.id, child: Text(c.nomClasse)),
                 )
                 .toList(),
             onChanged: _niveauId == null
@@ -496,6 +518,16 @@ class _DeleteNotesDialogState extends State<_DeleteNotesDialog> {
                     _classeId = v;
                     _resetPreview();
                   }),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _identifiantController,
+            decoration: const InputDecoration(
+              labelText: 'Étudiant (optionnel)',
+              hintText: "Identifiant — laissez vide pour toute la classe",
+              isDense: true,
+            ),
+            onChanged: (_) => setState(_resetPreview),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
@@ -576,9 +608,7 @@ class _DeleteNotesDialogState extends State<_DeleteNotesDialog> {
                   backgroundColor: AppColors.danger,
                 ),
                 onPressed:
-                    (_previewNotes == null ||
-                        _previewNotes == 0 ||
-                        _isDeleting)
+                    (_previewNotes == null || _previewNotes == 0 || _isDeleting)
                     ? null
                     : _confirmDelete,
                 child: _isDeleting

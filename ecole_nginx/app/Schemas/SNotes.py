@@ -104,6 +104,11 @@ class DeleteNotesRequest(BaseModel):
     annee_academique: str = Field(..., description="Année académique")
     mois: str = Field(..., description="Mois dont les notes doivent être supprimées")
     raison: Optional[str] = Field(None, description="Raison de la suppression (saisie côté Flutter)")
+    identifiant: Optional[str] = Field(
+        None,
+        description="Identifiant d'un étudiant précis (optionnel) — restreint la "
+                     "suppression à ce seul étudiant de la classe au lieu de tous",
+    )
 
     @field_validator('niveau_id', 'classe_id', 'annee_academique', 'mois')
     @classmethod
@@ -111,6 +116,14 @@ class DeleteNotesRequest(BaseModel):
         if not v or not v.strip():
             raise ValueError("Ce champ ne peut pas être vide")
         return v.strip()
+
+    @field_validator('identifiant')
+    @classmethod
+    def validate_identifiant(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        v = v.strip()
+        return v or None
 
 class DeleteNotesPreviewResponse(BaseModel):
     etudiants_concernes: int
