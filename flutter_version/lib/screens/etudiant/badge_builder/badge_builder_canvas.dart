@@ -3,7 +3,9 @@ import 'dart:math' show cos, pi, sin;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart' show kSecondaryButton;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HardwareKeyboard;
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../models/badge_layout.dart';
@@ -237,11 +239,15 @@ class BadgeBuilderCanvas extends StatelessWidget {
   /// badge_builder_property_panel.dart) — une couche plein cadre qui
   /// INSÈRE un nouveau point là où l'utilisateur clique sur le tracé
   /// ([insertPathPoint], qui ignore lui-même les clics trop proches d'une
-  /// ancre existante), PLUS une poignée par ancre EXISTANTE, glissable
-  /// pour la repositionner. Les deux tiennent compte de la rotation de
-  /// l'élément ([_elementTransform]/[_unrotateDelta]) — sans ça, le point
-  /// inséré tomberait au mauvais endroit, ou glisser une ancre sur un
-  /// élément pivoté la déplacerait dans le mauvais axe.
+  /// ancre existante, et lui donne de vraies poignées de courbure par
+  /// subdivision plutôt qu'un simple coin), PLUS une poignée par ancre
+  /// EXISTANTE (glissable pour la repositionner ; Ctrl + clic droit la
+  /// SUPPRIME, comme dans Illustrator — [deletePathPoint]), PLUS une
+  /// poignée par poignée de courbure présente (glissable pour régler la
+  /// courbe). Tout tient compte de la rotation de l'élément
+  /// ([_elementTransform]/[_unrotateDelta]) — sans ça, le point inséré
+  /// tomberait au mauvais endroit, ou glisser une poignée sur un élément
+  /// pivoté la déplacerait dans le mauvais axe.
   ///
   /// Limite assumée, comme pour les repères ([_buildGuideHandles]) : la
   /// couche d'insertion couvre tout le canevas et un `Listener` ne bloque
@@ -264,13 +270,47 @@ class BadgeBuilderCanvas extends StatelessWidget {
     final transform = _elementTransform(target, scale);
     final rect = Rect.fromLTWH(0, 0, target.width, target.height);
 
-    Offset anchorDisplayPos(BadgePathPoint p) {
-      final local = _denormalizePreview(rect, p.x, p.y) * scale;
+    Offset toDisplay(double nx, double ny) {
+      final local = _denormalizePreview(rect, nx, ny) * scale;
       return MatrixUtils.transformPoint(transform, local);
     }
 
-    const handleSize = 10.0;
+    const anchorSize = 10.0;
+    const controlSize = 8.0;
+
+    Widget controlHandle(Offset pos, void Function(Offset modelDelta) onDrag) {
+      return Positioned(
+        left: pos.dx - controlSize / 2,
+        top: pos.dy - controlSize / 2,
+        width: controlSize,
+        height: controlSize,
+        child: Listener(
+          onPointerMove: (event) => onDrag(
+            _unrotateDelta(event.delta, target.rotationDegrees) / scale,
+          ),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A73E8),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 1),
+            ),
+          ),
+        ),
+      );
+    }
+
     final widgets = <Widget>[
+      // Traits ancre↔poignée — repère visuel uniquement, non interactif.
+      Positioned.fill(
+        child: IgnorePointer(
+          child: CustomPaint(
+            painter: _PathHandleLinesPainter(
+              points: target.pathPoints,
+              toDisplay: toDisplay,
+            ),
+          ),
+        ),
+      ),
       Positioned.fill(
         child: Listener(
           behavior: HitTestBehavior.opaque,
@@ -280,7 +320,7 @@ class BadgeBuilderCanvas extends StatelessWidget {
               inverse,
               event.localPosition,
             );
-            if (insertPathPoint(target, localDisplay / scale)) {
+            if (insertPathPoint(target, localDisplay / scale) != null) {
               onElementChanged(target);
             }
           },
@@ -289,18 +329,44 @@ class BadgeBuilderCanvas extends StatelessWidget {
     ];
 
     for (var j = 0; j < target.pathPoints.length; j++) {
-      final pos = anchorDisplayPos(target.pathPoints[j]);
+      final p = target.pathPoints[j];
+
+      if (p.outX != null) {
+        widgets.add(
+          controlHandle(toDisplay(p.x + p.outX!, p.y + p.outY!), (delta) {
+            p.outX = p.outX! + delta.dx / target.width;
+            p.outY = p.outY! + delta.dy / target.height;
+            onElementChanged(target);
+          }),
+        );
+      }
+      if (p.inX != null) {
+        widgets.add(
+          controlHandle(toDisplay(p.x + p.inX!, p.y + p.inY!), (delta) {
+            p.inX = p.inX! + delta.dx / target.width;
+            p.inY = p.inY! + delta.dy / target.height;
+            onElementChanged(target);
+          }),
+        );
+      }
+
+      final anchorPos = toDisplay(p.x, p.y);
       widgets.add(
         Positioned(
-          left: pos.dx - handleSize / 2,
-          top: pos.dy - handleSize / 2,
-          width: handleSize,
-          height: handleSize,
+          left: anchorPos.dx - anchorSize / 2,
+          top: anchorPos.dy - anchorSize / 2,
+          width: anchorSize,
+          height: anchorSize,
           child: Listener(
+            onPointerDown: (event) {
+              final isSecondaryClick = event.buttons & kSecondaryButton != 0;
+              if (isSecondaryClick && HardwareKeyboard.instance.isControlPressed) {
+                if (deletePathPoint(target, j)) onElementChanged(target);
+              }
+            },
             onPointerMove: (event) {
               final delta =
                   _unrotateDelta(event.delta, target.rotationDegrees) / scale;
-              final p = target.pathPoints[j];
               p.x += delta.dx / target.width;
               p.y += delta.dy / target.height;
               onElementChanged(target);
@@ -1061,6 +1127,37 @@ class _GuideLinePainter extends CustomPainter {
   bool shouldRepaint(covariant _GuideLinePainter oldDelegate) => false;
 }
 
+/// Traits ancre↔poignée de courbure (mode "Modifier les points", voir
+/// `_buildPathPointHandles`) — un simple repère visuel façon Illustrator,
+/// non interactif (enveloppé dans un `IgnorePointer` par l'appelant).
+class _PathHandleLinesPainter extends CustomPainter {
+  _PathHandleLinesPainter({required this.points, required this.toDisplay});
+
+  final List<BadgePathPoint> points;
+  final Offset Function(double nx, double ny) toDisplay;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF1A73E8)
+      ..strokeWidth = 1;
+    for (final p in points) {
+      final anchor = toDisplay(p.x, p.y);
+      if (p.outX != null) {
+        canvas.drawLine(anchor, toDisplay(p.x + p.outX!, p.y + p.outY!), paint);
+      }
+      if (p.inX != null) {
+        canvas.drawLine(anchor, toDisplay(p.x + p.inX!, p.y + p.inY!), paint);
+      }
+    }
+  }
+
+  // `points` est muté EN PLACE (voir models/badge_layout.dart) : pas de
+  // comparaison de valeur fiable, même choix que `_ShapePreviewPainter`.
+  @override
+  bool shouldRepaint(covariant _PathHandleLinesPainter oldDelegate) => true;
+}
+
 /// Même géométrie que `widgets/badge_layout_renderer.dart::_shapePath` — le
 /// tracé (façon Illustrator, `BadgeShapeKind.path`) et le dégradé de
 /// remplissage doivent avoir exactement la même forme à l'écran que dans
@@ -1300,15 +1397,27 @@ List<BadgePathPoint> _flattenToNormalizedPolygon(
   return points;
 }
 
-/// Insère un nouveau point d'ancrage (un "coin", sans poignées de
-/// courbure) sur le segment de `el.pathPoints` le plus proche de
-/// [localModelClick] — repère LOCAL NON PIVOTÉ de [el] (0,0)-(width,height),
-/// les mêmes unités que `pathPoints` une fois dénormalisés. Mute
-/// `el.pathPoints` EN PLACE (cohérent avec la mutabilité documentée dans
-/// models/badge_layout.dart) et retourne `true` si un point a bien été
-/// inséré.
+/// Insère un nouveau point d'ancrage sur le segment de `el.pathPoints` le
+/// plus proche de [localModelClick] — repère LOCAL NON PIVOTÉ de [el]
+/// (0,0)-(width,height), les mêmes unités que `pathPoints` une fois
+/// dénormalisés. Mute `el.pathPoints` EN PLACE (cohérent avec la
+/// mutabilité documentée dans models/badge_layout.dart) et retourne
+/// l'INDEX du nouveau point si l'insertion a eu lieu, `null` sinon.
 ///
-/// Ignore le clic (retourne `false`) :
+/// Le nouveau point hérite de VRAIES poignées de courbure quand le
+/// segment visé en a — par subdivision de De Casteljau (couper une courbe
+/// de Bézier en son paramètre `t` en deux courbes qui, mises bout à bout,
+/// reproduisent EXACTEMENT la courbe d'origine) — plutôt qu'un simple
+/// "coin" sans poignées, qui déformerait visiblement tout segment déjà
+/// courbe à l'endroit de l'insertion. Pour un segment DROIT (aucune
+/// poignée des deux côtés), rien à préserver : un simple coin est inséré
+/// directement à la position cliquée, sans passer par la subdivision
+/// (qui resterait mathématiquement correcte — 4 points de contrôle
+/// colinéaires ⇒ toujours une ligne droite — mais donnerait au nouveau
+/// point des poignées non nulles sans raison, voir
+/// badge_builder_path_points_test.dart).
+///
+/// Ignore le clic (retourne `null`) :
 /// - s'il tombe trop près d'une ancre EXISTANTE (à moins de [tolerance]) —
 ///   ce cas est celui d'un glissement voulu sur cette ancre, pas une
 ///   insertion (voir la poignée d'ancre dans `_buildPathPointHandles`, qui
@@ -1324,24 +1433,25 @@ List<BadgePathPoint> _flattenToNormalizedPolygon(
 /// (généralement impossible pour une distance point↔courbe cubique) — une
 /// approche purement mathématique (`_cubicPointAt`), sans dépendre de
 /// `dart:ui`/`Path`, pour rester testable sans `flutter_test`.
-bool insertPathPoint(
+int? insertPathPoint(
   BadgeElement el,
   Offset localModelClick, {
   double tolerance = 10,
 }) {
   if (el.shapeKind != BadgeShapeKind.path || el.pathPoints.length < 2) {
-    return false;
+    return null;
   }
   final rect = Rect.fromLTWH(0, 0, el.width, el.height);
   Offset denorm(double x, double y) => _denormalizePreview(rect, x, y);
 
   for (final p in el.pathPoints) {
-    if ((denorm(p.x, p.y) - localModelClick).distance < tolerance) return false;
+    if ((denorm(p.x, p.y) - localModelClick).distance < tolerance) return null;
   }
 
   final points = el.pathPoints;
   final segmentCount = el.pathClosed ? points.length : points.length - 1;
   var bestIndex = -1;
+  var bestT = 0.0;
   var bestDist = double.infinity;
   const samples = 20;
   for (var i = 0; i < segmentCount; i++) {
@@ -1360,18 +1470,108 @@ bool insertPathPoint(
       if (dist < bestDist) {
         bestDist = dist;
         bestIndex = i;
+        bestT = t;
       }
     }
   }
-  if (bestIndex < 0 || bestDist > tolerance) return false;
+  if (bestIndex < 0 || bestDist > tolerance) return null;
 
-  points.insert(
-    bestIndex + 1,
-    BadgePathPoint(
+  final from = points[bestIndex];
+  final to = points[(bestIndex + 1) % points.length];
+  final p0 = denorm(from.x, from.y);
+  final p1 = denorm(to.x, to.y);
+  final cp1 = from.outX != null
+      ? denorm(from.x + from.outX!, from.y + from.outY!)
+      : p0;
+  final cp2 = to.inX != null ? denorm(to.x + to.inX!, to.y + to.inY!) : p1;
+
+  // Segment DROIT (aucune poignée des deux côtés) : rien à préserver, un
+  // simple coin suffit. La subdivision de De Casteljau resterait
+  // mathématiquement correcte ici aussi (le résultat serait toujours
+  // géométriquement une ligne droite — 4 points de contrôle colinéaires),
+  // mais donnerait au nouveau point des poignées non nulles alors qu'il
+  // n'y a aucune courbe à représenter : un simple coin est plus clair
+  // pour l'édition ultérieure.
+  if (from.outX == null && to.inX == null) {
+    final newCorner = BadgePathPoint(
       x: localModelClick.dx / rect.width,
       y: localModelClick.dy / rect.height,
-    ),
+    );
+    final insertIndex = bestIndex + 1;
+    points.insert(insertIndex, newCorner);
+    return insertIndex;
+  }
+
+  final t = bestT;
+  final a = Offset.lerp(p0, cp1, t)!;
+  final b = Offset.lerp(cp1, cp2, t)!;
+  final c = Offset.lerp(cp2, p1, t)!;
+  final d = Offset.lerp(a, b, t)!;
+  final e = Offset.lerp(b, c, t)!;
+  final f = Offset.lerp(d, e, t)!;
+
+  _setRelativeHandle(
+    point: from,
+    origin: p0,
+    newControl: a,
+    rect: rect,
+    outgoing: true,
   );
+  _setRelativeHandle(
+    point: to,
+    origin: p1,
+    newControl: c,
+    rect: rect,
+    outgoing: false,
+  );
+
+  final newPoint = BadgePathPoint(x: f.dx / rect.width, y: f.dy / rect.height);
+  _setRelativeHandle(point: newPoint, origin: f, newControl: e, rect: rect, outgoing: true);
+  _setRelativeHandle(point: newPoint, origin: f, newControl: d, rect: rect, outgoing: false);
+
+  final insertIndex = bestIndex + 1;
+  points.insert(insertIndex, newPoint);
+  return insertIndex;
+}
+
+/// Fixe la poignée SORTANTE ([outgoing]`true`) ou ENTRANTE (`false`) de
+/// [point] à [newControl] (coordonnées dénormalisées), relative à
+/// [origin] (la position dénormalisée DE [point] lui-même) — sauf si
+/// [point] n'avait PAS déjà cette poignée (`null`) ET que la nouvelle
+/// valeur est négligeable, auquel cas elle reste `null` (un segment droit
+/// ne doit jamais se voir attribuer une poignée parasite, même de
+/// longueur quasi nulle, voir la doc de [insertPathPoint]).
+void _setRelativeHandle({
+  required BadgePathPoint point,
+  required Offset origin,
+  required Offset newControl,
+  required Rect rect,
+  required bool outgoing,
+}) {
+  final dx = (newControl.dx - origin.dx) / rect.width;
+  final dy = (newControl.dy - origin.dy) / rect.height;
+  final hadHandle = outgoing ? point.outX != null : point.inX != null;
+  const epsilon = 1e-4;
+  if (!hadHandle && dx.abs() < epsilon && dy.abs() < epsilon) return;
+  if (outgoing) {
+    point.outX = dx;
+    point.outY = dy;
+  } else {
+    point.inX = dx;
+    point.inY = dy;
+  }
+}
+
+/// Supprime le point d'ancrage à [index] de `el.pathPoints` — refuse de
+/// descendre sous 2 points (un tracé à 0 ou 1 point n'a plus de forme
+/// valide à afficher). Voir badge_builder_property_panel.dart (mode
+/// "Modifier les points") : Ctrl + clic droit sur une ancre, comme
+/// supprimer un point d'ancrage dans Illustrator — permet de corriger un
+/// point mal placé sans reprendre tout le tracé.
+bool deletePathPoint(BadgeElement el, int index) {
+  if (index < 0 || index >= el.pathPoints.length) return false;
+  if (el.pathPoints.length <= 2) return false;
+  el.pathPoints.removeAt(index);
   return true;
 }
 

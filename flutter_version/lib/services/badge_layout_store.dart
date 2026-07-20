@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../models/badge_layout.dart';
 import 'badge_layout_seed_templates.dart';
+import 'badge_layout_seed_templates_pro.dart';
 
 /// Persistance locale des gabarits construits dans l'éditeur visuel de
 /// badge (`screens/etudiant/badge_builder/`) — un fichier JSON par gabarit
@@ -49,8 +50,26 @@ class BadgeLayoutStore {
   /// pas réapparaître au prochain redémarrage).
   Future<void> _ensureSeedTemplates() async {
     final marker = File('${(await _dir()).path}/.badge_layouts_seeded');
+    if (!marker.existsSync()) {
+      for (final layout in buildSeedBadgeTemplates()) {
+        await save(layout);
+      }
+      marker.writeAsStringSync('');
+    }
+    await _ensureProSeedTemplates();
+  }
+
+  /// Second lot de gabarits de démarrage (badge_layout_seed_templates_pro.dart)
+  /// — 22 reproductions de modèles de carte professionnelle, ajoutées
+  /// après coup. Sa PROPRE marque (distincte de celle ci-dessus) permet à
+  /// ce lot d'apparaître même pour une installation qui avait déjà lancé
+  /// l'app (donc déjà posé la marque du premier lot) avant l'ajout de ce
+  /// fichier — sinon ce second lot ne serait JAMAIS écrit pour un poste
+  /// déjà en service.
+  Future<void> _ensureProSeedTemplates() async {
+    final marker = File('${(await _dir()).path}/.badge_layouts_seeded_pro');
     if (marker.existsSync()) return;
-    for (final layout in buildSeedBadgeTemplates()) {
+    for (final layout in buildProSeedBadgeTemplates()) {
       await save(layout);
     }
     marker.writeAsStringSync('');
