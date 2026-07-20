@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import select, and_, or_, func
 from typing import Optional, List, Dict, Any
 from decimal import Decimal
+from fractions import Fraction
 from pydantic import BaseModel, Field, field_validator,model_validator
 from app.Models.MFinancials import Paiement,Loan,LoanRepayment,OrderItem,Vente,Depense,FraisInscription,OtherTransaction,AnnulationArriere
 from app.Models.MModels import Niveau,Etudiant,User,AnneeAcademique
@@ -84,7 +85,7 @@ class SalesItem(BaseModel):
 class SalesCategory(BaseModel):
     """Catégorie de ventes"""
     category: str
-    quantite: int
+    quantite: float
     total: float
     items: List[Dict[str, Any]]
 
@@ -327,6 +328,24 @@ def get_register_for_period(
     
     return register
 
+def _format_quantite_fraction(quantite: float) -> str:
+    """Affiche une quantité fractionnaire (Tissus vendus au tiers/quart/demi
+    "Aune", voir OrderItem.quantite — colonne texte en base, convertie en
+    float dans get_sales_for_inter) sous forme de fraction lisible plutôt que
+    de décimal brut : "1/2" pas "0.5", "1 1/2" pas "1.5". Dénominateur limité
+    à 16 (couvre demis/quarts/huitièmes, largement suffisant pour du tissu au
+    mètre) pour éviter une fraction absurde sur une valeur qui n'en est pas
+    vraiment une (ex. un import erroné à 0.333333).
+    """
+    frac = Fraction(quantite).limit_denominator(16)
+    whole, remainder = divmod(frac.numerator, frac.denominator)
+    if remainder == 0:
+        return str(whole)
+    if whole == 0:
+        return f"{remainder}/{frac.denominator}"
+    return f"{whole} {remainder}/{frac.denominator}"
+
+
 def get_sales_for_inter(
     date_debut: datetime,
     date_fin: datetime,
@@ -368,14 +387,24 @@ def get_sales_for_inter(
         montant_total = 0
         
         for item in total_vente:
-            quantite_total += float(item.qt_item) or 0
+            item_qt = float(item.qt_item) or 0
+            quantite_total += item_qt
             montant_total += item.order_total or 0
-            
+
+            # Tissus vendus au "Aune" (quantité souvent fractionnaire, voir
+            # _format_quantite_fraction) : la quantité est préfixée au nom
+            # dans la colonne Description du rapport ("1/2 Aune Beige"),
+            # sinon un seul article vendu 3 fois à 1/2 Aune apparaîtrait
+            # comme 3 lignes identiques "Aune Beige" sans indiquer combien.
+            vente_name = item.vente_name
+            if category == 'Tissus':
+                vente_name = f"{_format_quantite_fraction(item_qt)} {vente_name}"
+
             items.append({
                 'qt_item': item.qt_item,
                 'order_total': item.order_total,
                 'prix_item': item.prix_item,
-                'vente_name': item.vente_name,
+                'vente_name': vente_name,
                 'fname': item.fname,
                 'prenom': item.prenom
             })
