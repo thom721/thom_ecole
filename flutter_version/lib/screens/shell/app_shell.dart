@@ -92,7 +92,36 @@ const Map<String, List<NavSubItem>> kSubNavItems = {
     NavSubItem('home.classes', 'Détail des classes', Icons.apartment_outlined),
   ],
   'etudiant': [
-    NavSubItem('etudiant.badge', 'Générer badge', Icons.badge_outlined),
+    NavSubItem('etudiant.ajouter', 'Ajouter étudiant', Icons.add),
+    NavSubItem('etudiant.importer', 'Importer', Icons.upload_file_outlined),
+    NavSubItem('etudiant.diplome', 'Diplôme', Icons.workspace_premium_outlined),
+    NavSubItem('etudiant.certificat', 'Certificat', Icons.description_outlined),
+    NavSubItem(
+      'etudiant.badge_generer',
+      'Badge (bouton)',
+      Icons.badge_outlined,
+    ),
+    NavSubItem(
+      'etudiant.construire_badge',
+      'Construire la badge',
+      Icons.dashboard_customize_outlined,
+    ),
+    NavSubItem(
+      'etudiant.voir',
+      'Voir (icône ligne)',
+      Icons.visibility_outlined,
+    ),
+    NavSubItem(
+      'etudiant.modifier',
+      'Modifier (icône ligne)',
+      Icons.edit_outlined,
+    ),
+    NavSubItem('etudiant.badge', 'Badge (icône ligne)', Icons.badge_outlined),
+    NavSubItem(
+      'etudiant.supprimer',
+      'Supprimer (icône ligne)',
+      Icons.delete_outline,
+    ),
   ],
   'communaute': [
     NavSubItem('communaute.evenements', 'Événements', Icons.event_outlined),

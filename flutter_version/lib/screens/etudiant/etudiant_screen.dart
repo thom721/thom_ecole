@@ -94,19 +94,19 @@ class _EtudiantScreenState extends State<EtudiantScreen> {
       roles.contains('Responsable pédagogique');
 
   void _openAdd() => setState(() {
-        _selectedStudent = null;
-        _mode = _Mode.add;
-      });
+    _selectedStudent = null;
+    _mode = _Mode.add;
+  });
 
   void _openEdit(Student s) => setState(() {
-        _selectedStudent = s;
-        _mode = _Mode.edit;
-      });
+    _selectedStudent = s;
+    _mode = _Mode.edit;
+  });
 
   void _openBadge([Student? s]) => setState(() {
-        _selectedStudent = s;
-        _mode = _Mode.badge;
-      });
+    _selectedStudent = s;
+    _mode = _Mode.badge;
+  });
 
   void _openBadgeBuilder() => setState(() => _mode = _Mode.badgeBuilder);
 
@@ -133,7 +133,9 @@ class _EtudiantScreenState extends State<EtudiantScreen> {
     final result = await context.read<StudentsState>().toggleActive(s.id);
     if (!mounted) return;
     if (result.error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.error!)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result.error!)));
     } else if (result.status != null) {
       setState(() => _statusOverrides[s.id] = result.status!);
     }
@@ -161,7 +163,9 @@ class _EtudiantScreenState extends State<EtudiantScreen> {
     final error = await context.read<StudentsState>().delete(student.id);
     if (!mounted) return;
     if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
     }
   }
 
@@ -189,12 +193,14 @@ class _EtudiantScreenState extends State<EtudiantScreen> {
               _Mode.badge => BadgeScreen(initialStudent: _selectedStudent),
               _Mode.badgeBuilder => BadgeBuilderScreen(onBack: _backToList),
               _Mode.diplome => const _DeadSearchTablePage(title: 'Diplôme'),
-              _Mode.certificat => const _DeadSearchTablePage(title: 'Certificat'),
+              _Mode.certificat => const _DeadSearchTablePage(
+                title: 'Certificat',
+              ),
               _ => EtudiantDetailScreen(
-                  key: ValueKey(_selectedStudent?.id ?? 'new'),
-                  student: _selectedStudent,
-                  onSaved: _backToList,
-                ),
+                key: ValueKey(_selectedStudent?.id ?? 'new'),
+                student: _selectedStudent,
+                onSaved: _backToList,
+              ),
             },
           ),
         ],
@@ -205,10 +211,14 @@ class _EtudiantScreenState extends State<EtudiantScreen> {
     final auth = context.watch<AuthState>();
     final roles = auth.roles;
     final canWrite = _canWrite(roles);
-    // Sous-onglet "etudiant.badge" : configurable dans Vues par rôle.
-    // null = pas de restriction → bouton badge visible pour tous.
+    // Chaque bouton/icône de cette page a son propre sous-onglet "etudiant.*"
+    // (configurable dans Profil → Vues → Étudiant, voir kSubNavItems dans
+    // app_shell.dart) — subOk() ne fait que RESTREINDRE davantage un bouton
+    // déjà autorisé par canWrite quand ce dernier s'applique (jamais
+    // l'inverse : Vues ne peut pas accorder un droit d'écriture que le rôle
+    // n'a pas). null = pas de restriction Vues → comportement inchangé.
     final etudiantSubs = auth.visibleSubItems('etudiant');
-    final canSeeBadgeButton = etudiantSubs == null || etudiantSubs.contains('badge');
+    bool subOk(String id) => etudiantSubs == null || etudiantSubs.contains(id);
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -230,44 +240,48 @@ class _EtudiantScreenState extends State<EtudiantScreen> {
                   spacing: 10,
                   runSpacing: 10,
                   children: [
-                    if (canWrite)
+                    if (canWrite && subOk('ajouter'))
                       PillButton(
                         label: 'Ajouter étudiant',
                         colorKey: 'blue',
                         icon: Icons.add,
                         onPressed: _openAdd,
                       ),
-                    if (canWrite)
+                    if (canWrite && subOk('importer'))
                       PillButton(
                         label: 'Importer',
                         colorKey: 'amber',
                         icon: Icons.upload_file_outlined,
                         onPressed: _onImporter,
                       ),
-                    PillButton(
-                      label: 'Diplôme',
-                      colorKey: 'violet',
-                      icon: Icons.workspace_premium_outlined,
-                      onPressed: _openDiplome,
-                    ),
-                    PillButton(
-                      label: 'Certificat',
-                      colorKey: 'cyan',
-                      icon: Icons.description_outlined,
-                      onPressed: _openCertificat,
-                    ),
-                    PillButton(
-                      label: 'Badge',
-                      colorKey: 'rose',
-                      icon: Icons.badge_outlined,
-                      onPressed: _openBadge,
-                    ),
-                    PillButton(
-                      label: 'Construire la badge',
-                      colorKey: 'purple',
-                      icon: Icons.dashboard_customize_outlined,
-                      onPressed: _openBadgeBuilder,
-                    ),
+                    if (subOk('diplome'))
+                      PillButton(
+                        label: 'Diplôme',
+                        colorKey: 'violet',
+                        icon: Icons.workspace_premium_outlined,
+                        onPressed: _openDiplome,
+                      ),
+                    if (subOk('certificat'))
+                      PillButton(
+                        label: 'Certificat',
+                        colorKey: 'cyan',
+                        icon: Icons.description_outlined,
+                        onPressed: _openCertificat,
+                      ),
+                    if (subOk('badge_generer'))
+                      PillButton(
+                        label: 'Badge',
+                        colorKey: 'rose',
+                        icon: Icons.badge_outlined,
+                        onPressed: _openBadge,
+                      ),
+                    if (subOk('construire_badge'))
+                      PillButton(
+                        label: 'Construire la badge',
+                        colorKey: 'purple',
+                        icon: Icons.dashboard_customize_outlined,
+                        onPressed: _openBadgeBuilder,
+                      ),
                   ],
                 ),
               ),
@@ -278,11 +292,16 @@ class _EtudiantScreenState extends State<EtudiantScreen> {
                   controller: _searchController,
                   style: TextStyle(color: AppColors.textPrimary, fontSize: 13),
                   decoration: InputDecoration(
-                    prefixIcon: Icon(Icons.search, color: AppColors.textMuted, size: 18),
+                    prefixIcon: Icon(
+                      Icons.search,
+                      color: AppColors.textMuted,
+                      size: 18,
+                    ),
                     hintText: 'Rechercher un étudiant...',
                     isDense: true,
                   ),
-                  onSubmitted: (v) => context.read<StudentsState>().load(page: 1, search: v),
+                  onSubmitted: (v) =>
+                      context.read<StudentsState>().load(page: 1, search: v),
                 ),
               ),
             ],
@@ -293,7 +312,10 @@ class _EtudiantScreenState extends State<EtudiantScreen> {
           else if (state.errorMessage != null)
             Expanded(
               child: Center(
-                child: Text(state.errorMessage!, style: TextStyle(color: AppColors.textPrimary)),
+                child: Text(
+                  state.errorMessage!,
+                  style: TextStyle(color: AppColors.textPrimary),
+                ),
               ),
             )
           else
@@ -302,7 +324,8 @@ class _EtudiantScreenState extends State<EtudiantScreen> {
                 child: DataTableCard(
                   currentPage: state.currentPage,
                   lastPage: state.lastPage,
-                  onPageChange: (page) => context.read<StudentsState>().load(page: page),
+                  onPageChange: (page) =>
+                      context.read<StudentsState>().load(page: page),
                   child: DataTable(
                     columns: const [
                       DataColumn(label: Text('IDENTIFIANT')),
@@ -318,64 +341,108 @@ class _EtudiantScreenState extends State<EtudiantScreen> {
                       final override = _statusOverrides[s.id];
                       final badgeColor = override == null
                           ? AppColors.danger
-                          : (override ? const Color(0xFF3FB950) : const Color(0xFFF59E0B));
-                      return DataRow(cells: [
-                        DataCell(
-                          isToggling
-                              ? const SizedBox(
-                                  height: 14,
-                                  width: 14,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : InkWell(
-                                  onTap: canWrite ? () => _toggleActive(s) : null,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: badgeColor.withValues(alpha: 0.1),
-                                      border: Border.all(color: badgeColor.withValues(alpha: 0.3)),
-                                      borderRadius: BorderRadius.circular(999),
+                          : (override
+                                ? const Color(0xFF3FB950)
+                                : const Color(0xFFF59E0B));
+                      return DataRow(
+                        cells: [
+                          DataCell(
+                            isToggling
+                                ? const SizedBox(
+                                    height: 14,
+                                    width: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
                                     ),
-                                    child: Text(
-                                      s.identifiant,
-                                      style: TextStyle(fontSize: 12, fontFamily: 'monospace', color: badgeColor),
+                                  )
+                                : InkWell(
+                                    onTap: canWrite
+                                        ? () => _toggleActive(s)
+                                        : null,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: badgeColor.withValues(
+                                          alpha: 0.1,
+                                        ),
+                                        border: Border.all(
+                                          color: badgeColor.withValues(
+                                            alpha: 0.3,
+                                          ),
+                                        ),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        s.identifiant,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontFamily: 'monospace',
+                                          color: badgeColor,
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                ),
-                        ),
-                        DataCell(Text(s.nom)),
-                        DataCell(Text(s.prenom)),
-                        DataCell(Text(s.sexe)),
-                        DataCell(Text(s.telephone ?? '-')),
-                        DataCell(Text(s.email ?? '-')),
-                        DataCell(Row(
-                          children: [
-                            IconButton(
-                              tooltip: 'Détails',
-                              icon: Icon(Icons.visibility_outlined, size: 17, color: AppColors.cardPalette['emerald']!.text),
-                              onPressed: () => _openEdit(s),
+                          ),
+                          DataCell(Text(s.nom)),
+                          DataCell(Text(s.prenom)),
+                          DataCell(Text(s.sexe)),
+                          DataCell(Text(s.telephone ?? '-')),
+                          DataCell(Text(s.email ?? '-')),
+                          DataCell(
+                            Row(
+                              children: [
+                                if (subOk('voir'))
+                                  IconButton(
+                                    tooltip: 'Détails',
+                                    icon: Icon(
+                                      Icons.visibility_outlined,
+                                      size: 17,
+                                      color: AppColors
+                                          .cardPalette['emerald']!
+                                          .text,
+                                    ),
+                                    onPressed: () => _openEdit(s),
+                                  ),
+                                if (canWrite && subOk('modifier'))
+                                  IconButton(
+                                    tooltip: 'Modifier',
+                                    icon: Icon(
+                                      Icons.edit_outlined,
+                                      size: 17,
+                                      color: AppColors.accentLight,
+                                    ),
+                                    onPressed: () => _openEdit(s),
+                                  ),
+                                if (subOk('badge'))
+                                  IconButton(
+                                    tooltip: 'Badge',
+                                    icon: const Icon(
+                                      Icons.badge_outlined,
+                                      size: 17,
+                                      color: Color(0xFFF472B6),
+                                    ),
+                                    onPressed: () => _openBadge(s),
+                                  ),
+                                if (canWrite && subOk('supprimer'))
+                                  IconButton(
+                                    tooltip: 'Supprimer',
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      size: 17,
+                                      color: AppColors.danger,
+                                    ),
+                                    onPressed: () => _confirmDelete(s),
+                                  ),
+                              ],
                             ),
-                            if (canWrite)
-                              IconButton(
-                                tooltip: 'Modifier',
-                                icon: Icon(Icons.edit_outlined, size: 17, color: AppColors.accentLight),
-                                onPressed: () => _openEdit(s),
-                              ),
-                            if (canSeeBadgeButton)
-                              IconButton(
-                                tooltip: 'Badge',
-                                icon: const Icon(Icons.badge_outlined, size: 17, color: Color(0xFFF472B6)),
-                                onPressed: () => _openBadge(s),
-                              ),
-                            if (canWrite)
-                              IconButton(
-                                tooltip: 'Supprimer',
-                                icon: const Icon(Icons.delete_outline, size: 17, color: AppColors.danger),
-                                onPressed: () => _confirmDelete(s),
-                              ),
-                          ],
-                        )),
-                      ]);
+                          ),
+                        ],
+                      );
                     }).toList(),
                   ),
                 ),
@@ -445,11 +512,15 @@ class _DeadSearchTablePageState extends State<_DeadSearchTablePage> {
                         DataColumn(label: Text('PRÉNOM')),
                       ],
                       rows: state.liveSearchResults
-                          .map((s) => DataRow(cells: [
+                          .map(
+                            (s) => DataRow(
+                              cells: [
                                 DataCell(Text(s.identifiant)),
                                 DataCell(Text(s.nom)),
                                 DataCell(Text(s.prenom)),
-                              ]))
+                              ],
+                            ),
+                          )
                           .toList(),
                     ),
                   ),
