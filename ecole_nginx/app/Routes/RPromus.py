@@ -58,6 +58,9 @@ class GetPromusRequesttt(BaseModel):
         return v
 
 
+AIDE_FINANCIERE_VALEURS = {'Aucune', '1/4 Bourse', 'Démie Bourse', 'Bourse'}
+
+
 class StorePromotionRequest(BaseModel):
     """Schema pour enregistrer la promotion d'étudiants"""
     annee_academique_id: str = Field(..., description="ID année académique actuelle")
@@ -66,14 +69,33 @@ class StorePromotionRequest(BaseModel):
     niveau_future: str = Field(..., description="ID niveau futur")
     classes_id: str = Field(..., description="ID classe actuelle")
     classe_future: str = Field(..., description="ID classe future")
-    
+    # Optionnel : {etudiant_id: nouvelle_valeur} — UNIQUEMENT les étudiants dont
+    # l'aide financière change à la promotion (le client n'envoie que le
+    # diff, pas la classe entière). Valeurs alignées sur Etudiant.aide_financiere
+    # (voir Ajout_etudiant.vue/etudiant_detail_screen.dart pour les 4 valeurs).
+    aide_financiere_updates: Optional[Dict[str, str]] = Field(
+        None, description="etudiant_id -> nouvelle aide_financiere"
+    )
+
     @field_validator('annee_academique_id', 'annee_academique_future')
     @classmethod
     def validate_annee_exists(cls, v, info):
         """Vérifier que l'année académique existe"""
         # La validation sera faite dans la route avec la DB
         return v
-    
+
+    @field_validator('aide_financiere_updates')
+    @classmethod
+    def validate_aide_financiere_values(cls, v):
+        if v is None:
+            return v
+        invalides = set(v.values()) - AIDE_FINANCIERE_VALEURS
+        if invalides:
+            raise ValueError(
+                f"Valeur(s) d'aide financière invalide(s) : {', '.join(sorted(invalides))}"
+            )
+        return v
+
     @model_validator(mode='after')
     def validate_annee_sequence(self):
         """Vérifier que l'année future suit l'année actuelle"""
@@ -329,6 +351,7 @@ async def get_promus(
             Etudiant.nom,
             Etudiant.prenom,
             Etudiant.identifiant,
+            Etudiant.aide_financiere,
             Classe.nom_classe,
             ClasseEtudiant.classes_id,
             CoursEtudiant.data_etudiant
@@ -384,7 +407,8 @@ async def get_promus(
                 'note': results[1],
                 'max': results[2],
                 'moyenne': results[0],
-                'status': "Succès" if moyenne_float >= m_general else "Échec"
+                'status': "Succès" if moyenne_float >= m_general else "Échec",
+                'aide_financiere': row.aide_financiere or 'Aucune'
             })
         
         return {"result": data_promus}
@@ -411,33 +435,33 @@ async def store_promotion(
     """
     try:
         # Validation 1: Année académique proche de sa fin (10 jours)
-        validate_annee_proche_fin(request.data.annee_academique_id, db, min_days=10)
-        
+        validate_annee_proche_fin(request.annee_academique_id, db, min_days=10)
+
         # Validation 2: Années doivent exister
         annee_actuelle = db.query(AnneeAcademique).filter(
-            AnneeAcademique.id == request.data.annee_academique_id
+            AnneeAcademique.id == request.annee_academique_id
         ).first()
-        
+
         annee_future = db.query(AnneeAcademique).filter(
-            AnneeAcademique.id == request.data.annee_academique_future
+            AnneeAcademique.id == request.annee_academique_future
         ).first()
-        
+
         if not annee_actuelle or not annee_future:
             raise HTTPException(
                 status_code=404,
                 detail="Année académique introuvable"
             )
-        
+
         # Validation 3: Années doivent se suivre
         validate_annee_sequence(
-            request.data.annee_academique_id,
-            request.data.annee_academique_future,
+            request.annee_academique_id,
+            request.annee_academique_future,
             db
         )
-        
+
         # Validation 4: Classes doivent appartenir aux niveaux
-        validate_classe_in_niveau(request.data.classes_id, request.data.niveau_id, db)
-        validate_classe_in_niveau(request.data.classe_future, request.data.niveau_future, db)
+        validate_classe_in_niveau(request.classes_id, request.niveau_id, db)
+        validate_classe_in_niveau(request.classe_future, request.niveau_future, db)
         
         # Autorisation admin
         # AuthorizationHelper.authorize_with_admin_token(req, "Modifier etudiant")
@@ -457,9 +481,9 @@ async def store_promotion(
         ).join(
             CoursEtudiant, CoursEtudiant.etudiant_id == ClasseEtudiant.etudiant_id
         ).filter(
-            ClasseEtudiant.classes_id == request.data.classes_id,
-            ClasseEtudiant.niveau_id == request.data.niveau_id,
-            ClasseEtudiant.annee_academique_id == request.data.annee_academique_id,
+            ClasseEtudiant.classes_id == request.classes_id,
+            ClasseEtudiant.niveau_id == request.niveau_id,
+            ClasseEtudiant.annee_academique_id == request.annee_academique_id,
             ClasseEtudiant.status == 1
         ).all()
         
@@ -496,9 +520,9 @@ async def store_promotion(
                 update_or_create_classes_etudiant(
                     db,
                     etudiant_id=row.etudiant_id,
-                    annee_academique_id=request.data.annee_academique_future,
-                    classes_id=request.data.classe_future,
-                    niveau_id=request.data.niveau_future
+                    annee_academique_id=request.annee_academique_future,
+                    classes_id=request.classe_future,
+                    niveau_id=request.niveau_future
                 )
                 promus_count += 1
             else:
@@ -506,17 +530,32 @@ async def store_promotion(
                 update_or_create_classes_etudiant(
                     db,
                     etudiant_id=row.etudiant_id,
-                    annee_academique_id=request.data.annee_academique_future,
-                    classes_id=request.data.classes_id,
-                    niveau_id=request.data.niveau_id
+                    annee_academique_id=request.annee_academique_future,
+                    classes_id=request.classes_id,
+                    niveau_id=request.niveau_id
                 )
                 redoublants_count += 1
-        
+
+        # Aide financière (bourse) réévaluée à la promotion : appliquée dans
+        # la même transaction que le déplacement de classe, sur la table
+        # etudiants (Etudiant.aide_financiere) — seuls les étudiants présents
+        # dans le diff envoyé par le client sont touchés, tous les autres
+        # gardent leur valeur actuelle inchangée.
+        aide_financiere_count = 0
+        if request.aide_financiere_updates:
+            for etudiant_id, nouvelle_valeur in request.aide_financiere_updates.items():
+                etudiant = db.query(Etudiant).filter(Etudiant.id == etudiant_id).first()
+                if etudiant and etudiant.aide_financiere != nouvelle_valeur:
+                    etudiant.aide_financiere = nouvelle_valeur
+                    db.add(etudiant)
+                    aide_financiere_count += 1
+
         db.commit()
-        
+
         return {
             "success": "Opération réussie",
             "statistics": {
+                "aide_financiere_modifiee": aide_financiere_count,
                 "total": promus_count + redoublants_count,
                 "promus": promus_count,
                 "redoublants": redoublants_count

@@ -35,12 +35,15 @@ class _PromusScreenState extends State<PromusScreen> {
   }
 
   Future<void> _rechercher() async {
-    if (_anneeActuelle == null || _niveauActuel == null || _classeActuelle == null) return;
+    if (_anneeActuelle == null ||
+        _niveauActuel == null ||
+        _classeActuelle == null)
+      return;
     await context.read<PromusState>().rechercher(
-          annee: _anneeActuelle!,
-          niveau: _niveauActuel!,
-          classe: _classeActuelle!,
-        );
+      annee: _anneeActuelle!,
+      niveau: _niveauActuel!,
+      classe: _classeActuelle!,
+    );
   }
 
   /// Équivalent de cancel_promus_to() → promus_page() (juste un reset).
@@ -64,7 +67,9 @@ class _PromusScreenState extends State<PromusScreen> {
         _niveauFuture == null ||
         _classeFuture == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sélectionnez la classe actuelle ET la classe future.')),
+        const SnackBar(
+          content: Text('Sélectionnez la classe actuelle ET la classe future.'),
+        ),
       );
       return;
     }
@@ -73,10 +78,17 @@ class _PromusScreenState extends State<PromusScreen> {
       builder: (_) => AlertDialog(
         title: const Text('Confirmation'),
         content: const Text(
-            'Voulez-vous vraiment promouvoir cette classe ? Les élèves en échec redoubleront automatiquement.'),
+          'Voulez-vous vraiment promouvoir cette classe ? Les élèves en échec redoubleront automatiquement.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Non')),
-          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Oui')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Non'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Oui'),
+          ),
         ],
       ),
     );
@@ -93,14 +105,23 @@ class _PromusScreenState extends State<PromusScreen> {
     if (!mounted) return;
     if (ok) {
       final stats = state.lastStats;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(stats == null
-            ? 'Promotion effectuée avec succès.'
-            : '${stats['promus'] ?? 0} promu(s), ${stats['redoublants'] ?? 0} redoublant(s).'),
-      ));
+      final aideCount = stats?['aide_financiere_modifiee'] ?? 0;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            stats == null
+                ? 'Promotion effectuée avec succès.'
+                : '${stats['promus'] ?? 0} promu(s), ${stats['redoublants'] ?? 0} redoublant(s)'
+                      '${aideCount > 0 ? ", $aideCount aide(s) financière(s) mise(s) à jour" : ''}.',
+          ),
+        ),
+      );
     } else {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(state.promoteError ?? 'Erreur lors de la promotion.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(state.promoteError ?? 'Erreur lors de la promotion.'),
+        ),
+      );
     }
   }
 
@@ -139,9 +160,19 @@ class _PromusScreenState extends State<PromusScreen> {
                             child: DropdownButtonFormField<String>(
                               initialValue: _anneeActuelle,
                               isDense: true,
-                              decoration: const InputDecoration(labelText: 'Année Académique'),
-                              items: ref.annees.map((a) => DropdownMenuItem(value: a.id, child: Text(a.nom))).toList(),
-                              onChanged: (v) => setState(() => _anneeActuelle = v),
+                              decoration: const InputDecoration(
+                                labelText: 'Année Académique',
+                              ),
+                              items: ref.annees
+                                  .map(
+                                    (a) => DropdownMenuItem(
+                                      value: a.id,
+                                      child: Text(a.nom),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (v) =>
+                                  setState(() => _anneeActuelle = v),
                             ),
                           ),
                           SizedBox(
@@ -149,8 +180,17 @@ class _PromusScreenState extends State<PromusScreen> {
                             child: DropdownButtonFormField<String>(
                               initialValue: _niveauActuel,
                               isDense: true,
-                              decoration: const InputDecoration(labelText: 'Cycle / niveau'),
-                              items: ref.niveaux.map((n) => DropdownMenuItem(value: n.id, child: Text(n.name))).toList(),
+                              decoration: const InputDecoration(
+                                labelText: 'Cycle / niveau',
+                              ),
+                              items: ref.niveaux
+                                  .map(
+                                    (n) => DropdownMenuItem(
+                                      value: n.id,
+                                      child: Text(n.name),
+                                    ),
+                                  )
+                                  .toList(),
                               onChanged: (v) => setState(() {
                                 _niveauActuel = v;
                                 _classeActuelle = null;
@@ -162,19 +202,32 @@ class _PromusScreenState extends State<PromusScreen> {
                             child: DropdownButtonFormField<String>(
                               initialValue: _classeActuelle,
                               isDense: true,
-                              decoration: const InputDecoration(labelText: 'Classe'),
+                              decoration: const InputDecoration(
+                                labelText: 'Classe',
+                              ),
                               items: ref
                                   .classesForNiveau(_niveauActuel)
-                                  .map((c) => DropdownMenuItem(value: c.id, child: Text(c.nomClasse)))
+                                  .map(
+                                    (c) => DropdownMenuItem(
+                                      value: c.id,
+                                      child: Text(c.nomClasse),
+                                    ),
+                                  )
                                   .toList(),
-                              onChanged: (v) => setState(() => _classeActuelle = v),
+                              onChanged: (v) =>
+                                  setState(() => _classeActuelle = v),
                             ),
                           ),
                           FilledButton(
                             onPressed: state.isSearching ? null : _rechercher,
                             child: state.isSearching
                                 ? const SizedBox(
-                                    height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                    height: 16,
+                                    width: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
                                 : const Text('Rechercher'),
                           ),
                         ],
@@ -186,7 +239,10 @@ class _PromusScreenState extends State<PromusScreen> {
                     if (state.searchError != null)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Text(state.searchError!, style: const TextStyle(color: AppColors.danger)),
+                        child: Text(
+                          state.searchError!,
+                          style: const TextStyle(color: AppColors.danger),
+                        ),
                       )
                     else
                       DataTableCard(
@@ -198,30 +254,141 @@ class _PromusScreenState extends State<PromusScreen> {
                             DataColumn(label: Text('TOTAL COÉFF')),
                             DataColumn(label: Text('MOY G.')),
                             DataColumn(label: Text('STATUT')),
+                            DataColumn(label: Text('AIDE FINANCIÈRE')),
                           ],
                           rows: state.resultats.isEmpty
                               ? [
-                                  DataRow(cells: [
-                                    DataCell(
-                                        Text('Aucune donnée trouvée pour ces paramètres', style: TextStyle(color: AppColors.textMuted))),
-                                    const DataCell(Text('')),
-                                    const DataCell(Text('')),
-                                    const DataCell(Text('')),
-                                    const DataCell(Text('')),
-                                    const DataCell(Text('')),
-                                  ]),
+                                  DataRow(
+                                    cells: [
+                                      DataCell(
+                                        Text(
+                                          'Aucune donnée trouvée pour ces paramètres',
+                                          style: TextStyle(
+                                            color: AppColors.textMuted,
+                                          ),
+                                        ),
+                                      ),
+                                      const DataCell(Text('')),
+                                      const DataCell(Text('')),
+                                      const DataCell(Text('')),
+                                      const DataCell(Text('')),
+                                      const DataCell(Text('')),
+                                      const DataCell(Text('')),
+                                    ],
+                                  ),
                                 ]
                               : state.resultats.map((e) {
-                                  final color = e.succes ? AppColors.cardPalette['emerald']!.text : AppColors.cardPalette['rose']!.text;
-                                  return DataRow(cells: [
-                                    DataCell(Text(e.nom, style: TextStyle(color: AppColors.textPrimary))),
-                                    DataCell(Text(e.prenom, style: TextStyle(color: AppColors.textPrimary))),
-                                    DataCell(Text(e.note.toStringAsFixed(2), style: TextStyle(color: AppColors.textMuted))),
-                                    DataCell(Text(e.max.toStringAsFixed(2), style: TextStyle(color: AppColors.textMuted))),
-                                    DataCell(Text(e.moyenne, style: TextStyle(color: color, fontWeight: FontWeight.w700))),
-                                    DataCell(Text(e.status, style: TextStyle(color: color, fontWeight: FontWeight.w600))),
-                                  ]);
+                                  final color = e.succes
+                                      ? AppColors.cardPalette['emerald']!.text
+                                      : AppColors.cardPalette['rose']!.text;
+                                  final aideValue = state.aideFinanciereFor(e);
+                                  final aideChanged =
+                                      aideValue != e.aideFinanciere;
+                                  return DataRow(
+                                    cells: [
+                                      DataCell(
+                                        Text(
+                                          e.nom,
+                                          style: TextStyle(
+                                            color: AppColors.textPrimary,
+                                          ),
+                                        ),
+                                      ),
+                                      DataCell(
+                                        Text(
+                                          e.prenom,
+                                          style: TextStyle(
+                                            color: AppColors.textPrimary,
+                                          ),
+                                        ),
+                                      ),
+                                      DataCell(
+                                        Text(
+                                          e.note.toStringAsFixed(2),
+                                          style: TextStyle(
+                                            color: AppColors.textMuted,
+                                          ),
+                                        ),
+                                      ),
+                                      DataCell(
+                                        Text(
+                                          e.max.toStringAsFixed(2),
+                                          style: TextStyle(
+                                            color: AppColors.textMuted,
+                                          ),
+                                        ),
+                                      ),
+                                      DataCell(
+                                        Text(
+                                          e.moyenne,
+                                          style: TextStyle(
+                                            color: color,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                      DataCell(
+                                        Text(
+                                          e.status,
+                                          style: TextStyle(
+                                            color: color,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                      DataCell(
+                                        SizedBox(
+                                          width: 150,
+                                          child: DropdownButtonFormField<String>(
+                                            initialValue: aideValue,
+                                            isDense: true,
+                                            decoration: InputDecoration(
+                                              isDense: true,
+                                              filled: aideChanged,
+                                              fillColor: aideChanged
+                                                  ? AppColors
+                                                        .cardPalette['amber']!
+                                                        .bar
+                                                        .withValues(alpha: 0.15)
+                                                  : null,
+                                            ),
+                                            items: kAideFinanciereOptions
+                                                .map(
+                                                  (v) => DropdownMenuItem(
+                                                    value: v,
+                                                    child: Text(
+                                                      v,
+                                                      style: const TextStyle(
+                                                        fontSize: 12.5,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                )
+                                                .toList(),
+                                            onChanged: (v) {
+                                              if (v != null)
+                                                context
+                                                    .read<PromusState>()
+                                                    .setAideFinanciere(e, v);
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  );
                                 }).toList(),
+                        ),
+                      ),
+                    if (state.pendingAideFinanciere.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          "${state.pendingAideFinanciere.length} changement(s) d'aide financière en attente — appliqué(s) à la promotion.",
+                          style: TextStyle(
+                            color: AppColors.cardPalette['amber']!.text,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     const SizedBox(height: 16),
@@ -238,9 +405,19 @@ class _PromusScreenState extends State<PromusScreen> {
                             child: DropdownButtonFormField<String>(
                               initialValue: _anneeFuture,
                               isDense: true,
-                              decoration: const InputDecoration(labelText: 'Année Académique'),
-                              items: ref.annees.map((a) => DropdownMenuItem(value: a.id, child: Text(a.nom))).toList(),
-                              onChanged: (v) => setState(() => _anneeFuture = v),
+                              decoration: const InputDecoration(
+                                labelText: 'Année Académique',
+                              ),
+                              items: ref.annees
+                                  .map(
+                                    (a) => DropdownMenuItem(
+                                      value: a.id,
+                                      child: Text(a.nom),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (v) =>
+                                  setState(() => _anneeFuture = v),
                             ),
                           ),
                           SizedBox(
@@ -248,8 +425,17 @@ class _PromusScreenState extends State<PromusScreen> {
                             child: DropdownButtonFormField<String>(
                               initialValue: _niveauFuture,
                               isDense: true,
-                              decoration: const InputDecoration(labelText: 'Cycle / niveau'),
-                              items: ref.niveaux.map((n) => DropdownMenuItem(value: n.id, child: Text(n.name))).toList(),
+                              decoration: const InputDecoration(
+                                labelText: 'Cycle / niveau',
+                              ),
+                              items: ref.niveaux
+                                  .map(
+                                    (n) => DropdownMenuItem(
+                                      value: n.id,
+                                      child: Text(n.name),
+                                    ),
+                                  )
+                                  .toList(),
                               onChanged: (v) => setState(() {
                                 _niveauFuture = v;
                                 _classeFuture = null;
@@ -261,12 +447,20 @@ class _PromusScreenState extends State<PromusScreen> {
                             child: DropdownButtonFormField<String>(
                               initialValue: _classeFuture,
                               isDense: true,
-                              decoration: const InputDecoration(labelText: 'Classe'),
+                              decoration: const InputDecoration(
+                                labelText: 'Classe',
+                              ),
                               items: ref
                                   .classesForNiveau(_niveauFuture)
-                                  .map((c) => DropdownMenuItem(value: c.id, child: Text(c.nomClasse)))
+                                  .map(
+                                    (c) => DropdownMenuItem(
+                                      value: c.id,
+                                      child: Text(c.nomClasse),
+                                    ),
+                                  )
                                   .toList(),
-                              onChanged: (v) => setState(() => _classeFuture = v),
+                              onChanged: (v) =>
+                                  setState(() => _classeFuture = v),
                             ),
                           ),
                         ],
@@ -277,7 +471,9 @@ class _PromusScreenState extends State<PromusScreen> {
                         children: [
                           TextButton(
                             onPressed: _annuler,
-                            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.danger,
+                            ),
                             child: const Text('Annuler'),
                           ),
                           const SizedBox(width: 8),
@@ -285,7 +481,12 @@ class _PromusScreenState extends State<PromusScreen> {
                             onPressed: state.isPromoting ? null : _promouvoir,
                             child: state.isPromoting
                                 ? const SizedBox(
-                                    height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                    height: 16,
+                                    width: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
                                 : const Text('Promus'),
                           ),
                         ],
@@ -312,7 +513,14 @@ class _PromusScreenState extends State<PromusScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(title, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
           const SizedBox(height: 12),
           ...children,
         ],
