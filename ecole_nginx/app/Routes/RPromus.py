@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy.orm import Session
+from sqlalchemy import and_
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 import json
@@ -10,6 +11,7 @@ from app.database import get_db
 from app.Models.MModels import Etudiant,User,Niveau,AnneeAcademique,Classe,Faculte
 from app.Models.MRelations import ClasseEtudiant,EtudiantFaculte,Responsable,PieceSoumise,CoursEtudiant
 from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role,first_or_update_safe
+from app.Helper.context import UserContext
 
 logger = logging.getLogger(__name__)
  
@@ -75,6 +77,13 @@ class StorePromotionRequest(BaseModel):
     # (voir Ajout_etudiant.vue/etudiant_detail_screen.dart pour les 4 valeurs).
     aide_financiere_updates: Optional[Dict[str, str]] = Field(
         None, description="etudiant_id -> nouvelle aide_financiere"
+    )
+    # Optionnel : étudiants à faire redoubler MANUELLEMENT malgré la
+    # promotion automatique — pensé pour le préscolaire (jamais de moyenne à
+    # calculer, "Succès" par défaut pour tous, voir _est_classe_prescolaire),
+    # mais s'applique tel quel à n'importe quel étudiant du lot si besoin.
+    forcer_redoublant: Optional[List[str]] = Field(
+        None, description="Liste d'etudiant_id à faire redoubler malgré tout"
     )
 
     @field_validator('annee_academique_id', 'annee_academique_future')
@@ -157,6 +166,32 @@ def get_max_coefficients_for_class(classe_id: str, db: Session) -> float:
     return sum(max_coeffs.values())
 
 
+def _est_classe_prescolaire(nom_classe: str) -> bool:
+    """Convention locale de nommage (constatée en base, ex. "1ère Année Kind
+    A") — pas le nom du niveau ("Prescolaire"/"Maternelle", jamais fiable :
+    aucun champ ne distingue les niveaux évalués des non-évalués sur
+    `Niveau`, et même la constante de seed ne s'accorde pas avec la vraie
+    valeur en base). Ces classes n'ont jamais de notes : voir get_promus/
+    store_promotion pour la promotion automatique qui en découle.
+    """
+    return "Kind " in nom_classe
+
+
+def _sans_donnees_de_cours(data_etudiant: Any) -> bool:
+    """True si data_etudiant (JSON brut de CoursEtudiant.data_etudiant) ne
+    contient aucune donnée de cours exploitable — stocké tantôt comme dict
+    (cas normal), tantôt comme liste JSON vide "[]" pour un étudiant sans
+    aucun cours/note enregistré. Remplace un ancien test fragile sur la
+    chaîne exacte '"[]"' (ratait toute autre variante de sérialisation
+    d'une liste/valeur vide) par un vrai parsing + vérification de type.
+    """
+    try:
+        parsed = json.loads(data_etudiant) if isinstance(data_etudiant, str) else data_etudiant
+    except (TypeError, ValueError):
+        return True
+    return not isinstance(parsed, dict) or not parsed
+
+
 def calculer_moyenne_generale(
     data_etudiant: Any, 
     identifiant: str, 
@@ -179,7 +214,14 @@ def calculer_moyenne_generale(
     else:
         parse_data = data_etudiant
     
-    data = parse_data.get(identifiant, {})
+    # data_etudiant est parfois stocké comme liste JSON vide ("[]") plutôt que
+    # dict pour un étudiant sans aucune note/cours enregistré — un .get()
+    # direct plantait alors avec "'list' object has no attribute 'get'"
+    # (get_promus le contournait déjà via un skip fragile sur la chaîne
+    # exacte '"[]"', mais store_promotion n'avait aucune protection). Traité
+    # comme "aucune donnée" plutôt que planter : moyenne 0 → Échec/redoublant,
+    # jamais une promotion silencieuse sur une absence de données.
+    data = parse_data.get(identifiant, {}) if isinstance(parse_data, dict) else {}
     
     total_notes = 0.0
     total_coefficients = 0.0
@@ -359,45 +401,74 @@ async def get_promus(
             Etudiant, Etudiant.id == ClasseEtudiant.etudiant_id
         ).join(
             Classe, Classe.id == ClasseEtudiant.classes_id
-        ).join(
-            CoursEtudiant, CoursEtudiant.etudiant_id == ClasseEtudiant.etudiant_id
+        ).outerjoin(
+            # LEFT JOIN, pas INNER : un étudiant du préscolaire n'a
+            # généralement AUCUNE ligne CoursEtudiant (pas de cours/notes à
+            # ce niveau) — un join intérieur les excluait tous SAUF le ou les
+            # rares élèves qui en avaient une par accident (symptôme
+            # rapporté : "3ème Année Kind B" en a 33 en base, mais le tableau
+            # Promus n'en affichait qu'1 seul). Le filtre sur
+            # `annee_academique` doit rester dans la clause ON du join et
+            # PAS dans le WHERE/filter() ci-dessous : un filtre WHERE sur une
+            # colonne d'un LEFT JOIN redevient un INNER JOIN de fait (NULL
+            # ne satisfait jamais une égalité), annulant l'effet recherché.
+            CoursEtudiant,
+            and_(
+                CoursEtudiant.etudiant_id == ClasseEtudiant.etudiant_id,
+                CoursEtudiant.annee_academique == annee_academique,
+            )
         ).filter(
             ClasseEtudiant.classes_id == data['classes_id'],
             ClasseEtudiant.niveau_id == data['niveau_id'],
             ClasseEtudiant.annee_academique_id == data['annee_academique_id'],
-            CoursEtudiant.annee_academique == annee_academique,
             ClasseEtudiant.status == 1
         ).all()
         
         data_promus = []
         max_coeffs_cache = {}
-        
+
         for row in student_list:
-            if row.data_etudiant == '"[]"':
+            # Préscolaire ("Kind " dans le nom de classe, convention locale —
+            # voir _est_classe_prescolaire) : pas de notes/moyenne, jamais
+            # évaluable. Auparavant complètement ignoré (`continue`), ce qui
+            # laissait ces élèves bloqués indéfiniment dans la même classe —
+            # ils sont maintenant inclus, "Succès" par défaut (promotion
+            # automatique), sans moyenne à calculer.
+            if _est_classe_prescolaire(row.nom_classe):
+                data_promus.append({
+                    'id': row.etudiant_id,
+                    'nom': row.nom,
+                    'prenom': row.prenom,
+                    'note': 0,
+                    'max': 0,
+                    'moyenne': '-',
+                    'status': "Succès",
+                    'sans_evaluation': True,
+                    'aide_financiere': row.aide_financiere or 'Aucune'
+                })
                 continue
-            
-            # Ignorer les classes Kindergarten
-            if "Kind " in row.nom_classe:
+
+            if _sans_donnees_de_cours(row.data_etudiant):
                 continue
-            
+
             # Récupérer ou calculer le coefficient max pour cette classe
             classe_id = row.classes_id
-            
+
             if classe_id not in max_coeffs_cache:
                 max_coeffs_cache[classe_id] = get_max_coefficients_for_class(classe_id, db)
-            
+
             max_coef = max_coeffs_cache[classe_id]
-            
+
             # Calculer la moyenne
             results = calculer_moyenne_generale(
                 row.data_etudiant,
                 row.identifiant,
                 max_coef
             )
-            
+
             # Déterminer la moyenne minimale selon la classe
             m_general = 6.50 if row.nom_classe.startswith("CP") else 6.0
-            
+
             # Ajouter aux résultats
             moyenne_float = float(results[0])
             data_promus.append({
@@ -408,6 +479,7 @@ async def get_promus(
                 'max': results[2],
                 'moyenne': results[0],
                 'status': "Succès" if moyenne_float >= m_general else "Échec",
+                'sans_evaluation': False,
                 'aide_financiere': row.aide_financiere or 'Aucune'
             })
         
@@ -466,7 +538,17 @@ async def store_promotion(
         # Autorisation admin
         # AuthorizationHelper.authorize_with_admin_token(req, "Modifier etudiant")
         
-        # Récupérer la liste des étudiants
+        # Récupérer la liste des étudiants — LEFT JOIN (voir get_promus pour
+        # le détail) : sans ça, un étudiant du préscolaire sans aucune ligne
+        # CoursEtudiant serait exclu ici aussi, et resterait bloqué dans sa
+        # classe malgré la promotion automatique ajoutée pour ce cas.
+        #
+        # Limité à l'année SOURCE (comme get_promus) : un étudiant déjà
+        # scolarisé depuis plusieurs années a des lignes CoursEtudiant pour
+        # CHAQUE année passée — sans cette limite, il apparaissait plusieurs
+        # fois dans la boucle ci-dessous, et chaque passage tentait de créer
+        # la même ligne d'affectation future → doublon rejeté par la base
+        # ("Duplicate entry ... unique_classe_etudiant", cas réel rencontré).
         student_list = db.query(
             ClasseEtudiant,
             Etudiant.id.label('etudiant_id'),
@@ -478,8 +560,12 @@ async def store_promotion(
             Etudiant, Etudiant.id == ClasseEtudiant.etudiant_id
         ).join(
             Classe, Classe.id == ClasseEtudiant.classes_id
-        ).join(
-            CoursEtudiant, CoursEtudiant.etudiant_id == ClasseEtudiant.etudiant_id
+        ).outerjoin(
+            CoursEtudiant,
+            and_(
+                CoursEtudiant.etudiant_id == ClasseEtudiant.etudiant_id,
+                CoursEtudiant.annee_academique == annee_actuelle.annee_academique,
+            )
         ).filter(
             ClasseEtudiant.classes_id == request.classes_id,
             ClasseEtudiant.niveau_id == request.niveau_id,
@@ -490,32 +576,55 @@ async def store_promotion(
         max_coeffs_cache = {}
         promus_count = 0
         redoublants_count = 0
-        
+        forced_redoublants = set(request.forcer_redoublant or [])
+        # Filet de sécurité : un même étudiant ne doit jamais être traité
+        # deux fois dans cette boucle (peu importe la cause exacte — jointure
+        # qui se dédouble, doublon de données...), sinon deux tentatives de
+        # créer la même ligne d'affectation future se percutent (la session
+        # ne revoit pas la première tant que la transaction n'est pas
+        # validée, voir SessionLocal(autoflush=False) dans database.py).
+        deja_traites = set()
+
         for row in student_list:
-            # Ignorer Kindergarten
-            if "Kind " in row.nom_classe:
+            if row.etudiant_id in deja_traites:
                 continue
-            
-            # Récupérer coefficient max
-            classe_id = row.classes_id
-            if classe_id not in max_coeffs_cache:
-                max_coeffs_cache[classe_id] = get_max_coefficients_for_class(classe_id, db)
-            
-            max_coef = max_coeffs_cache[classe_id]
-            
-            # Calculer moyenne
-            results = calculer_moyenne_generale(
-                row.data_etudiant,
-                row.identifiant,
-                max_coef
-            )
-            
-            # Déterminer seuil de réussite
-            m_general = 6.50 if row.nom_classe.startswith("CP") else 6.0
-            moyenne_float = float(results[0])
-            
-            # Promouvoir ou faire redoubler
-            if moyenne_float >= m_general:
+            deja_traites.add(row.etudiant_id)
+
+            if _est_classe_prescolaire(row.nom_classe):
+                # Jamais de moyenne : promotion automatique, sauf si l'admin
+                # a explicitement demandé de faire redoubler cet enfant
+                # (forcer_redoublant — voir StorePromotionRequest).
+                promu = row.etudiant_id not in forced_redoublants
+            else:
+                # Même exclusion que get_promus (étudiant sans aucune donnée
+                # de cours) : laissé tel quel plutôt que basculé
+                # silencieusement en "redoublant" — un étudiant qui
+                # n'apparaissait pas dans le tableau de revue affiché à
+                # l'admin ne doit pas être déplacé par la promotion sans que
+                # personne ne l'ait vu.
+                if _sans_donnees_de_cours(row.data_etudiant):
+                    continue
+
+                # Récupérer coefficient max
+                classe_id = row.classes_id
+                if classe_id not in max_coeffs_cache:
+                    max_coeffs_cache[classe_id] = get_max_coefficients_for_class(classe_id, db)
+
+                max_coef = max_coeffs_cache[classe_id]
+
+                # Calculer moyenne
+                results = calculer_moyenne_generale(
+                    row.data_etudiant,
+                    row.identifiant,
+                    max_coef
+                )
+
+                # Déterminer seuil de réussite
+                m_general = 6.50 if row.nom_classe.startswith("CP") else 6.0
+                moyenne_float = float(results[0])
+                promu = moyenne_float >= m_general and row.etudiant_id not in forced_redoublants
+
+            if promu:
                 # Étudiant promu → classe future
                 update_or_create_classes_etudiant(
                     db,
@@ -543,6 +652,14 @@ async def store_promotion(
         # gardent leur valeur actuelle inchangée.
         aide_financiere_count = 0
         if request.aide_financiere_updates:
+            # Etudiant.register_observers() (main.py) journalise automatiquement
+            # toute mise à jour de ce modèle (GlobalModelObserver, voir
+            # Observers/global_observer.py) et exige un user_id de contexte —
+            # jamais défini jusqu'ici dans cette route (aucune autre mutation
+            # d'Etudiant n'y existait avant l'aide financière), d'où "User non
+            # authentifié lors du log" au premier essai réel. Même motif que
+            # Etudiants.py::store_etudiant.
+            UserContext.set_user_id(current_user.id)
             for etudiant_id, nouvelle_valeur in request.aide_financiere_updates.items():
                 etudiant = db.query(Etudiant).filter(Etudiant.id == etudiant_id).first()
                 if etudiant and etudiant.aide_financiere != nouvelle_valeur:
