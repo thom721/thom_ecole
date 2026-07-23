@@ -18,6 +18,7 @@ class AuthState extends ChangeNotifier {
   AppUser? user;
   List<String> roles = [];
   List<String> permissions = [];
+
   /// null → onglets déterminés par roleNavItems (ancien comportement ou
   /// admin avec accessible_tabs non configuré). Liste → onglets restreints
   /// au sous-ensemble retourné par le serveur (tab_ids dans la réponse login).
@@ -220,13 +221,32 @@ class AuthState extends ChangeNotifier {
         return false;
       }
 
+      final newRoles = ((data['roles'] as List?) ?? const [])
+          .map((e) => e.toString())
+          .toList();
+      final newPermissions = ((data['permissions'] as List?) ?? const [])
+          .map((e) => e.toString())
+          .toList();
+
+      // Gate additionnel, uniquement en mode cloud (voir ApiClient.
+      // useCloudServer) : un identifiant/mot de passe valides ne suffisent
+      // pas à eux seuls à se connecter au bureau via un serveur distant —
+      // il faut en plus la permission "Autorisation cloud", assignable par
+      // rôle/utilisateur comme n'importe quelle autre (Profil >
+      // Permissions). Même nature de contrôle que la restriction
+      // Personnel/Professeur ci-dessus (côté client, pas une vérification
+      // serveur) — aucun état (user/roles/permissions) n'est retenu si
+      // refusé, pour ne laisser aucune trace de la tentative.
+      if (_apiClient.isCloudMode &&
+          !newPermissions.contains('Autorisation cloud')) {
+        errorMessage =
+            "Ce compte n'est pas autorisé à se connecter via le cloud.";
+        return false;
+      }
+
       user = AppUser.fromJson(userJson);
-      roles = ((data['roles'] as List?) ?? const [])
-          .map((e) => e.toString())
-          .toList();
-      permissions = ((data['permissions'] as List?) ?? const [])
-          .map((e) => e.toString())
-          .toList();
+      roles = newRoles;
+      permissions = newPermissions;
       final tabIds = data['tab_ids'] as List?;
       _accessibleTabs = tabIds?.map((e) => e.toString()).toList();
       _parseAccessKeys(userJson);
@@ -319,9 +339,14 @@ class AuthState extends ChangeNotifier {
 
   void startTabWatcher() {
     _tabWatcher?.cancel();
-    _tabSnapshot = _accessibleTabs != null ? List<String>.from(_accessibleTabs!) : null;
+    _tabSnapshot = _accessibleTabs != null
+        ? List<String>.from(_accessibleTabs!)
+        : null;
     _tabWatcher = Timer.periodic(const Duration(minutes: 2), (_) async {
-      if (user == null) { stopTabWatcher(); return; }
+      if (user == null) {
+        stopTabWatcher();
+        return;
+      }
       try {
         final token = await _tokenStorage.getToken();
         final response = await _apiClient.dio.get(
@@ -329,7 +354,9 @@ class AuthState extends ChangeNotifier {
           options: Options(headers: {'Authorization': 'Bearer $token'}),
         );
         final data = response.data as Map<String, dynamic>;
-        final freshTabs = (data['tab_ids'] as List?)?.map((e) => e.toString()).toList();
+        final freshTabs = (data['tab_ids'] as List?)
+            ?.map((e) => e.toString())
+            .toList();
         if (_tabsChanged(_tabSnapshot, freshTabs)) {
           tabsModified = true;
           stopTabWatcher();

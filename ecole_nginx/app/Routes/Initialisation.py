@@ -67,7 +67,14 @@ def fill_roles_and_permissions(db: Session = Depends(get_db)):
             "Ajouter parametre", "Modifier parametre", "Supprimer parametre", "Voir parametre", "Supprimer transaction","Modifier transaction", 
             "Imprimer vente", "Imprimer paiement", "Imprimer rapport",
             "Imprimer rapport pedagogique", "Imprimer bulletin", "Imprimer enregistrement",
-            "Annuler arriéré"
+            "Annuler arriéré",
+            # Restreint qui peut se connecter au bureau via le serveur cloud
+            # (mode "Cloud" de l'écran de connexion Flutter, voir
+            # ApiClient.useCloudServer/useLocalServer) — vérifiée côté client
+            # uniquement, après un identifiant/mot de passe déjà valides
+            # (AuthState.login()), pas une contrainte sur la route /auth/login
+            # elle-même (qui ne sait pas par quel mode le client l'a atteinte).
+            "Autorisation cloud"
         ]
 
         for name in permissions:
