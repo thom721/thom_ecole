@@ -2,10 +2,14 @@ import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Équivalent de Helper/Ip_manager.py (school_client) : persiste l'adresse
-/// IP du serveur saisie manuellement par l'utilisateur.
+/// IP du serveur saisie manuellement par l'utilisateur. Étendu avec le mode
+/// de connexion (local/cloud) et l'URL du serveur cloud — même stockage,
+/// pas de raison d'en faire une classe séparée pour deux clés de plus.
 class IpStorage {
   static const _ipKey = 'server_ip';
   static const _domain = 'aplekol360.local';
+  static const _modeKey = 'connection_mode';
+  static const _cloudUrlKey = 'cloud_server_url';
 
   Future<void> saveServerIp(String ip) async {
     final prefs = await SharedPreferences.getInstance();
@@ -15,6 +19,29 @@ class IpStorage {
   Future<String?> getServerIp() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_ipKey);
+  }
+
+  /// 'local' (défaut) ou 'cloud' — quel champ de connexion utiliser,
+  /// choisi explicitement par l'utilisateur via les boutons radio de
+  /// l'écran de connexion (jamais déduit automatiquement).
+  Future<void> saveConnectionMode(bool isCloud) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_modeKey, isCloud ? 'cloud' : 'local');
+  }
+
+  Future<bool> getIsCloudMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_modeKey) == 'cloud';
+  }
+
+  Future<void> saveCloudUrl(String url) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_cloudUrlKey, url);
+  }
+
+  Future<String?> getCloudUrl() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_cloudUrlKey);
   }
 
   /// Équivalent de add_or_update_host() (Controllers/Main.py:4009-4057) :

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/api_client.dart';
 import '../../core/ip_storage.dart';
 import '../../state/auth_state.dart';
 import '../../state/theme_state.dart';
@@ -10,6 +11,11 @@ import 'first_login_password_screen.dart';
 // #change_ip / #valider_id_server / #valider_profile (main_school1.ui:704-712) :
 // bleu, pas doré comme #btn_connexion — bordure 1px, fond plein bleu au survol.
 const _blueAction = Color(0xFF228BE6);
+
+/// Lequel des deux champs (IP locale / lien cloud) ApiClient utilise
+/// réellement — choisi explicitement par bouton radio, jamais déduit d'une
+/// saisie (voir ApiClient.useLocalServer/useCloudServer). "local" par défaut.
+enum _ConnMode { local, cloud }
 
 /// Équivalent IDENTIQUE de connexion_page (Resources/main_school1.ui) et de
 /// se_connecter()/handle_login_response() (Controllers/Main.py,
@@ -36,10 +42,13 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _ipController = TextEditingController();
+  final _cloudController = TextEditingController();
   final _ipStorage = IpStorage();
   bool _obscurePassword = true;
   bool _showIpPanel = false;
   String? _ipMessage;
+  String? _cloudMessage;
+  _ConnMode _connMode = _ConnMode.local;
 
   @override
   void initState() {
@@ -49,6 +58,19 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() => _ipController.text = ip);
       }
     });
+    // Applique le mode déjà choisi lors d'une session précédente — ApiClient
+    // démarre toujours en mode local (voir son constructeur), donc rien à
+    // faire si c'est aussi le choix persisté.
+    _ipStorage.getCloudUrl().then((url) {
+      if (url != null && mounted) _cloudController.text = url;
+    });
+    _ipStorage.getIsCloudMode().then((isCloud) {
+      if (!isCloud || !mounted) return;
+      final url = _cloudController.text.trim();
+      if (url.isEmpty) return;
+      setState(() => _connMode = _ConnMode.cloud);
+      context.read<ApiClient>().useCloudServer(url);
+    });
   }
 
   @override
@@ -56,7 +78,48 @@ class _LoginScreenState extends State<LoginScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _ipController.dispose();
+    _cloudController.dispose();
     super.dispose();
+  }
+
+  Future<void> _selectMode(_ConnMode mode) async {
+    final apiClient = context.read<ApiClient>();
+    if (mode == _ConnMode.cloud) {
+      final url = _cloudController.text.trim();
+      if (url.isEmpty || !RegExp(r'^https?://').hasMatch(url)) {
+        setState(
+          () => _cloudMessage =
+              "Renseignez d'abord un lien valide (http:// ou https://).",
+        );
+        return;
+      }
+      apiClient.useCloudServer(url);
+    } else {
+      apiClient.useLocalServer();
+    }
+    await _ipStorage.saveConnectionMode(mode == _ConnMode.cloud);
+    if (!mounted) return;
+    setState(() => _connMode = mode);
+  }
+
+  Future<void> _saveCloudUrl() async {
+    final url = _cloudController.text.trim();
+    if (url.isEmpty || !RegExp(r'^https?://').hasMatch(url)) {
+      setState(
+        () => _cloudMessage =
+            "Lien invalide — doit commencer par http:// ou https://.",
+      );
+      return;
+    }
+    final apiClient = context.read<ApiClient>();
+    await _ipStorage.saveCloudUrl(url);
+    apiClient.useCloudServer(url);
+    await _ipStorage.saveConnectionMode(true);
+    if (!mounted) return;
+    setState(() {
+      _connMode = _ConnMode.cloud;
+      _cloudMessage = 'Lien cloud enregistré et utilisé pour la connexion.';
+    });
   }
 
   Future<void> _saveServerIp() async {
@@ -66,7 +129,12 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _ipMessage = 'Adresse IP invalide.');
       return;
     }
+    final apiClient = context.read<ApiClient>();
     await _ipStorage.saveServerIp(ip);
+    apiClient.useLocalServer();
+    await _ipStorage.saveConnectionMode(false);
+    if (!mounted) return;
+    setState(() => _connMode = _ConnMode.local);
     // Équivalent de add_or_update_host() (Controllers/Main.py:4009-4057) :
     // met à jour /etc/hosts avec l'entrée aplekol360.local → ip.
     // Sur Mac/Linux, élève les privilèges via osascript/pkexec si nécessaire
@@ -309,16 +377,29 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                         ),
-                        // Équivalent de frame_238 (label_76/input_change_ip/change_ip).
+                        // Équivalent de frame_238 (label_76/input_change_ip/change_ip)
+                        // + le sélecteur de mode (local/cloud, absent de
+                        // main_school1.ui) : bouton radio devant chaque champ,
+                        // "local" par défaut — détermine lequel des deux
+                        // ApiClient utilise réellement (voir _selectMode).
                         if (_showIpPanel) ...[
-                          Text(
-                            "Modifier l'ip",
-                            style: TextStyle(
-                              color: AppColors.textMuted,
-                              fontSize: 12,
-                            ),
+                          Row(
+                            children: [
+                              Radio<_ConnMode>(
+                                value: _ConnMode.local,
+                                groupValue: _connMode,
+                                onChanged: (v) => _selectMode(v!),
+                              ),
+                              Text(
+                                "Modifier l'ip (réseau local)",
+                                style: TextStyle(
+                                  color: AppColors.textMuted,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 4),
                           // Équivalent de frame_243/frame_242 (main_school1.ui:
                           // 3327-3418) : le champ pleine largeur sur sa propre
                           // ligne, puis le bouton sur la ligne suivante, aligné
@@ -376,6 +457,96 @@ class _LoginScreenState extends State<LoginScreen> {
                             const SizedBox(height: 8),
                             Text(
                               _ipMessage!,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFFF59E0B),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 14),
+                          // Lien vers un serveur distant (même backend
+                          // hébergé ailleurs) — pas de fichier hosts à
+                          // modifier ici, juste l'URL utilisée telle quelle.
+                          Row(
+                            children: [
+                              Radio<_ConnMode>(
+                                value: _ConnMode.cloud,
+                                groupValue: _connMode,
+                                onChanged: (v) => _selectMode(v!),
+                              ),
+                              Text(
+                                'Cloud (serveur distant)',
+                                style: TextStyle(
+                                  color: AppColors.textMuted,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                          // Un hébergement mutualisé entre plusieurs écoles
+                          // n'expose pas forcément /api/v1 — le chemin
+                          // complet donné par l'hébergeur doit être saisi
+                          // tel quel (voir ApiClient.useCloudServer).
+                          Padding(
+                            padding: const EdgeInsets.only(left: 40, bottom: 4),
+                            child: Text(
+                              "Lien complet fourni par l'hébergeur (pas juste le domaine)",
+                              style: TextStyle(
+                                color: AppColors.textMuted,
+                                fontSize: 10.5,
+                              ),
+                            ),
+                          ),
+                          TextField(
+                            controller: _cloudController,
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 13,
+                            ),
+                            decoration: _darkField(
+                              hint: 'https://admin.votre-ecole.com/chemin-api',
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: OutlinedButton(
+                              style:
+                                  OutlinedButton.styleFrom(
+                                    foregroundColor: _blueAction,
+                                    side: const BorderSide(color: _blueAction),
+                                    minimumSize: const Size(100, 0),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(5),
+                                    ),
+                                  ).copyWith(
+                                    backgroundColor:
+                                        WidgetStateProperty.resolveWith(
+                                          (states) =>
+                                              states.contains(
+                                                WidgetState.hovered,
+                                              )
+                                              ? _blueAction
+                                              : null,
+                                        ),
+                                    foregroundColor:
+                                        WidgetStateProperty.resolveWith(
+                                          (states) =>
+                                              states.contains(
+                                                WidgetState.hovered,
+                                              )
+                                              ? Colors.white
+                                              : _blueAction,
+                                        ),
+                                  ),
+                              onPressed: _saveCloudUrl,
+                              child: const Text('Modifier'),
+                            ),
+                          ),
+                          if (_cloudMessage != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              _cloudMessage!,
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: Color(0xFFF59E0B),
