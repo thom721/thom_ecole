@@ -40,6 +40,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // (Dashboard.vue: onMounted -> openAccordionIndex.value = 3).
   _ActiveSection? _activeSection = _ActiveSection.paiement;
 
+  /// Équivalent de combo_anne_for_dash (school_client, main_school1.ui) —
+  /// absent du frontend web ET de la première version de cet écran. null
+  /// tant que la liste des années n'est pas encore chargée ; ensuite,
+  /// présélectionné sur l'année marquée active côté serveur (même
+  /// comportement par défaut que get_dash_data_by_date() sans argument).
+  String? _selectedAnneeId;
+
   @override
   void initState() {
     super.initState();
@@ -49,8 +56,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final dashboard = context.read<DashboardState>();
       await referenceData.loadOnce();
       if (!mounted) return;
-      await dashboard.load();
+      final annees = referenceData.annees;
+      if (annees.isNotEmpty) {
+        var active = annees.first;
+        for (final a in annees) {
+          if (a.status) {
+            active = a;
+            break;
+          }
+        }
+        setState(() => _selectedAnneeId = active.id);
+      }
+      await dashboard.load(anneeAcademiqueId: _selectedAnneeId);
     });
+  }
+
+  void _onAnneeChanged(String? anneeId) {
+    if (anneeId == null || anneeId == _selectedAnneeId) return;
+    setState(() => _selectedAnneeId = anneeId);
+    context.read<DashboardState>().load(anneeAcademiqueId: anneeId);
   }
 
   void _toggle(_ActiveSection section) {
@@ -61,14 +85,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     final dashboard = context.watch<DashboardState>();
     final roles = context.watch<AuthState>().roles;
-    final canSeeRealNumbers = roles.contains('admin') || roles.contains('Comptable');
+    final annees = context.watch<ReferenceDataState>().annees;
+    final canSeeRealNumbers =
+        roles.contains('admin') || roles.contains('Comptable');
 
     if (dashboard.isLoading && dashboard.stats == null) {
       return const Center(child: CircularProgressIndicator());
     }
     if (dashboard.errorMessage != null) {
       return Center(
-        child: Text(dashboard.errorMessage!, style: TextStyle(color: AppColors.textPrimary)),
+        child: Text(
+          dashboard.errorMessage!,
+          style: TextStyle(color: AppColors.textPrimary),
+        ),
       );
     }
     final stats = dashboard.stats;
@@ -76,7 +105,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return const SizedBox.shrink();
     }
 
-    String mask(Object value) => canSeeRealNumbers ? value.toString() : '********';
+    String mask(Object value) =>
+        canSeeRealNumbers ? value.toString() : '********';
 
     // Contrôle par sous-onglet "home.*" (configurable dans Vues par rôle) :
     // null → pas de restriction (toutes les sections visibles).
@@ -154,21 +184,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ];
 
     return RefreshIndicator(
-      onRefresh: () => context.read<DashboardState>().load(),
+      onRefresh: () => context.read<DashboardState>().load(
+        anneeAcademiqueId: _selectedAnneeId,
+      ),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const _DashHeader(),
+            Row(
+              children: [
+                const Expanded(child: _DashHeader()),
+                if (annees.isNotEmpty)
+                  SizedBox(
+                    width: 170,
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _selectedAnneeId,
+                      isDense: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Année Académique',
+                      ),
+                      items: annees
+                          .map(
+                            (a) => DropdownMenuItem(
+                              value: a.id,
+                              child: Text(a.nom),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: _onAnneeChanged,
+                    ),
+                  ),
+              ],
+            ),
             const SizedBox(height: 20),
             LayoutBuilder(
               builder: (context, constraints) {
                 final cols = constraints.maxWidth >= 1000
                     ? 4
                     : constraints.maxWidth >= 700
-                        ? 2
-                        : 1;
+                    ? 2
+                    : 1;
                 return GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -191,14 +247,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
             if (_activeSection != null) ...[
               // Ne pas afficher le panneau si son sous-onglet a été masqué
               // par la configuration "Vues" du rôle de l'utilisateur.
-              if (_activeSection == _ActiveSection.paiement && homeSub('suivi_paiement') ||
-                  _activeSection == _ActiveSection.etudiant && homeSub('stats_etudiant') ||
-                  _activeSection == _ActiveSection.classe && homeSub('classes')) ...[
+              if (_activeSection == _ActiveSection.paiement &&
+                      homeSub('suivi_paiement') ||
+                  _activeSection == _ActiveSection.etudiant &&
+                      homeSub('stats_etudiant') ||
+                  _activeSection == _ActiveSection.classe &&
+                      homeSub('classes')) ...[
                 const SizedBox(height: 24),
                 switch (_activeSection!) {
                   _ActiveSection.etudiant => EtudiantStatsPanel(),
                   _ActiveSection.paiement => PaiementStatsPanel(),
-                  _ActiveSection.classe => _ClasseDetailsTable(details: stats.classeDetails),
+                  _ActiveSection.classe => _ClasseDetailsTable(
+                    details: stats.classeDetails,
+                  ),
                 },
               ],
             ],
@@ -224,16 +285,28 @@ class _DashHeader extends StatelessWidget {
             border: Border.all(color: AppColors.accent.withValues(alpha: 0.2)),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(Icons.grid_view_outlined, size: 18, color: AppColors.accentLight),
+          child: Icon(
+            Icons.grid_view_outlined,
+            size: 18,
+            color: AppColors.accentLight,
+          ),
         ),
         const SizedBox(width: 12),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Tableau de bord',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-            Text("Vue d'ensemble de l'établissement",
-                style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+            Text(
+              'Tableau de bord',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            Text(
+              "Vue d'ensemble de l'établissement",
+              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+            ),
           ],
         ),
       ],
@@ -271,7 +344,11 @@ class _DashCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: AppColors.cardBg,
-        border: Border.all(color: active ? palette.bar.withValues(alpha: 0.5) : AppColors.borderSubtle),
+        border: Border.all(
+          color: active
+              ? palette.bar.withValues(alpha: 0.5)
+              : AppColors.borderSubtle,
+        ),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Stack(
@@ -311,10 +388,17 @@ class _DashCard extends StatelessWidget {
                           padding: EdgeInsets.zero,
                           iconSize: 14,
                           style: IconButton.styleFrom(
-                            backgroundColor: active ? palette.bar.withValues(alpha: 0.18) : AppColors.hoverOverlay,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            backgroundColor: active
+                                ? palette.bar.withValues(alpha: 0.18)
+                                : AppColors.hoverOverlay,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
-                          icon: Icon(active ? Icons.remove : Icons.add, color: palette.text),
+                          icon: Icon(
+                            active ? Icons.remove : Icons.add,
+                            color: palette.text,
+                          ),
                           onPressed: expandEnabled ? onExpand : null,
                         ),
                       ),
@@ -330,7 +414,9 @@ class _DashCard extends StatelessWidget {
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: palette.bar.withValues(alpha: 0.1),
-                        border: Border.all(color: palette.bar.withValues(alpha: 0.2)),
+                        border: Border.all(
+                          color: palette.bar.withValues(alpha: 0.2),
+                        ),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(icon, size: 16, color: palette.text),
@@ -348,7 +434,13 @@ class _DashCard extends StatelessWidget {
                           ),
                         ),
                         if (devise != null)
-                          Text(devise!, style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                          Text(
+                            devise!,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
                       ],
                     ),
                   ],
@@ -396,20 +488,38 @@ class _ClasseDetailsTable extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: AppColors.cardPalette['amber']!.bar.withValues(alpha: 0.1),
-                  border: Border.all(color: AppColors.cardPalette['amber']!.bar.withValues(alpha: 0.2)),
+                  color: AppColors.cardPalette['amber']!.bar.withValues(
+                    alpha: 0.1,
+                  ),
+                  border: Border.all(
+                    color: AppColors.cardPalette['amber']!.bar.withValues(
+                      alpha: 0.2,
+                    ),
+                  ),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.apartment_outlined, size: 16, color: Color(0xFFFBBF24)),
+                child: const Icon(
+                  Icons.apartment_outlined,
+                  size: 16,
+                  color: Color(0xFFFBBF24),
+                ),
               ),
               const SizedBox(width: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Détails des Classes',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-                  Text('Répartition des étudiants par classe.',
-                      style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                  Text(
+                    'Détails des Classes',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    'Répartition des étudiants par classe.',
+                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                  ),
                 ],
               ),
             ],
@@ -426,23 +536,25 @@ class _ClasseDetailsTable extends StatelessWidget {
                 DataColumn(label: Text('')),
               ],
               rows: details.map((d) {
-                return DataRow(cells: [
-                  DataCell(Text(d.niveauName)),
-                  DataCell(Text(d.nomClasse)),
-                  DataCell(Text(d.etudiantCount.toString())),
-                  DataCell(Text(d.professeur ?? '-')),
-                  DataCell(
-                    TextButton(
-                      onPressed: () => showClasseStudentsDialog(
-                        context,
-                        classeId: d.classeId,
-                        anneeId: d.anneeAcademiqueId,
-                        nomClasse: d.nomClasse,
+                return DataRow(
+                  cells: [
+                    DataCell(Text(d.niveauName)),
+                    DataCell(Text(d.nomClasse)),
+                    DataCell(Text(d.etudiantCount.toString())),
+                    DataCell(Text(d.professeur ?? '-')),
+                    DataCell(
+                      TextButton(
+                        onPressed: () => showClasseStudentsDialog(
+                          context,
+                          classeId: d.classeId,
+                          anneeId: d.anneeAcademiqueId,
+                          nomClasse: d.nomClasse,
+                        ),
+                        child: const Text('Gérer'),
                       ),
-                      child: const Text('Gérer'),
                     ),
-                  ),
-                ]);
+                  ],
+                );
               }).toList(),
             ),
           ),

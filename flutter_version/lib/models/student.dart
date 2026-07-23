@@ -89,25 +89,32 @@ class Niveau {
 class Classe {
   Classe({required this.id, required this.niveauId, required this.nomClasse});
   factory Classe.fromJson(Map<String, dynamic> json) => Classe(
-        id: json['id'].toString(),
-        niveauId: json['niveau_id']?.toString() ?? '',
-        nomClasse: json['nom_classe']?.toString() ?? '',
-      );
+    id: json['id'].toString(),
+    niveauId: json['niveau_id']?.toString() ?? '',
+    nomClasse: json['nom_classe']?.toString() ?? '',
+  );
   final String id;
   final String niveauId;
   final String nomClasse;
 }
 
 class AnneeAcademique {
-  AnneeAcademique({required this.id, required this.nom});
+  AnneeAcademique({required this.id, required this.nom, this.status = false});
   // GET v1/annee-academique (app/Routes/RAcademic.py, AnneeAcademiqueBase)
   // renvoie le champ `annee_academique` ("2024/2025"), pas `nom`.
-  factory AnneeAcademique.fromJson(Map<String, dynamic> json) => AnneeAcademique(
-        id: json['id'].toString(),
-        nom: json['annee_academique']?.toString() ?? json['nom']?.toString() ?? '',
-      );
+  factory AnneeAcademique.fromJson(
+    Map<String, dynamic> json,
+  ) => AnneeAcademique(
+    id: json['id'].toString(),
+    nom: json['annee_academique']?.toString() ?? json['nom']?.toString() ?? '',
+    status: json['status'] as bool? ?? false,
+  );
   final String id;
   final String nom;
+
+  /// true = année académique active côté serveur (une seule normalement) —
+  /// utilisé pour présélectionner l'année du tableau de bord.
+  final bool status;
 }
 
 class Faculte {
