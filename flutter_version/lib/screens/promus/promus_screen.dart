@@ -278,13 +278,36 @@ class _PromusScreenState extends State<PromusScreen> {
                                   ),
                                 ]
                               : state.resultats.map((e) {
-                                  final color = e.succes
+                                  final forcedRedoublant = state
+                                      .isForcedRedoublant(e);
+                                  // Préscolaire : toujours "Succès" côté
+                                  // serveur (pas de moyenne), sauf si
+                                  // l'admin a coché "Faire redoubler" ici —
+                                  // reflété tout de suite, avant même la
+                                  // promotion, pour que le tableau ne mente
+                                  // pas sur ce qui va réellement se passer.
+                                  final effectiveSucces = e.sansEvaluation
+                                      ? !forcedRedoublant
+                                      : e.succes;
+                                  final color = effectiveSucces
                                       ? AppColors.cardPalette['emerald']!.text
                                       : AppColors.cardPalette['rose']!.text;
                                   final aideValue = state.aideFinanciereFor(e);
                                   final aideChanged =
                                       aideValue != e.aideFinanciere;
                                   return DataRow(
+                                    // Sans clé stable, un DropdownButtonFormField
+                                    // (widget à état, initialValue lu UNE seule
+                                    // fois à sa création) peut, lors d'un
+                                    // rafraîchissement du tableau, réutiliser
+                                    // l'état interne (donc la valeur affichée)
+                                    // d'une ligne précédente à la même position
+                                    // — au lieu de repartir de la vraie valeur
+                                    // de CET élève. La clé sur l'identifiant
+                                    // garantit qu'une ligne n'est jamais confondue
+                                    // avec une autre, même après un tri/filtre
+                                    // futur ou un changement de longueur de liste.
+                                    key: ValueKey(e.id),
                                     cells: [
                                       DataCell(
                                         Text(
@@ -304,7 +327,9 @@ class _PromusScreenState extends State<PromusScreen> {
                                       ),
                                       DataCell(
                                         Text(
-                                          e.note.toStringAsFixed(2),
+                                          e.sansEvaluation
+                                              ? '—'
+                                              : e.note.toStringAsFixed(2),
                                           style: TextStyle(
                                             color: AppColors.textMuted,
                                           ),
@@ -312,7 +337,9 @@ class _PromusScreenState extends State<PromusScreen> {
                                       ),
                                       DataCell(
                                         Text(
-                                          e.max.toStringAsFixed(2),
+                                          e.sansEvaluation
+                                              ? '—'
+                                              : e.max.toStringAsFixed(2),
                                           style: TextStyle(
                                             color: AppColors.textMuted,
                                           ),
@@ -320,7 +347,9 @@ class _PromusScreenState extends State<PromusScreen> {
                                       ),
                                       DataCell(
                                         Text(
-                                          e.moyenne,
+                                          e.sansEvaluation
+                                              ? 'Préscolaire'
+                                              : e.moyenne,
                                           style: TextStyle(
                                             color: color,
                                             fontWeight: FontWeight.w700,
@@ -328,13 +357,54 @@ class _PromusScreenState extends State<PromusScreen> {
                                         ),
                                       ),
                                       DataCell(
-                                        Text(
-                                          e.status,
-                                          style: TextStyle(
-                                            color: color,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
+                                        e.sansEvaluation
+                                            ? InkWell(
+                                                onTap: () => context
+                                                    .read<PromusState>()
+                                                    .setForcerRedoublant(
+                                                      e,
+                                                      !forcedRedoublant,
+                                                    ),
+                                                child: Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 4,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: color.withValues(
+                                                      alpha: 0.1,
+                                                    ),
+                                                    border: Border.all(
+                                                      color: color.withValues(
+                                                        alpha: 0.3,
+                                                      ),
+                                                    ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          999,
+                                                        ),
+                                                  ),
+                                                  child: Text(
+                                                    forcedRedoublant
+                                                        ? 'Redouble'
+                                                        : 'Promu',
+                                                    style: TextStyle(
+                                                      color: color,
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ),
+                                              )
+                                            : Text(
+                                                e.status,
+                                                style: TextStyle(
+                                                  color: color,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
                                       ),
                                       DataCell(
                                         SizedBox(
@@ -386,6 +456,18 @@ class _PromusScreenState extends State<PromusScreen> {
                           "${state.pendingAideFinanciere.length} changement(s) d'aide financière en attente — appliqué(s) à la promotion.",
                           style: TextStyle(
                             color: AppColors.cardPalette['amber']!.text,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    if (state.forcedRedoublants.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          "${state.forcedRedoublants.length} élève(s) préscolaire marqué(s) pour redoubler manuellement.",
+                          style: TextStyle(
+                            color: AppColors.cardPalette['rose']!.text,
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
                           ),

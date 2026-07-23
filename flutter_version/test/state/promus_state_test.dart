@@ -268,4 +268,177 @@ void main() {
       );
     },
   );
+
+  group('préscolaire (sansEvaluation)', () {
+    test(
+      'rechercher() peuple sansEvaluation depuis la réponse serveur',
+      () async {
+        setUpWith(
+          (_) => _json({
+            'result': [
+              {
+                'id': 'e1',
+                'nom': 'DUPONT',
+                'prenom': 'Jean',
+                'note': 0,
+                'max': 0,
+                'moyenne': '-',
+                'status': 'Succès',
+                'sans_evaluation': true,
+                'aide_financiere': 'Aucune',
+              },
+            ],
+          }),
+        );
+        await search();
+        expect(state.resultats.single.sansEvaluation, isTrue);
+      },
+    );
+
+    test(
+      'setForcerRedoublant retire l\'entrée quand on désactive à nouveau',
+      () async {
+        setUpWith(
+          (_) => _json({
+            'result': [
+              {
+                'id': 'e1',
+                'nom': 'DUPONT',
+                'prenom': 'Jean',
+                'note': 0,
+                'max': 0,
+                'moyenne': '-',
+                'status': 'Succès',
+                'sans_evaluation': true,
+                'aide_financiere': 'Aucune',
+              },
+            ],
+          }),
+        );
+        await search();
+        final e = state.resultats.single;
+
+        expect(state.isForcedRedoublant(e), isFalse);
+        state.setForcerRedoublant(e, true);
+        expect(state.isForcedRedoublant(e), isTrue);
+        expect(state.forcedRedoublants, {'e1'});
+
+        state.setForcerRedoublant(e, false);
+        expect(state.isForcedRedoublant(e), isFalse);
+        expect(state.forcedRedoublants, isEmpty);
+      },
+    );
+
+    test(
+      'promouvoir() sans redoublant forcé n\'envoie PAS forcer_redoublant',
+      () async {
+        setUpWith((options) {
+          if (options.path.contains('get-promus')) {
+            return _json({
+              'result': [
+                {
+                  'id': 'e1',
+                  'nom': 'DUPONT',
+                  'prenom': 'Jean',
+                  'note': 0,
+                  'max': 0,
+                  'moyenne': '-',
+                  'status': 'Succès',
+                  'sans_evaluation': true,
+                  'aide_financiere': 'Aucune',
+                },
+              ],
+            });
+          }
+          return _json({
+            'statistics': {
+              'promus': 1,
+              'redoublants': 0,
+              'aide_financiere_modifiee': 0,
+            },
+          });
+        });
+        await search();
+
+        await state.promouvoir(
+          anneeActuelle: 'an-1',
+          niveauActuel: 'niv-1',
+          classeActuelle: 'cls-1',
+          anneeFuture: 'an-2',
+          niveauFuture: 'niv-1',
+          classeFuture: 'cls-2',
+        );
+
+        final promoteRequest = adapter.requests.firstWhere(
+          (r) => r.path.contains('etudiant-promus-to'),
+        );
+        final data = promoteRequest.data as Map;
+        expect(data.containsKey('forcer_redoublant'), isFalse);
+      },
+    );
+
+    test(
+      'promouvoir() avec redoublant forcé envoie la liste, puis la vide',
+      () async {
+        setUpWith((options) {
+          if (options.path.contains('get-promus')) {
+            return _json({
+              'result': [
+                {
+                  'id': 'e1',
+                  'nom': 'DUPONT',
+                  'prenom': 'Jean',
+                  'note': 0,
+                  'max': 0,
+                  'moyenne': '-',
+                  'status': 'Succès',
+                  'sans_evaluation': true,
+                  'aide_financiere': 'Aucune',
+                },
+                {
+                  'id': 'e2',
+                  'nom': 'MARTIN',
+                  'prenom': 'Alice',
+                  'note': 0,
+                  'max': 0,
+                  'moyenne': '-',
+                  'status': 'Succès',
+                  'sans_evaluation': true,
+                  'aide_financiere': 'Aucune',
+                },
+              ],
+            });
+          }
+          return _json({
+            'statistics': {
+              'promus': 1,
+              'redoublants': 1,
+              'aide_financiere_modifiee': 0,
+            },
+          });
+        });
+        await search();
+
+        // e1 redouble manuellement, e2 est promu automatiquement (par défaut).
+        state.setForcerRedoublant(state.resultats[0], true);
+
+        final ok = await state.promouvoir(
+          anneeActuelle: 'an-1',
+          niveauActuel: 'niv-1',
+          classeActuelle: 'cls-1',
+          anneeFuture: 'an-2',
+          niveauFuture: 'niv-1',
+          classeFuture: 'cls-2',
+        );
+
+        expect(ok, isTrue);
+        final promoteRequest = adapter.requests.firstWhere(
+          (r) => r.path.contains('etudiant-promus-to'),
+        );
+        final data = promoteRequest.data as Map;
+        expect(data['forcer_redoublant'], ['e1']);
+        expect(state.forcedRedoublants, isEmpty);
+      },
+    );
+  });
 }

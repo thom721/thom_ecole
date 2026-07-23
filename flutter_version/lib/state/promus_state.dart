@@ -21,6 +21,7 @@ class PromusEtudiant {
     required this.moyenne,
     required this.status,
     required this.aideFinanciere,
+    required this.sansEvaluation,
   });
 
   factory PromusEtudiant.fromJson(Map<String, dynamic> json) {
@@ -33,6 +34,9 @@ class PromusEtudiant {
       moyenne: json['moyenne']?.toString() ?? '0',
       status: json['status']?.toString() ?? '',
       aideFinanciere: json['aide_financiere']?.toString() ?? 'Aucune',
+      // Préscolaire ("Kind ...") : jamais de moyenne, promotion automatique
+      // par défaut — voir _est_classe_prescolaire côté serveur.
+      sansEvaluation: json['sans_evaluation'] as bool? ?? false,
     );
   }
 
@@ -44,6 +48,7 @@ class PromusEtudiant {
   final String moyenne;
   final String status;
   final String aideFinanciere;
+  final bool sansEvaluation;
 
   bool get succes => status == 'Succès';
 }
@@ -91,6 +96,22 @@ class PromusState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Étudiants préscolaire ([PromusEtudiant.sansEvaluation]) explicitement
+  /// marqués pour redoubler — par défaut tous "Succès" (promotion
+  /// automatique, aucune moyenne à évaluer), voir [setForcerRedoublant].
+  final Set<String> forcedRedoublants = {};
+
+  bool isForcedRedoublant(PromusEtudiant e) => forcedRedoublants.contains(e.id);
+
+  void setForcerRedoublant(PromusEtudiant e, bool redouble) {
+    if (redouble) {
+      forcedRedoublants.add(e.id);
+    } else {
+      forcedRedoublants.remove(e.id);
+    }
+    notifyListeners();
+  }
+
   /// Équivalent de rechercher_for_promus() → POST v1/get-promus.
   Future<void> rechercher({
     required String annee,
@@ -102,6 +123,7 @@ class PromusState extends ChangeNotifier {
     _hasSearched = true;
     resultats = [];
     pendingAideFinanciere.clear();
+    forcedRedoublants.clear();
     notifyListeners();
     try {
       final response = await _apiClient.post(
@@ -129,6 +151,8 @@ class PromusState extends ChangeNotifier {
   /// Équivalent de promus_to() → POST v1/etudiant-promus-to. Les étudiants
   /// "Succès" rejoignent la classe future, les "Échec" redoublent dans la
   /// même classe (logique entièrement côté serveur, RPromus.py:494-513).
+  /// Préscolaire (sansEvaluation) : toujours "Succès" sauf présence dans
+  /// [forcedRedoublants].
   Future<bool> promouvoir({
     required String anneeActuelle,
     required String niveauActuel,
@@ -158,6 +182,9 @@ class PromusState extends ChangeNotifier {
             'aide_financiere_updates': Map<String, String>.from(
               pendingAideFinanciere,
             ),
+          // Même raisonnement de copie défensive que pendingAideFinanciere.
+          if (forcedRedoublants.isNotEmpty)
+            'forcer_redoublant': List<String>.from(forcedRedoublants),
         },
       );
       final stats =
@@ -165,6 +192,7 @@ class PromusState extends ChangeNotifier {
               as Map<String, dynamic>?;
       lastStats = stats?.map((k, v) => MapEntry(k, (v as num).toInt()));
       pendingAideFinanciere.clear();
+      forcedRedoublants.clear();
       return true;
     } catch (e) {
       promoteError = _extractError(e);
@@ -178,6 +206,7 @@ class PromusState extends ChangeNotifier {
   void reset() {
     resultats = [];
     pendingAideFinanciere.clear();
+    forcedRedoublants.clear();
     _hasSearched = false;
     searchError = null;
     lastStats = null;
