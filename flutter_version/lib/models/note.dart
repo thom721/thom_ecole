@@ -57,9 +57,15 @@ class CoursEtudiantRecord {
 
 /// Un étudiant retourné par POST v1/cours-etudiant-add-note (EtudiantNoteData).
 class NoteSearchStudent {
-  NoteSearchStudent({required this.id, required this.nom, required this.prenom, required this.identifiant});
+  NoteSearchStudent({
+    required this.id,
+    required this.nom,
+    required this.prenom,
+    required this.identifiant,
+  });
 
-  factory NoteSearchStudent.fromJson(Map<String, dynamic> json) => NoteSearchStudent(
+  factory NoteSearchStudent.fromJson(Map<String, dynamic> json) =>
+      NoteSearchStudent(
         id: json['id'].toString(),
         nom: json['nom']?.toString() ?? '',
         prenom: json['prenom']?.toString() ?? '',
@@ -88,14 +94,14 @@ class NoteCoursInfo {
   });
 
   factory NoteCoursInfo.fromJson(Map<String, dynamic> json) => NoteCoursInfo(
-        coursNom: json['cours_nom']?.toString() ?? '',
-        session: json['session']?.toString(),
-        noteDePassage: _toDouble(json['note_de_passage']),
-        nomClasse: json['nom_classe']?.toString(),
-        coefficients: _toDouble(json['coefficients']),
-        typeMatiere: json['type_matiere']?.toString(),
-        professeurId: json['professeur_id']?.toString(),
-      );
+    coursNom: json['cours_nom']?.toString() ?? '',
+    session: json['session']?.toString(),
+    noteDePassage: _toDouble(json['note_de_passage']),
+    nomClasse: json['nom_classe']?.toString(),
+    coefficients: _toDouble(json['coefficients']),
+    typeMatiere: json['type_matiere']?.toString(),
+    professeurId: json['professeur_id']?.toString(),
+  );
 
   final String coursNom;
   final String? session;
@@ -118,7 +124,8 @@ class NoteListCoursItem {
     this.professeurId,
   });
 
-  factory NoteListCoursItem.fromJson(Map<String, dynamic> json) => NoteListCoursItem(
+  factory NoteListCoursItem.fromJson(Map<String, dynamic> json) =>
+      NoteListCoursItem(
         id: json['id'].toString(),
         coursNom: json['cours_nom']?.toString() ?? '',
         noteDePassage: _toDouble(json['note_de_passage']),
@@ -143,19 +150,24 @@ class NoteSearchResult {
     required this.session,
     required this.listCours,
     required this.annee,
+    this.evaluationPar,
   });
 
   factory NoteSearchResult.fromJson(Map<String, dynamic> json) {
+    final examEcheance = json['examEcheance'] as Map<String, dynamic>?;
     return NoteSearchResult(
       students: ((json['result'] as List?) ?? const [])
           .map((e) => NoteSearchStudent.fromJson(e as Map<String, dynamic>))
           .toList(),
-      cours: NoteCoursInfo.fromJson((json['cours'] as Map<String, dynamic>?) ?? const {}),
+      cours: NoteCoursInfo.fromJson(
+        (json['cours'] as Map<String, dynamic>?) ?? const {},
+      ),
       session: json['session']?.toString(),
       listCours: ((json['list_cours'] as List?) ?? const [])
           .map((e) => NoteListCoursItem.fromJson(e as Map<String, dynamic>))
           .toList(),
       annee: json['annee']?.toString() ?? '',
+      evaluationPar: examEcheance?['evaluation_par']?.toString(),
     );
   }
 
@@ -164,4 +176,9 @@ class NoteSearchResult {
   final String? session;
   final List<NoteListCoursItem> listCours;
   final String annee;
+
+  /// Config `ParamExam.evaluation_par` (niveau × année) : "Mois"/"mois",
+  /// "Controle" ou "Trimestre" — absente (`null`) pour Universitaire, qui
+  /// utilise `session` (Intra/Finale) à la place, jamais cette config.
+  final String? evaluationPar;
 }
