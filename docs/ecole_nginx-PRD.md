@@ -149,6 +149,29 @@ Voir `docs/ecole_nginx.md` §12 pour le détail technique complet. Web (`Notes.v
 - En tant qu'utilisateur habilité ("Supprimer note"), je peux restreindre la suppression à un seul étudiant de la classe choisie via son identifiant, plutôt qu'à toute la classe.
 - Champ laissé vide : comportement identique à avant cet ajout, aucune régression sur la suppression groupée existante.
 
+## 7 octies. Mise à jour — promotions préscolaire/bourse, permission cloud, parité Vues Étudiant (livré)
+
+Voir `docs/ecole_nginx.md` §13 pour le détail technique complet.
+
+### 4.5 bis Promotions de fin d'année (complément)
+- En tant que direction, les classes préscolaires (sans notes/moyenne) sont promues automatiquement, avec possibilité de garder manuellement un enfant en arrière depuis l'écran Promus.
+- En tant que direction, je modifie directement l'aide financière (bourse) d'un étudiant depuis l'écran Promus, appliquée à sa fiche `Étudiant` uniquement si la valeur change réellement.
+- Bug corrigé : un étudiant avec un historique multi-années pouvait apparaître plusieurs fois dans la boucle de promotion et provoquer un rejet en base (doublon) — la promotion en masse échouait entièrement pour la classe concernée.
+
+### 4.6 bis Sécurité et gestion des utilisateurs (complément)
+- En tant qu'administrateur, je restreins via la nouvelle permission "Autorisation cloud" quels comptes peuvent se connecter au client bureau via le serveur cloud distant plutôt qu'en local (voir `docs/flutter_version-PRD.md` §7 nonies) — vérifiée côté client uniquement.
+
+### 4.10 bis Vues et accès (complément)
+- En tant qu'administrateur, je retrouve désormais sur le web (Profile → Vues) les mêmes sous-onglets de la page Étudiant que sur le bureau Flutter (Ajouter, Importer, Diplôme, Certificat, Voir/Modifier/Supprimer par ligne), pour restreindre l'affichage des boutons correspondants sur `Etudiants.vue`.
+
+## 7 novies. Mise à jour — moyenne Promus alignée sur le bulletin (livré)
+
+Voir `docs/ecole_nginx.md` §14 pour le détail technique complet.
+
+### 4.5 ter Promotions de fin d'année (complément)
+- En tant que direction, quand je retire la note d'un mois qu'un étudiant n'a pas pu composer (via "Supprimer notes"), sa moyenne générale sur l'écran Promus reflète désormais le même recalcul que celle affichée sur son bulletin annuel — auparavant, seul le bulletin recalculait correctement ; Promus continuait de le pénaliser comme s'il avait obtenu 0 à ce mois.
+- Compromis assumé (validé explicitement) : cette moyenne n'est plus comparée à un plancher fixe par classe — un élève avec très peu de notes saisies pour une autre raison (jamais pris plusieurs examens) est désormais jugé uniquement sur les notes qu'il a, comme sur le bulletin, plutôt que d'être automatiquement pénalisé par rapport au reste de la classe.
+
 ## 7. Mise à jour — installation multiplateforme (livré)
 
 Objectif ajouté en cours de projet : rendre `ecole_nginx` installable sur Mac et Linux en plus de Windows, sans modifier le comportement de l'installateur Windows existant.
