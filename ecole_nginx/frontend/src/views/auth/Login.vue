@@ -206,7 +206,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import Swal from 'sweetalert2'
@@ -219,7 +219,17 @@ import { useSchoolStore,useSchoolStoreInfo } from '../../stores/schoolStore';
 const useSchoolInfo = useSchoolStoreInfo()
 
  
-const selectedRole = ref('etudiant')
+// Se souvient de l'onglet (étudiant/professeur/personnel) choisi avant une
+// déconnexion, pour ne pas retomber sur "Étudiant" par défaut à chaque
+// retour sur l'écran de connexion.
+const LAST_ROLE_KEY = 'login_last_role'
+const validRoleKeys = ['etudiant', 'professeur', 'personnel']
+const savedRole = localStorage.getItem(LAST_ROLE_KEY)
+const selectedRole = ref(validRoleKeys.includes(savedRole) ? savedRole : 'etudiant')
+
+watch(selectedRole, (value) => {
+  localStorage.setItem(LAST_ROLE_KEY, value)
+})
 
 const roles = [
   { key: 'etudiant',   label: 'Étudiant',   emoji: '🎒' },
