@@ -139,7 +139,21 @@ const ALL_NAV = [
   ]},
   { id: 'admin',     label: 'Administration', subs: [] },
   { id: 'etudiant',  label: 'Étudiant',       subs: [
+    { id: 'etudiant.ajouter',    label: 'Ajouter étudiant' },
+    { id: 'etudiant.importer',   label: 'Importer' },
+    { id: 'etudiant.diplome',    label: 'Diplôme' },
+    { id: 'etudiant.certificat', label: 'Certificat' },
+    { id: 'etudiant.voir',       label: 'Voir (icône ligne)' },
+    { id: 'etudiant.modifier',   label: 'Modifier (icône ligne)' },
+    { id: 'etudiant.supprimer',  label: 'Supprimer (icône ligne)' },
+    // "Générer badge", "Badge (bouton)" et "Construire la badge" n'ont
+    // aucun équivalent sur le web (fonctionnalité Flutter-only) : non
+    // câblés ici, mais présents pour que l'admin puisse configurer ces
+    // sous-onglets pour les comptes Flutter depuis n'importe quelle
+    // instance (locale/cloud), la base étant partagée entre les deux.
     { id: 'etudiant.badge', label: 'Générer badge' },
+    { id: 'etudiant.badge_generer', label: 'Badge (bouton)' },
+    { id: 'etudiant.construire_badge', label: 'Construire la badge' },
   ]},
   { id: 'promus',    label: 'Promus',         subs: [] },
   { id: 'prof',      label: 'Professeur',     subs: [] },
@@ -803,9 +817,9 @@ onMounted(async () => {
             leave-active-class="transition duration-150 ease-in"
             leave-from-class="opacity-100 scale-100"
             leave-to-class="opacity-0 scale-95">
-            <div v-if="showModal" class="bg-[#161b26] rounded-2xl border border-white/[0.09] shadow-2xl w-full max-w-md overflow-hidden">
+            <div v-if="showModal" class="bg-[#161b26] rounded-2xl border border-white/[0.09] shadow-2xl w-full max-w-md max-h-[85vh] overflow-hidden flex flex-col">
 
-              <div class="flex items-center justify-between px-5 py-4 border-b border-white/[0.07]">
+              <div class="flex items-center justify-between px-5 py-4 border-b border-white/[0.07] shrink-0">
                 <h3 class="text-[13px] font-semibold text-[#e8eaf0]">
                   {{ activeModal === 'role' ? '👤 Assigner un rôle' : '🛡 Assigner une permission' }}
                 </h3>
@@ -815,15 +829,15 @@ onMounted(async () => {
                 </button>
               </div>
 
-              <div class="p-5">
-                <div class="relative">
+              <div class="p-5 overflow-hidden flex flex-col min-h-0">
+                <div class="relative shrink-0">
                   <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7c83a0]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                   <input ref="modalInput" v-model="modalSearch" @input="onModalSearch" type="text"
                     placeholder="Tapez un nom pour rechercher…"
                     class="w-full bg-[#0d1117] border border-white/[0.08] rounded-xl pl-9 pr-3 py-2.5 text-[13px] text-[#c9d1d9] placeholder-[#7c83a0] focus:outline-none focus:border-[#4f8ef7]/40 transition" />
                 </div>
 
-                <div v-if="modalResults.length" class="mt-3 border border-white/[0.07] rounded-xl overflow-hidden divide-y divide-white/[0.04]">
+                <div v-if="modalResults.length" class="mt-3 border border-white/[0.07] rounded-xl divide-y divide-white/[0.04] overflow-y-auto flex-1 min-h-0">
                   <div v-for="person in modalResults" :key="person.id"
                     class="flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-white/[0.03] transition-colors"
                     @click="selectPerson(person)">
