@@ -114,58 +114,6 @@ class StorePromotionRequest(BaseModel):
 
 # ==================== FONCTIONS UTILITAIRES ====================
 
-def get_max_coefficients_for_class(classe_id: str, db: Session) -> float:
-    """
-    Calculer les coefficients maximaux pondérés pour une classe
-    
-    Args:
-        classe_id: ID de la classe
-        db: Session de base de données
-    
-    Returns:
-        Somme des coefficients pondérés maximaux
-    """
-    max_coeffs = {}
-    
-    # Récupérer tous les étudiants de la classe
-    etudiants = db.query(CoursEtudiant).filter(
-        CoursEtudiant.classe == classe_id
-    ).all()
-    
-    for etudiant in etudiants:
-        # Parser les données de l'étudiant
-        if isinstance(etudiant.data_etudiant, str):
-            notes = json.loads(etudiant.data_etudiant)
-        else:
-            notes = etudiant.data_etudiant
-        
-        if not notes or etudiant.identifiant not in notes:
-            continue
-        
-        donnees = notes[etudiant.identifiant]
-        
-        # Parcourir les types (base et orale)
-        for type_matiere in ['base', 'orale']:
-            if type_matiere not in donnees:
-                continue
-            
-            for matiere, detail in donnees[type_matiere].items():
-                coef = float(detail.get('coefficients', 0))
-                notes_list = detail.get('notes', {})
-                
-                # Nombre de notes
-                nb_note = len(notes_list) if isinstance(notes_list, dict) else 0
-                
-                # Pondération par nombre de notes
-                total_coef = coef * nb_note
-                
-                if matiere not in max_coeffs or total_coef > max_coeffs[matiere]:
-                    max_coeffs[matiere] = total_coef
-    
-    # Retourner le total des coefficients pondérés
-    return sum(max_coeffs.values())
-
-
 def _est_classe_prescolaire(nom_classe: str) -> bool:
     """Convention locale de nommage (constatée en base, ex. "1ère Année Kind
     A") — pas le nom du niveau ("Prescolaire"/"Maternelle", jamais fiable :
@@ -193,18 +141,26 @@ def _sans_donnees_de_cours(data_etudiant: Any) -> bool:
 
 
 def calculer_moyenne_generale(
-    data_etudiant: Any, 
-    identifiant: str, 
-    max_coef: float
+    data_etudiant: Any,
+    identifiant: str
 ) -> tuple[str, float, float]:
     """
-    Calculer la moyenne générale d'un étudiant
-    
+    Calculer la moyenne générale d'un étudiant.
+
+    Dénominateur propre à l'étudiant (somme de ses coefficients × nombre de
+    notes réellement présentes), identique à la formule du bulletin
+    (`pdf/BulletinPrint.py::calculer_moyenne_generale`, mois="all") — jusqu'à
+    ce correctif, Promus utilisait à la place un dénominateur fixe par
+    classe (le max observé chez n'importe quel élève de la classe), ce qui
+    désynchronisait les deux moyennes dès qu'un mois était retiré à un
+    étudiant précis (ex. via "Supprimer notes" pour une absence justifiée) :
+    son numérateur baissait mais pas le dénominateur commun, le pénalisant
+    par rapport à la moyenne recalculée affichée sur son bulletin.
+
     Args:
         data_etudiant: Données de l'étudiant (JSON ou dict)
         identifiant: Identifiant de l'étudiant
-        max_coef: Coefficient maximum pondéré
-    
+
     Returns:
         Tuple (moyenne_formatée, total_notes, coefficient)
     """
@@ -247,9 +203,9 @@ def calculer_moyenne_generale(
             total_coefficients += coefficient * len(notes) if isinstance(notes, (dict, list)) else 0
     
     # Calculer la moyenne
-    coeff = max_coef if max_coef > 0 else 1
+    coeff = total_coefficients if total_coefficients > 0 else 1
     moyenne_generale = (total_notes / coeff) * 10
-    
+
     return (f"{moyenne_generale:.2f}", total_notes, coeff)
 
 
@@ -425,7 +381,6 @@ async def get_promus(
         ).all()
         
         data_promus = []
-        max_coeffs_cache = {}
 
         for row in student_list:
             # Préscolaire ("Kind " dans le nom de classe, convention locale —
@@ -451,19 +406,10 @@ async def get_promus(
             if _sans_donnees_de_cours(row.data_etudiant):
                 continue
 
-            # Récupérer ou calculer le coefficient max pour cette classe
-            classe_id = row.classes_id
-
-            if classe_id not in max_coeffs_cache:
-                max_coeffs_cache[classe_id] = get_max_coefficients_for_class(classe_id, db)
-
-            max_coef = max_coeffs_cache[classe_id]
-
             # Calculer la moyenne
             results = calculer_moyenne_generale(
                 row.data_etudiant,
-                row.identifiant,
-                max_coef
+                row.identifiant
             )
 
             # Déterminer la moyenne minimale selon la classe
@@ -573,7 +519,6 @@ async def store_promotion(
             ClasseEtudiant.status == 1
         ).all()
         
-        max_coeffs_cache = {}
         promus_count = 0
         redoublants_count = 0
         forced_redoublants = set(request.forcer_redoublant or [])
@@ -605,18 +550,10 @@ async def store_promotion(
                 if _sans_donnees_de_cours(row.data_etudiant):
                     continue
 
-                # Récupérer coefficient max
-                classe_id = row.classes_id
-                if classe_id not in max_coeffs_cache:
-                    max_coeffs_cache[classe_id] = get_max_coefficients_for_class(classe_id, db)
-
-                max_coef = max_coeffs_cache[classe_id]
-
                 # Calculer moyenne
                 results = calculer_moyenne_generale(
                     row.data_etudiant,
-                    row.identifiant,
-                    max_coef
+                    row.identifiant
                 )
 
                 # Déterminer seuil de réussite
