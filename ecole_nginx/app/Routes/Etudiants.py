@@ -24,6 +24,7 @@ from app.dependencies.Dependencie import get_current_user,user_has_permission,va
 from app.Helper.pdf_personaliser import PDFGenerator
 from app.Helper.persistent_storage import BASE_DIR as STATIC_BASE_DIR, PROFILE_DIR
 from app.Helper.context import UserContext,ActionContext
+from app.Helper.audit_log import log_action
 import json
 from pydantic import Field
 from app.Helper.get_real_path import get_app_root
@@ -158,6 +159,10 @@ def delete_etudiant(etudiant_id: str, db: Session = Depends(get_db),current_user
     
     db_etudiant.delete_at = datetime.utcnow()
     db.commit()
+    log_action(
+        db, current_user.id, "Étudiant supprimé", "Etudiant", db_etudiant.id,
+        old_values={"delete_at": None}, new_values={"delete_at": db_etudiant.delete_at},
+    )
     return None
 from typing import Union
 from fastapi import Body
@@ -376,9 +381,14 @@ def store_etudiant(
             etudiant = db.query(Etudiant).filter_by(id=data.id).first()
             if not etudiant:
                 raise HTTPException(404, "Étudiant introuvable 3")
+            # Capturé AVANT le setattr ci-dessous, pour le log explicite en
+            # fin de fonction (voir app/Helper/audit_log.py) — l'observateur
+            # générique de ce modèle ne persiste plus jamais rien.
+            old_etudiant_snapshot = {k: getattr(etudiant, k, None) for k in etudiant_data.keys()}
             for k, v in etudiant_data.items():
                 setattr(etudiant, k, v)
         else:
+            old_etudiant_snapshot = None
             user_id = current_user.id
             etudiant_data["identifiant"] = generate_unique_code(db)
             etudiant_data["id"] = generate_uuid()
@@ -482,11 +492,18 @@ def store_etudiant(
             )
 
         db.commit()
+        log_action(
+            db, current_user.id,
+            "Étudiant modifié" if data.id else "Étudiant créé",
+            "Etudiant", etudiant.id,
+            old_values=old_etudiant_snapshot,
+            new_values=etudiant_data,
+        )
         return {"success": "Opération réussie"}
 
     except Exception as e:
         db.rollback()
-        
+
         raise HTTPException(422, str(e))
 
 @router.post("/student-register")
@@ -690,6 +707,10 @@ def delete_student(student_id: int, db: Session = Depends(get_db),current_user:U
             else:
                 raise HTTPException(status_code=404, detail="Étudiant introuvable 4")
 
+        log_action(
+            db, current_user.id, "Étudiant supprimé définitivement",
+            "Etudiant", str(student_id),
+        )
         return {"success": "Opération réussie"}
 
     except Exception as e:
@@ -1177,10 +1198,11 @@ def update_student_profile(
             if existing:
                 raise HTTPException(status_code=400, detail="Ce nom d'utilisateur est déjà pris")
 
-        if data.id:            
+        if data.id:
             etudiant = db.query(Etudiant).filter_by(id=data.id).first()
             if not etudiant:
                 raise HTTPException(404, "Étudiant introuvable 1")
+            old_etudiant_snapshot = {k: getattr(etudiant, k, None) for k in etudiant_data.keys()}
             for k, v in etudiant_data.items():
                 setattr(etudiant, k, v)
 
@@ -1232,8 +1254,12 @@ def update_student_profile(
         )
 
         db.commit()
+        log_action(
+            db, current_user.id, "Profil étudiant modifié", "Etudiant", etudiant.id,
+            old_values=old_etudiant_snapshot, new_values=etudiant_data,
+        )
         return {"success": "Opération réussie"}
-      
+
     except HTTPException:
         db.rollback()
         raise

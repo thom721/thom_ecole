@@ -13,6 +13,7 @@ from typing import List
 from sqlalchemy.orm import joinedload
 from app.Models.MModels import User
 from app.Helper.context import UserContext,ActionContext,AdminAuthorization,ReasonContext
+from app.Helper.audit_log import log_action
 
 class UserSimple(BaseModel):
     id: str
@@ -211,6 +212,10 @@ def create_transaction(
         service.add(new_obj)
         service.commit()
         service.refresh(new_obj) # Recharge l'objet pour avoir l'ID et les timestamps
+        log_action(
+            service, current_user.id, "Transaction créée", "OtherTransaction", new_obj.id,
+            new_values={"description": new_obj.description, "montant": new_obj.montant},
+        )
         return new_obj
     except Exception as e:
         service.rollback()
@@ -242,6 +247,11 @@ def update_transaction(
         raise HTTPException(status_code=403, detail="Pas autorisé à modifier cette transaction")
 
     # 3. Mise à jour des champs
+    old_trans_snapshot = {
+        "description": db_trans.description, "montant": db_trans.montant,
+        "identifiant": db_trans.identifiant,
+        "description_supplementaire": db_trans.description_supplementaire,
+    }
     db_trans.description = transaction_update.description
     db_trans.montant = transaction_update.montant
     db_trans.identifiant = transaction_update.identifiant
@@ -250,6 +260,16 @@ def update_transaction(
     try:
         service.commit()
         service.refresh(db_trans)
+        log_action(
+            service, current_user, "Transaction modifiée", "OtherTransaction", db_trans.id,
+            old_values=old_trans_snapshot,
+            new_values={
+                "description": db_trans.description, "montant": db_trans.montant,
+                "identifiant": db_trans.identifiant,
+                "description_supplementaire": db_trans.description_supplementaire,
+            },
+            authorization_id=current_admin,
+        )
         return db_trans
     except Exception as e:
         service.rollback()
@@ -280,4 +300,9 @@ def delete_transaction(
     db_trans.delete_at = datetime.utcnow()
     db_trans.delete_by = current_admin or current_user
     service.commit()
+    log_action(
+        service, current_user, "Transaction supprimée", "OtherTransaction", db_trans.id,
+        old_values={"delete_at": None}, new_values={"delete_at": str(db_trans.delete_at)},
+        reason=raison, authorization_id=current_admin,
+    )
     return {"status": "success", "message": "Transaction supprimée"}

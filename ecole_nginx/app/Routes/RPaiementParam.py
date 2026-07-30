@@ -11,6 +11,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field , field_validator, model_validator
 import json
 from app.Helper.context import UserContext,ActionContext ,AdminAuthorization
+from app.Helper.audit_log import log_action
 from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role,first_or_update_safe
 import re
 from enum  import Enum
@@ -305,12 +306,18 @@ def update_parametre_paiement(
     
     # Mettre à jour
     update_data = parametre.model_dump(exclude_unset=True)
+    old_parametre_snapshot = {k: getattr(db_parametre, k, None) for k in update_data.keys()}
     for field, value in update_data.items():
         setattr(db_parametre, field, value)
-    
+
     db.commit()
     db.refresh(db_parametre)
-    
+    log_action(
+        db, current_user.id, "Paramètre de paiement modifié",
+        "ParametrePaiement", db_parametre.id,
+        old_values=old_parametre_snapshot, new_values=update_data,
+    )
+
     return get_parametre_paiement(db_parametre.id, db)
 
 # DELETE
@@ -323,9 +330,14 @@ def delete_parametre_paiement(parametrePaiement: str, db: Session = Depends(get_
     if not parametre:
         raise HTTPException(status_code=404, detail="Paramètre de paiement non trouvé")
     UserContext.set_user_id(current_user.id)
+    parametre_id = parametre.id
     db.delete(parametre)
     db.commit()
-    
+    log_action(
+        db, current_user.id, "Paramètre de paiement supprimé",
+        "ParametrePaiement", parametre_id,
+    )
+
     return None
 
 
@@ -624,14 +636,20 @@ def store_param_paiement(data: ParamPaiementSchema, db: Session = Depends(get_db
                 )
             
             # Mettre à jour les champs
+            old_param_snapshot = {k: getattr(instance, k, None) for k in validated_data.keys()}
             for key, value in validated_data.items():
                 setattr(instance, key, value)
-            
+
             db.commit()
             db.refresh(instance)
-            
+            log_action(
+                db, current_user.id, "Paramètre de paiement modifié",
+                "ParametrePaiement", instance.id,
+                old_values=old_param_snapshot, new_values=validated_data,
+            )
+
             return {
-                "success": True, 
+                "success": True,
                 "id": instance.id,
                 "message": "Paramètre mis à jour avec succès"
             }
@@ -647,9 +665,13 @@ def store_param_paiement(data: ParamPaiementSchema, db: Session = Depends(get_db
             },
             create=validated_data
         )
-        
+        log_action(
+            db, current_user.id, "Paramètre de paiement créé",
+            "ParametrePaiement", instance.id, new_values=validated_data,
+        )
+
         return {
-            "success": True, 
+            "success": True,
             "id": instance.id,
             "message": "Paramètre créé avec succès"
         }

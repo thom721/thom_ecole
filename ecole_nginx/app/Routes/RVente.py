@@ -9,6 +9,7 @@ from app.Schemas.SVente import *
 import random 
 from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role,first_or_update_safe,DualAuthChecker,verify_dual_auth
 from app.Helper.context import UserContext,ActionContext,ReasonContext,AdminAuthorization
+from app.Helper.audit_log import log_action
  
 from datetime import date, datetime
 from decimal import Decimal
@@ -186,6 +187,10 @@ def store_vente(
             # db.add(vente)
             db.commit()
             db.refresh(vente)
+            log_action(
+                db, current_user.id, "Vente modifiée", "Vente", vente.id,
+                new_values={"items": [i.total for i in data.items]},
+            )
             return {"success": "success", "id": vente.id}
 
         else:
@@ -226,6 +231,10 @@ def store_vente(
             db.add(vente)
             db.commit()
             db.refresh(vente)
+            log_action(
+                db, current_user.id, "Vente créée", "Vente", vente.id,
+                new_values={"total": vente.total, "quantite": vente.quantite},
+            )
             return {"success": "success", "id": vente.id}
 
     except Exception as e:
@@ -257,8 +266,14 @@ def destroy_order_item(
         if not order_item:
             raise HTTPException(status_code=404, detail="OrderItem not found")
         ActionContext.set_action("delete")
+        old_order_item_snapshot = {"nom": order_item.nom, "total": order_item.total}
         db.delete(order_item)
         db.commit()
+        log_action(
+            db, current_user, "Ligne de vente supprimée", "Vente", vente_id,
+            old_values=old_order_item_snapshot, reason=raison,
+            authorization_id=current_admin,
+        )
 
         vente = db.query(Vente).filter(Vente.id == vente_id).first()
         if not vente:
@@ -528,11 +543,16 @@ def store_depense(
             if not depense:
                 raise HTTPException(status_code=404, detail="Depense not found")
             
+            old_depense_snapshot = {"description": depense.description, "prix": depense.prix}
             depense.description = data.description
             depense.prix = data.prix
             db.commit()
             db.refresh(depense)
-
+            log_action(
+                db, user_id, "Dépense modifiée", "Depense", depense.id,
+                old_values=old_depense_snapshot,
+                new_values={"description": depense.description, "prix": depense.prix},
+            )
 
             return {"success": "success"}
 
@@ -549,9 +569,10 @@ def store_depense(
             db.add(depense)
             db.commit()
             db.refresh(depense)
-
-            # 🔹 Action personnalisation
-            # ActionPersonalisation.setPersoAction('create')  # à implémenter si nécessaire
+            log_action(
+                db, user_id, "Dépense créée", "Depense", depense.id,
+                new_values={"description": depense.description, "prix": depense.prix},
+            )
 
             return {"success": "success"}
 
@@ -590,8 +611,14 @@ def delete_depense(
         if not depense:
             raise HTTPException(status_code=404, detail="Depense not found")
 
+        old_depense_snapshot = {"description": depense.description, "prix": depense.prix}
         db.delete(depense)
         db.commit()
+        log_action(
+            db, current_user, "Dépense supprimée", "Depense", id_depense,
+            old_values=old_depense_snapshot, reason=raison,
+            authorization_id=current_admin,
+        )
 
         return {"success": "Opération réussie"}
 

@@ -31,6 +31,7 @@ from pydantic import BaseModel, EmailStr,validator,Field
 
 from fastapi import Body
 from app.Helper.context import UserContext,ActionContext ,AdminAuthorization
+from app.Helper.audit_log import log_action
  
 from app.services.ServiceAuth import AuthorizationService, SECRET_KEY, ALGORITHM
 security = HTTPBearer()
@@ -482,8 +483,9 @@ async def change_password(
         user.password = CryptAndDecript.hash_password(request.password) #.decode('utf-8')
         user.password_changed_at = datetime.utcnow()#.isoformat()
         db.commit()
-  
-        
+        # Ne jamais inclure le mot de passe (ni ancien ni nouveau) dans le log.
+        log_action(db, user.id, "Mot de passe changé", "User", user.id)
+
         return user_data_generate(user,db, success="Mot de passe changé avec succès")
  
         
@@ -518,7 +520,8 @@ async def change_password(
         db_user.password = CryptAndDecript.hash_password(request.password)
         db_user.password_changed_at = datetime.utcnow()
         db.commit()
-        
+        log_action(db, db_user.id, "Mot de passe changé", "User", db_user.id)
+
         return user_data_generate(db_user, db, success="Mot de passe changé avec succès")
  
     except HTTPException:

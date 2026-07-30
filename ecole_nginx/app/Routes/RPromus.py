@@ -12,6 +12,7 @@ from app.Models.MModels import Etudiant,User,Niveau,AnneeAcademique,Classe,Facul
 from app.Models.MRelations import ClasseEtudiant,EtudiantFaculte,Responsable,PieceSoumise,CoursEtudiant
 from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role,first_or_update_safe
 from app.Helper.context import UserContext
+from app.Helper.audit_log import log_action
 
 logger = logging.getLogger(__name__)
  
@@ -588,23 +589,33 @@ async def store_promotion(
         # dans le diff envoyé par le client sont touchés, tous les autres
         # gardent leur valeur actuelle inchangée.
         aide_financiere_count = 0
+        aide_financiere_changes = []  # (etudiant_id, ancienne_valeur, nouvelle_valeur)
         if request.aide_financiere_updates:
-            # Etudiant.register_observers() (main.py) journalise automatiquement
-            # toute mise à jour de ce modèle (GlobalModelObserver, voir
-            # Observers/global_observer.py) et exige un user_id de contexte —
-            # jamais défini jusqu'ici dans cette route (aucune autre mutation
-            # d'Etudiant n'y existait avant l'aide financière), d'où "User non
-            # authentifié lors du log" au premier essai réel. Même motif que
-            # Etudiants.py::store_etudiant.
+            # Etudiant.register_observers() (main.py) exige un user_id de
+            # contexte pour toute mutation de ce modèle (GlobalModelObserver),
+            # d'où ce set_user_id — mais l'observateur lui-même ne persiste
+            # plus jamais de Log (voir app/Helper/audit_log.py) : le journal
+            # explicite ci-dessous, après le commit, est ce qui rend ce
+            # changement réellement auditable.
             UserContext.set_user_id(current_user.id)
             for etudiant_id, nouvelle_valeur in request.aide_financiere_updates.items():
                 etudiant = db.query(Etudiant).filter(Etudiant.id == etudiant_id).first()
                 if etudiant and etudiant.aide_financiere != nouvelle_valeur:
+                    aide_financiere_changes.append(
+                        (etudiant.id, etudiant.aide_financiere, nouvelle_valeur)
+                    )
                     etudiant.aide_financiere = nouvelle_valeur
                     db.add(etudiant)
                     aide_financiere_count += 1
 
         db.commit()
+        for etudiant_id, ancienne_valeur, nouvelle_valeur in aide_financiere_changes:
+            log_action(
+                db, current_user.id, "Aide financière modifiée (Promus)",
+                "Etudiant", etudiant_id,
+                old_values={"aide_financiere": ancienne_valeur},
+                new_values={"aide_financiere": nouvelle_valeur},
+            )
 
         return {
             "success": "Opération réussie",
