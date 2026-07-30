@@ -17,6 +17,14 @@ from app.database import get_db
 from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role,first_or_update_safe
 logger = logging.getLogger(__name__)
 from app.Helper.context import UserContext,ActionContext
+
+# Le blocage pour arriéré ne doit contrôler que les soldes accumulés à
+# partir de cette année académique (incluse) — un solde impayé sur une
+# année antérieure (avant la mise en place de cette politique) ne bloque
+# jamais un paiement pour l'année en cours. Comparaison purement lexicale
+# sur le libellé "AAAA/AAAA" (même format partout dans ce fichier), valide
+# tant que les deux années comparées restent sur 4 chiffres.
+ARRIERE_CONTROLE_DEPUIS_ANNEE = "2025/2026"
 from sqlalchemy.orm.attributes import flag_modified
 
 # ============================================================================
@@ -351,6 +359,8 @@ def _check_arrears_previous_year(
       - Première année à l'établissement (≤ 1 inscription enregistrée)
       - Pas inscrit l'année précédente (gap year, nouveau cycle, etc.)
       - Aucune année précédente dans la base
+      - Année précédente antérieure à ARRIERE_CONTROLE_DEPUIS_ANNEE (solde
+        accumulé avant la mise en place du contrôle)
       - Une dérogation active (AnnulationArriere) couvre cette année
 
     Retourne (has_arrears: bool, message: str | None).
@@ -369,7 +379,12 @@ def _check_arrears_previous_year(
     if not prev_annee:
         return False, None
 
-    # 3bis. Dérogation active : un responsable a manuellement levé le
+    # 3bis (avant tout le reste) : solde antérieur à la mise en place du
+    # contrôle des arriérés — jamais bloquant, quelle que soit la situation.
+    if prev_annee.annee_academique < ARRIERE_CONTROLE_DEPUIS_ANNEE:
+        return False, None
+
+    # 3ter. Dérogation active : un responsable a manuellement levé le
     # blocage pour cette année précédente — prime sur toute la logique
     # ci-dessous, sans jamais modifier le Paiement original.
     active_waiver = (
