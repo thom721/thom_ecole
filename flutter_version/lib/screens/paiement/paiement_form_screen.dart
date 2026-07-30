@@ -89,9 +89,12 @@ class _PaiementFormScreenState extends State<PaiementFormScreen> {
     super.dispose();
   }
 
-  /// True si le montant actuellement saisi est >= au solde restant dû —
-  /// avertit avant validation plutôt que de bloquer (le serveur alloue de
-  /// toute façon l'excédent, voir payment_save_info()).
+  /// True si le montant actuellement saisi dépasse STRICTEMENT le solde
+  /// restant dû — un montant exactement égal règle le solde, ce n'est pas
+  /// un dépassement (avertissait auparavant même en payant pile ce qui
+  /// restait, à cause d'un >= au lieu d'un >). Avertit avant validation
+  /// plutôt que de bloquer (le serveur alloue de toute façon l'excédent,
+  /// voir payment_save_info()).
   bool _montantDepasseSolde(PaymentInfo info) {
     final solde = info.soldeRestant;
     if (solde == null || solde <= 0) return false;
@@ -99,7 +102,7 @@ class _PaiementFormScreenState extends State<PaiementFormScreen> {
       _montantController.text.replaceAll(',', '.'),
     );
     if (montant == null || montant <= 0) return false;
-    return montant >= solde;
+    return montant > solde;
   }
 
   Future<void> _submit() async {

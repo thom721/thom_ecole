@@ -334,14 +334,17 @@ const displayAide = computed(() => {
     : '';
 });
 
-/** True si le montant en cours de saisie est >= au solde restant dû —
- * avertit avant validation plutôt que de bloquer (le serveur alloue de
- * toute façon l'excédent, voir payment_save_info()). */
+/** True si le montant en cours de saisie dépasse STRICTEMENT le solde
+ * restant dû — un montant exactement égal règle le solde, ce n'est pas un
+ * dépassement (l'avertissement disait auparavant "dépasse" même en payant
+ * pile ce qui restait, à cause d'un >= au lieu d'un >). Avertit avant
+ * validation plutôt que de bloquer (le serveur alloue de toute façon
+ * l'excédent, voir payment_save_info()). */
 const montantDepasseSolde = computed(() => {
   if (solde_restant.value === null || solde_restant.value <= 0) return false;
   const montant = Number(montant_verser.value);
   if (!montant || montant <= 0) return false;
-  return montant >= solde_restant.value;
+  return montant > solde_restant.value;
 });
 
 const sortedEcheances = computed(() =>
