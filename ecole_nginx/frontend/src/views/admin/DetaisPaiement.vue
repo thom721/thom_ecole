@@ -338,7 +338,10 @@ const getVersementValue = (details, num) => {
           <span>&#x1F4B3;</span>
         </div>
         <div class="flex-1 min-w-0">
-          <p class="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#3d4d62] mb-1">Dossier de paiement</p>
+          <p class="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#3d4d62] mb-1">
+            Dossier de paiement
+            <span v-if="DetailsData?.annee_academique"> — {{ DetailsData.annee_academique }}</span>
+          </p>
           <div class="flex items-center gap-2 flex-wrap">
             <span class="font-mono text-[12px] text-[#7aaeff] bg-[#1f6feb]/10 border border-[#1f6feb]/15 px-2 py-0.5 rounded">
               {{ etudiant.identifiant }}

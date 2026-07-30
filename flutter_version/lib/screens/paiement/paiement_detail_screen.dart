@@ -123,7 +123,9 @@ class _PaiementDetailScreenState extends State<PaiementDetailScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'DOSSIER DE PAIEMENT',
+                        detail.anneeAcademique.isEmpty
+                            ? 'DOSSIER DE PAIEMENT'
+                            : 'DOSSIER DE PAIEMENT — ${detail.anneeAcademique}',
                         style: TextStyle(
                           fontSize: 10,
                           letterSpacing: 1,
