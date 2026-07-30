@@ -224,6 +224,52 @@ def supprimer_dernier_paiement(
         logger.error(f"Erreur dans supprimer_dernier_paiement: {str(e)}", exc_info=True)
         return False, str(e)
 
+
+def _log_paiement_save(
+    db: Session,
+    user: User,
+    paiement: Paiement,
+    paiement_key: str,
+    old_paiement_details: Optional[dict] = None,
+    old_mois: Optional[dict] = None,
+) -> None:
+    """Journalise explicitement l'enregistrement d'un paiement, sur la
+    session de la requête (commit immédiat) plutôt que via
+    GlobalModelObserver/ObservableMixin — dont la session dédiée, créée une
+    fois au démarrage (main.py::register_observers), n'est plus jamais
+    committée depuis que son propre self.db.commit() a été retiré (pour
+    stopper un ResourceClosedError sur commit imbriqué), sans recevoir à
+    cette occasion le même contournement explicite que Payroll/
+    PayrollVersement. Sans ce log indexé par paiement_key, "Retourner un
+    paiement" (Returns.py::supprimer_dernier_paiement) et "Modifier le
+    dernier paiement" (supprimer_dernier_paiement ci-dessus) échouent tous
+    les deux avec "Aucun ... trouvé pour cette transaction".
+
+    old_paiement_details/old_mois à None : première création (aucun état
+    antérieur) — cohérent avec le test `if not old_values:` côté lecture.
+    """
+    db.add(Log(
+        action=ActionContext.get_action() or "Paiement enregistré",
+        user_id=user.id,
+        model_type="Paiement",
+        model_id=paiement.id,
+        paiement_key=paiement_key,
+        old_values=(
+            {
+                "paiement_details": json.loads(json.dumps(old_paiement_details, default=str)),
+                "mois": json.loads(json.dumps(old_mois, default=str)),
+            }
+            if old_paiement_details is not None or old_mois is not None
+            else None
+        ),
+        new_values={
+            "paiement_details": json.loads(json.dumps(paiement.paiement_details, default=str)),
+            "mois": json.loads(json.dumps(paiement.mois, default=str)),
+        },
+    ))
+    db.commit()
+
+
 # ============================================================================
 # VÉRIFICATION DES ARRIÉRÉS
 # ============================================================================
@@ -603,6 +649,15 @@ async def payment_save_info(
             Paiement.annee_academique == request.annee_academique
         ).first()
 
+        # Instantané AVANT toute mutation, pour _log_paiement_save() plus bas —
+        # data.paiement_details/data.mois sont mutés en place tout au long de
+        # cette route (colonnes JSON, pas de copie automatique), donc ce
+        # snapshot doit être pris ici, jamais relu après coup.
+        old_paiement_details_snapshot = (
+            json.loads(json.dumps(data.paiement_details, default=str)) if data else None
+        )
+        old_mois_snapshot = json.loads(json.dumps(data.mois, default=str)) if data else None
+
         if request.index_paiement:
             ActionContext.set_action('update')
         else:
@@ -866,12 +921,16 @@ async def payment_save_info(
                 # print(f"\n\n\n\n{payment_info_without_help}\n\n\n\n\n")       
                 flag_modified(data, "paiement_details")
 
-                data.mois = {'mois': request_mois} 
+                data.mois = {'mois': request_mois}
                 flag_modified(data, "mois")
 
                 data.last_paiement_key = last_paiement_key
                 db.commit()
-                
+                _log_paiement_save(
+                    db, user, data, last_paiement_key,
+                    old_paiement_details_snapshot, old_mois_snapshot,
+                )
+
             else:
                 if remaining_depot > total_annuel:
                     raise HTTPException(
@@ -992,6 +1051,10 @@ async def payment_save_info(
 
                 data.last_paiement_key = last_paiement_key
                 db.commit()
+                _log_paiement_save(
+                    db, user, data, last_paiement_key,
+                    old_paiement_details_snapshot, old_mois_snapshot,
+                )
             else:
               print('data.paiement_details = data_payment')
             #   print(len(data_month_field.get('mois', {})))
@@ -1125,6 +1188,7 @@ async def payment_save_info(
                 db.add(payment)
                 db.commit()
                 db.refresh(payment)
+                _log_paiement_save(db, user, payment, last_paiement_key)
         
         # Calculer l'index
         payment = db.query(Paiement).filter(
