@@ -185,6 +185,8 @@
                          Ce dépôt de <strong>{{ item.get('depot') }} {{ item.get('devise') }}</strong> a été effectué le
                          {{ item.get('date_created', '').replace(' ', ' à ') }} ({{ avances_text }})
                          et a été retourné le {{ item.get('date_retour', '').replace('--', ' à ') }}
+                         {% if item.get('return_by') %}par {{ item.get('return_by') }}{% endif %}
+                         {% if item.get('commentaire') %}<br>Motif : {{ item.get('commentaire') }}{% endif %}
                     </span>
                     {% endif %}
 

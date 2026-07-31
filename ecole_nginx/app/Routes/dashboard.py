@@ -184,6 +184,13 @@ def get_dashboard_stats(
                 
                 # Parcourir toutes les dates dans info_paiement
                 for date_key, details in info_paiement.items():
+                    # Un versement retourné (Returns.py) reste dans
+                    # info_paiement avec status="retourné" plutôt que d'être
+                    # supprimé — jamais compté dans les rapports PDF/Excel
+                    # (GlobalRepport.py/PaymentRepport.py/RExcelExport.py
+                    # l'excluent explicitement), donc pas ici non plus.
+                    if details.get('status') == 'retourné':
+                        continue
                     # Vérifier si la date correspond à aujourd'hui
                     if date_aujourdhui_format in date_key:
                         depot = details.get('depot', 0)
@@ -1055,6 +1062,12 @@ def stats_annuelles(
         info_paiement = parse_info_paiement(paiement_data)
 
         for date_key, details in info_paiement.items():
+            # Un versement retourné reste dans info_paiement (status
+            # "retourné") plutôt que d'être supprimé — jamais compté dans
+            # les rapports PDF/Excel, donc pas ici non plus.
+            if details.get("status") == "retourné":
+                continue
+
             depot = details.get("depot", 0)
             if not depot:
                 continue
@@ -1153,6 +1166,12 @@ def stats_journalieres(
         info_paiement = parse_info_paiement(paiement_data)
 
         for date_key, details in info_paiement.items():
+            # Un versement retourné reste dans info_paiement (status
+            # "retourné") plutôt que d'être supprimé — jamais compté dans
+            # les rapports PDF/Excel, donc pas ici non plus.
+            if details.get("status") == "retourné":
+                continue
+
             depot = details.get("depot", 0)
             if not depot:
                 continue

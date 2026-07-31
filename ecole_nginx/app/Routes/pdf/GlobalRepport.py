@@ -266,6 +266,14 @@ def split_arrears_payments(
     arrears_total = Decimal("0.0")
 
     for item in rapport_personalise:
+        # Un versement retourné (Returns.py) reste dans info_paiement avec
+        # status="retourné" plutôt que d'être supprimé — jamais compté dans
+        # le total principal (voir global_report.html, is_returned), donc
+        # pas non plus dans la section Arriéré.
+        if item.get('status') == 'retourné':
+            current_year_payments.append(item)
+            continue
+
         annee_paiement = item.get('annee_academique')
         if annee_paiement and annee_paiement != annee_active_nom:
             montant = Decimal(str(item.get('depot') or 0))
