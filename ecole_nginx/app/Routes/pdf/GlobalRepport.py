@@ -244,26 +244,36 @@ def split_arrears_payments(
     db: Session
 ) -> tuple[List[Dict[str, Any]], SalesCategory]:
     """Sépare, parmi les paiements déjà extraits pour la période, ceux qui
-    règlent une année académique différente de l'année active — un
-    étudiant qui verse un montant pendant la période du rapport mais pour
-    une année académique antérieure (arriéré), plutôt que pour l'année en
-    cours. Chaque entrée de rapport_personalise porte déjà
-    `annee_academique` (fusionné depuis paiement_details.details_etudiant).
+    règlent une année académique dont la date de fin est déjà passée au
+    moment du versement — un paiement effectué le jour même de la date de
+    fin (ou avant) reste normal ; un paiement effectué strictement après
+    est un arriéré. Règle purement temporelle (date du versement vs
+    `AnneeAcademique.date_fin` de l'année réglée), indépendante de l'année
+    marquée "active" — se généralise donc automatiquement à toute année
+    future sans configuration supplémentaire. Chaque entrée de
+    rapport_personalise porte déjà `annee_academique` (fusionné depuis
+    paiement_details.details_etudiant) et `date_paiement` (format
+    "%Y-%m-%d %H:%M", voir extraire_donnees_par_intervalle_for_day).
+
+    Sans rapport avec le seuil ARRIERE_CONTROLE_DEPUIS_ANNEE de
+    RSavePaiement.py (qui, lui, BLOQUE l'enregistrement d'un nouveau
+    paiement — ce garde-fou reste inchangé) : ici on ne fait que classer
+    un paiement déjà enregistré pour l'affichage du rapport.
 
     Retourne (paiements de l'année en cours uniquement, catégorie Arriéré)
     — les paiements en arriéré sont retirés de la liste principale pour
     éviter qu'ils soient comptés deux fois (une fois dans le total des
     paiements de l'année, une fois dans la section Arriéré). Un paiement
-    retourné reste dans SA section d'origine (arriéré ou année en cours,
-    selon son `annee_academique`) — jamais déplacé vers l'autre section —
-    mais est exclu du total de cette section et étiqueté "(retourné, non
-    compté)" pour rester visible sans fausser les chiffres.
+    retourné reste dans SA section d'origine — jamais déplacé vers
+    l'autre — mais est exclu du total de cette section et étiqueté
+    "(retourné, non compté)" pour rester visible sans fausser les chiffres.
     """
-    annee_active = db.query(AnneeAcademique).filter(AnneeAcademique.status == 1).first()
-    annee_active_nom = annee_active.annee_academique if annee_active else None
-
-    if not annee_active_nom:
-        return rapport_personalise, SalesCategory(category='Arriéré', quantite=0, total=0, items=[])
+    dates_fin_par_annee = {
+        nom: date_fin
+        for nom, date_fin in db.query(
+            AnneeAcademique.annee_academique, AnneeAcademique.date_fin
+        ).all()
+    }
 
     current_year_payments = []
     arrears_items = []
@@ -271,7 +281,16 @@ def split_arrears_payments(
 
     for item in rapport_personalise:
         annee_paiement = item.get('annee_academique')
-        est_arriere = bool(annee_paiement and annee_paiement != annee_active_nom)
+        date_fin_annee = dates_fin_par_annee.get(annee_paiement)
+        est_arriere = False
+        if date_fin_annee and item.get('date_paiement'):
+            try:
+                date_versement = datetime.strptime(
+                    item['date_paiement'], '%Y-%m-%d %H:%M'
+                ).date()
+                est_arriere = date_versement > date_fin_annee
+            except ValueError:
+                est_arriere = False
         # Un versement retourné (Returns.py) reste dans info_paiement avec
         # status="retourné" plutôt que d'être supprimé — jamais compté dans
         # aucun total, mais reste affiché dans SA vraie section (arriéré ou
