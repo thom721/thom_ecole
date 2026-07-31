@@ -282,7 +282,18 @@
           {% for v in item.items %}
           <tr>
                <td>{{ v.fname }} {{ v.prenom }}</td>
-               <td>{{ v.vente_name }}</td>
+               <td>
+                    {{ v.vente_name }}
+                    {% if v.est_retourne %}
+                    <br>
+                    <span style="color: red; font-weight: bold;">
+                         Effectué le {{ v.date_created | default('', true) | replace(' ', ' à ') }}
+                         et retourné le {{ v.date_retour | default('', true) | replace('--', ' à ') }}
+                         {% if v.return_by %}par {{ v.return_by }}{% endif %}
+                         {% if v.commentaire %}<br>Motif : {{ v.commentaire }}{% endif %}
+                    </span>
+                    {% endif %}
+               </td>
                <td>{{ v.order_total }}</td>
           </tr>
           {% endfor %}

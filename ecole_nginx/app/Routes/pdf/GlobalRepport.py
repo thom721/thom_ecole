@@ -291,6 +291,14 @@ def split_arrears_payments(
                 'vente_name': f"Solde {annee_paiement}" + (' (retourné, non compté)' if est_retourne else ''),
                 'fname': item.get('nom', ''),
                 'prenom': item.get('prenom', ''),
+                # Détail du retour (date, auteur, motif) — mêmes champs que
+                # la section principale (global_report.html), pour ne pas
+                # perdre cette info quand l'item reste en Arriéré.
+                'est_retourne': est_retourne,
+                'date_created': item.get('date_created', ''),
+                'date_retour': item.get('date_retour', ''),
+                'return_by': item.get('return_by', ''),
+                'commentaire': item.get('commentaire', ''),
             })
         else:
             current_year_payments.append(item)
