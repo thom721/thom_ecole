@@ -253,7 +253,11 @@ def split_arrears_payments(
     Retourne (paiements de l'année en cours uniquement, catégorie Arriéré)
     — les paiements en arriéré sont retirés de la liste principale pour
     éviter qu'ils soient comptés deux fois (une fois dans le total des
-    paiements de l'année, une fois dans la section Arriéré).
+    paiements de l'année, une fois dans la section Arriéré). Un paiement
+    retourné reste dans SA section d'origine (arriéré ou année en cours,
+    selon son `annee_academique`) — jamais déplacé vers l'autre section —
+    mais est exclu du total de cette section et étiqueté "(retourné, non
+    compté)" pour rester visible sans fausser les chiffres.
     """
     annee_active = db.query(AnneeAcademique).filter(AnneeAcademique.status == 1).first()
     annee_active_nom = annee_active.annee_academique if annee_active else None
@@ -266,23 +270,25 @@ def split_arrears_payments(
     arrears_total = Decimal("0.0")
 
     for item in rapport_personalise:
+        annee_paiement = item.get('annee_academique')
+        est_arriere = bool(annee_paiement and annee_paiement != annee_active_nom)
         # Un versement retourné (Returns.py) reste dans info_paiement avec
         # status="retourné" plutôt que d'être supprimé — jamais compté dans
-        # le total principal (voir global_report.html, is_returned), donc
-        # pas non plus dans la section Arriéré.
-        if item.get('status') == 'retourné':
-            current_year_payments.append(item)
-            continue
+        # aucun total, mais reste affiché dans SA vraie section (arriéré ou
+        # année en cours) plutôt que d'être déplacé vers l'autre, pour ne
+        # pas faire croire qu'un solde d'une année passée concernait
+        # l'année en cours.
+        est_retourne = item.get('status') == 'retourné'
 
-        annee_paiement = item.get('annee_academique')
-        if annee_paiement and annee_paiement != annee_active_nom:
+        if est_arriere:
             montant = Decimal(str(item.get('depot') or 0))
-            arrears_total += montant
+            if not est_retourne:
+                arrears_total += montant
             arrears_items.append({
                 'qt_item': 1,
                 'order_total': float(montant),
                 'prix_item': float(montant),
-                'vente_name': f"Solde {annee_paiement}",
+                'vente_name': f"Solde {annee_paiement}" + (' (retourné, non compté)' if est_retourne else ''),
                 'fname': item.get('nom', ''),
                 'prenom': item.get('prenom', ''),
             })
