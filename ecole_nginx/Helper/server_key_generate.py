@@ -426,7 +426,12 @@ def verify_activation_key_graphic(provided_key, mac_address, url, days=None):
     try:
         resp = requests.post(
             f"{url}log-activate",
-            json={"last_key": old_key, "new_key": provided_key, "exprired_at": expiration_date},
+            json={
+                "last_key": old_key,
+                "new_key": provided_key,
+                "exprired_at": expiration_date,
+                "days_valid": matched_days,
+            },
             timeout=15,
             verify="C:/Program Files/ecole-serve/nginx/certs/ca.pem",
         )

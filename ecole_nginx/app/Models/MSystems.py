@@ -144,6 +144,12 @@ class LogActive(Base):
     exprired_at = Column(String(255), nullable=False)
     f_key = Column(String(255), nullable=True)
     f_day = Column(String(255), nullable=True)
+    # Valeur RÉELLEMENT utilisée dans le HMAC de new_key (même sens que
+    # LicenceKey.days_valid_key côté infini-software) — permet de
+    # revérifier la signature de new_key à partir de la seule base, sans
+    # dépendre du registre Windows. NULL pour les lignes créées avant
+    # l'ajout de ce champ (legacy, non revérifiables rétroactivement).
+    days_valid = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

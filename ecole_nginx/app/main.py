@@ -11,10 +11,11 @@ from pydantic import ValidationError
 
 from app.Models.MModels import User,Etudiant
 from app.Models.MFinancials import Paiement,ParametrePaiement,ParamExam,OtherTransaction,Vente,Depense,Payroll,PayrollVersement,AnnulationArriere
-from app.Models.MSystems import Log
+from app.Models.MSystems import Log, LogActive
 from app.database import SessionLocal, engine, Base,get_engine_dynamically
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
 from app.Helper.get_real_path import get_real_path
 import logging.config  # Ajoute cette ligne explicitement
@@ -355,6 +356,56 @@ def startup_event():
         Payroll.register_observers(db)
         PayrollVersement.register_observers(db)
         AnnulationArriere.register_observers(db)
+
+        # Vérifie l'expiration de la licence à partir de log_actives (base,
+        # indépendant du registre Windows / de la session qui a lancé l'API
+        # — Esystem en LocalSystem vs une fenêtre ouverte sous un compte
+        # utilisateur n'ont pas le même HKEY_CURRENT_USER, voir
+        # docs/ecole_nginx.md) et met à jour users.client_infos/
+        # heart_autos.descript en conséquence (get_all_user), pour que
+        # l'autorisation d'impression réseau reflète l'état réel à CHAQUE
+        # démarrage de l'API, peu importe qui/quoi l'a lancée. Revérifie la
+        # signature HMAC de new_key quand days_valid est connu (empêche une
+        # modification directe de exprired_at en base de prolonger la
+        # licence sans passer par une vraie activation) — pas pour les
+        # lignes déjà existantes avant l'ajout de ce champ (legacy, non
+        # revérifiables rétroactivement, comportement inchangé pour elles).
+        try:
+            dernier_log = db.query(LogActive).order_by(LogActive.created_at.desc()).first()
+            if dernier_log:
+                if sys.platform == "win32":
+                    from Helper.server_key_generate import _key_for_expiration_graphic, get_mac_address
+                else:
+                    from app.Helper.license_check import _key_for_expiration as _key_for_expiration_graphic, get_host_mac as get_mac_address
+
+                mac = get_mac_address()
+                signature_valide = True
+                if dernier_log.days_valid is not None:
+                    expected_key = _key_for_expiration_graphic(
+                        mac, dernier_log.exprired_at, dernier_log.days_valid
+                    )
+                    signature_valide = (
+                        expected_key.replace("-", "").upper()
+                        == (dernier_log.new_key or "").replace("-", "").upper()
+                    )
+
+                try:
+                    expire = datetime.utcnow().date() > datetime.strptime(
+                        dernier_log.exprired_at, "%Y-%m-%d"
+                    ).date()
+                except ValueError:
+                    expire = True
+
+                status = 22 if (signature_valide and not expire) else 23
+                RClientInfos.get_all_user(status, db)
+                db.commit()
+                print(
+                    f" Statut licence (log_actives) au démarrage : {status} "
+                    f"(signature_valide={signature_valide}, expire={expire})"
+                )
+        except Exception as e:
+            print(f"Erreur lors de la vérification d'expiration au démarrage : {e}")
+
         # Seed sections page d'accueil
         from app.services.home_seed import seed_home, seed_formations
         seed_home(db)

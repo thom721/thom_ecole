@@ -27,6 +27,10 @@ class ActiveLogCreate(BaseModel):
     last_key: Optional[str] = None
     new_key: str
     exprired_at: str  # Tu peux mettre datetime si tu envoies un format ISO
+    # Valeur réellement utilisée dans le HMAC de new_key — optionnel pour ne
+    # pas casser un appelant existant qui ne l'enverrait pas (legacy, voir
+    # LogActive.days_valid).
+    days_valid: Optional[int] = None
     # Si ton API réclame email/password (vu l'erreur 422 précédente), ajoute-les :
     # email: str
     # password: str
@@ -51,9 +55,10 @@ async def store_log_activate(data: ActiveLogCreate, db: Session = Depends(get_db
             last_key=data.last_key,
             new_key=data.new_key,
             exprired_at=data.exprired_at,
+            days_valid=data.days_valid,
             user_id=first_user.id
         )
-        
+
         db.add(new_log)
         get_all_user(22,db)
         db.commit()
@@ -92,18 +97,43 @@ def appliquer_licence(
 
     dernier_log = db.query(LogActive).order_by(desc(LogActive.created_at)).first()
 
-    # Stockage local de licence (fichier chiffré Mac/Linux, ou registre
-    # Windows via QSettings — deux modules séparés, voir docs/ecole_nginx.md)
-    # AVANT le commit en base : si cette étape échoue, /api/v1/abonnement
-    # (qui lit log_actives) ne doit PAS se mettre à dire "Actif" alors que la
-    # licence locale n'a en réalité pas été enregistrée — sinon
-    # LicenceSyncWorker (school_client), qui ne redéclenche cet appel que si
-    # la clé d'infini-software diffère de log_actives.new_key, ne retenterait
-    # plus jamais l'écriture locale après cet échec.
     if sys.platform == "win32":
-        from Helper.server_key_generate import apply_remote_licence
-    else:
-        from app.Helper.license_check import apply_remote_licence
+        # Sur Windows, on réutilise verify_activation_key_graphic() —
+        # exactement la fonction derrière le bouton "Activer" LOCAL au
+        # serveur (Controllers/Main_run.py::verifier_cle), déjà éprouvée en
+        # conditions réelles. Elle fait tout elle-même : revérifie le HMAC
+        # de la clé (au lieu de la faire confiance aveuglément comme le
+        # faisait apply_remote_licence()), écrit le registre, ET appelle
+        # POST /log-activate — qui crée la ligne log_actives ET met à jour
+        # users.client_infos/heart_autos.descript (get_all_user(22, ...)) en
+        # une seule fois. On ne refait donc PAS ces étapes ici, pour ne pas
+        # créer une seconde ligne log_actives en double.
+        from Helper.server_key_generate import verify_activation_key_graphic, get_mac_address
+
+        result = verify_activation_key_graphic(
+            provided_key=data.new_key,
+            mac_address=get_mac_address(),
+            url="https://aplekol360.local/api/v1/",
+            days=data.days_valid,
+        )
+        if result is None:
+            raise HTTPException(
+                status_code=500,
+                detail="Échec de l'enregistrement local de la licence : impossible de "
+                       "contacter le serveur local (POST log-activate).",
+            )
+        if result is not True:
+            raise HTTPException(
+                status_code=422,
+                detail="Clé invalide ou expirée (échec de la revérification HMAC locale).",
+            )
+        db.commit()
+        return {"success": True}
+
+    # Mac/Linux/Docker : fichier chiffré local (app.Helper.license_check),
+    # pas d'équivalent de verify_activation_key_graphic() ici — comportement
+    # inchangé, avec l'ajout de get_all_user() qui manquait déjà avant.
+    from app.Helper.license_check import apply_remote_licence
     try:
         apply_remote_licence(data.new_key, data.expiration_date, data.days_valid)
     except Exception as e:
@@ -116,9 +146,11 @@ def appliquer_licence(
         last_key=dernier_log.new_key if dernier_log else None,
         new_key=data.new_key,
         exprired_at=data.expiration_date,
+        days_valid=data.days_valid,
         user_id=first_user.id,
     )
     db.add(new_log)
+    get_all_user(22, db)
     db.commit()
 
     return {"success": True}

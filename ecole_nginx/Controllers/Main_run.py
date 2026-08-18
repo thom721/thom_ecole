@@ -3155,7 +3155,12 @@ class ServiceControlWindow(QWidget):
             try:
                 requests.post(
                     f"{local_url}log-activate",
-                    json={"last_key": old_key, "new_key": key, "exprired_at": expiration_date},
+                    json={
+                        "last_key": old_key,
+                        "new_key": key,
+                        "exprired_at": expiration_date,
+                        "days_valid": days_valid,
+                    },
                     timeout=10,
                     verify="C:/Program Files/ecole-serve/nginx/certs/ca.pem",
                 ).raise_for_status()
