@@ -11,7 +11,7 @@ from pydantic import ValidationError
 
 from app.Models.MModels import User,Etudiant
 from app.Models.MFinancials import Paiement,ParametrePaiement,ParamExam,OtherTransaction,Vente,Depense,Payroll,PayrollVersement,AnnulationArriere
-from app.Models.MSystems import Log, LogActive
+from app.Models.MSystems import Log, LogActive, HeartAuto
 from app.database import SessionLocal, engine, Base,get_engine_dynamically
 import os
 import sys
@@ -397,12 +397,33 @@ def startup_event():
                     expire = True
 
                 status = 22 if (signature_valide and not expire) else 23
-                RClientInfos.get_all_user(status, db)
-                db.commit()
-                print(
-                    f" Statut licence (log_actives) au démarrage : {status} "
-                    f"(signature_valide={signature_valide}, expire={expire})"
+
+                # get_all_user() réécrit users.client_infos/heart_autos.descript
+                # pour TOUS les users (+ un log d'audit par user via
+                # global_observer) — inutile de le refaire à chaque démarrage
+                # si le statut appliqué la dernière fois est déjà le bon.
+                current_heart = (
+                    db.query(HeartAuto)
+                    .join(User, HeartAuto.user_id == User.id)
+                    .filter(User.userable_type != "App\\Models\\Etudiant")
+                    .first()
                 )
+                deja_a_jour = (
+                    current_heart is not None
+                    and current_heart.descript.endswith(f"--{status}")
+                )
+
+                if deja_a_jour:
+                    print(f" Statut licence (log_actives) au démarrage : {status} (déjà à jour, rien à faire)")
+                else:
+                    from app.Helper.context import ActionContext
+                    ActionContext.set_action("Connect Autorisation")
+                    RClientInfos.get_all_user(status, db)
+                    db.commit()
+                    print(
+                        f" Statut licence (log_actives) au démarrage : {status} "
+                        f"(signature_valide={signature_valide}, expire={expire})"
+                    )
         except Exception as e:
             print(f"Erreur lors de la vérification d'expiration au démarrage : {e}")
 
