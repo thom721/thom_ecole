@@ -2,6 +2,9 @@
 .env
 **/.env
 !**/.env.example
+.env.web
+**/.env.web
+!**/.env.web.example
 
 # CA/certificats SSL générés localement (clés privées : ca.key, server.key)
 /.ssl_nginx/
@@ -38,3 +41,8 @@ Thumbs.db
 # Artefacts d'extraction/build accidentels (zip macOS, cache Vite)
 **/__MACOSX/
 **/.vite/
+
+# Données runtime du déploiement web (bind mount docker-compose.web.yml :
+# license.json, fichiers statiques uploadés) — jamais committées
+ecole_nginx/data/persist/
+ecole_nginx/logs/

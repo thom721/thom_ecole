@@ -1,0 +1,77 @@
+# Déploiement WEB d'ecole_nginx sur un serveur partagé où un Nginx hôte
+# existe déjà globalement pour plusieurs services (voir
+# infini-software/docker-compose.yml, même topologie et même raisonnement) —
+# donc pas de service nginx/certgen ici : "app" n'expose son port que sur
+# 127.0.0.1, ce Nginx hôte (voir deploy/nginx-ecole360.infini-software.cloud.conf)
+# reste le seul point d'entrée public et le seul à terminer le TLS
+# (certificats gérés par certbot).
+#
+# Pour l'auto-hébergement local (aplekol360.local, clients LAN via
+# app_gui.py), utilise docker-compose.yml à la place — ce fichier ne le
+# remplace pas, c'est un déploiement différent.
+#
+# Secrets attendus dans un fichier .env.web (jamais commité, voir
+# .env.web.example) : MYSQL_ROOT_PASSWORD, SECRET_KEY.
+#   docker compose -f docker-compose.web.yml --env-file .env.web up -d --build
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: lekol360
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    # Pas de port publié vers l'hôte : contrairement à docker-compose.yml
+    # (usage local, où 3307 évite un conflit avec un MySQL natif sur la
+    # machine), seul le service "app" ci-dessous (même réseau Docker) a
+    # besoin d'y accéder ici.
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_USER: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      DB_NAME: lekol360
+      SECRET_KEY: ${SECRET_KEY}
+      # Calculée sur la machine hôte (voir scripts/start.sh) : dans un
+      # conteneur, uuid.getnode() renverrait l'adresse MAC virtuelle du
+      # conteneur, pas celle de la machine, ce qui rendrait la licence
+      # instable. Optionnel : ${HOST_MAC_ADDRESS:-}.
+      HOST_MAC_ADDRESS: ${HOST_MAC_ADDRESS:-}
+      LICENSE_FILE: /data/license.json
+      STATIC_DATA_DIR: /data/static
+    volumes:
+      # Bind mount (pas un volume nommé) : le Nginx hôte a besoin d'un vrai
+      # chemin sur disque pour servir /static/ directement via alias (voir
+      # deploy/nginx-ecole360.infini-software.cloud.conf) sans repasser par
+      # ce process à chaque fichier. Persiste de la même façon qu'un volume
+      # nommé across docker compose up --build (seul `down -v` ou une
+      # suppression manuelle du dossier l'efface) — voir ./data/persist/
+      # dans .gitignore, ne pas committer son contenu.
+      - ./data/persist:/data
+      # access.log/error.log (gunicorn, voir Dockerfile) directement lisibles
+      # sur l'hôte — même pattern que /opt/post/logs déjà en place sur ce
+      # serveur pour post_api.
+      - ./logs:/srv/ecole_nginx/logs
+    ports:
+      # Bind sur localhost uniquement : le Nginx hôte fait déjà le proxy
+      # HTTPS public, ce port n'a pas besoin d'être exposé à l'extérieur.
+      # 9007 (pas 9003/9004) : déjà pris par d'autres projets sur ce serveur
+      # (post_api, infini-software backend — voir
+      # infini-software/docker-compose.yml).
+      - "127.0.0.1:9007:9001"
+
+volumes:
+  mysql_data:

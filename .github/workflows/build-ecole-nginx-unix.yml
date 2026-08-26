@@ -63,6 +63,7 @@ jobs:
           --include-package=jinja2 --include-package=uvicorn
           --include-data-dir=app/templates=app/templates
           --include-data-file=Controllers/education.png=Controllers/education.png
+          --include-data-file=app/Controller/education.png=app/Controller/education.png
           --include-data-dir=app/alembic=app/alembic
           --include-data-files=app/alembic1.ini=app/alembic1.ini
           --include-data-files=app/alembic/versions/*.pyc=app/alembic/versions/
@@ -121,6 +122,7 @@ jobs:
           --include-package=jinja2 --include-package=uvicorn
           --include-data-dir=app/templates=app/templates
           --include-data-file=Controllers/education.png=Controllers/education.png
+          --include-data-file=app/Controller/education.png=app/Controller/education.png
           --include-data-dir=app/alembic=app/alembic
           --include-data-files=app/alembic1.ini=app/alembic1.ini
           --include-data-files=app/alembic/versions/*.pyc=app/alembic/versions/

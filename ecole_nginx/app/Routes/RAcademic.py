@@ -31,6 +31,7 @@ from app.Schemas.Academic import (
 ) 
 from app.Helper.rAuto import *
 from app.Helper.context import UserContext,ActionContext
+from app.Helper.get_real_path import get_real_path
 
 import bcrypt
 from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role
@@ -1224,7 +1225,13 @@ async def store_personnel(
                 sync_roles(db, new_user, all_roles)
                 sync_permissions(db, new_user, all_permissions)
 
-                min_icon = os.path.join('Controllers', 'education.png')
+                # 'Controllers/education.png' (ancien chemin) n'existe que sur
+                # l'installateur Windows natif (Controllers/ voisin de app/,
+                # jamais copié dans l'image Docker — voir Dockerfile, COPY app
+                # ./app seulement). app/Controller/education.png est identique
+                # et déjà présent partout (Docker + build Nuitka), donc résolu
+                # via get_real_path() plutôt qu'un chemin relatif au cwd.
+                min_icon = get_real_path(os.path.join('app', 'Controller', 'education.png'))
                 new_profile = Profile(
                     nom="Gestion d'école 360",
                     email='gestion.ecole@infinisoftware.cloud',

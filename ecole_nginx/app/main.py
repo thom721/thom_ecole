@@ -427,6 +427,17 @@ def startup_event():
         except Exception as e:
             print(f"Erreur lors de la vérification d'expiration au démarrage : {e}")
 
+        # Seed rôles/permissions/niveaux (déjà idempotent : ne crée que ce qui
+        # manque) — pour qu'un premier déploiement headless (web/Docker) les ait
+        # dès le démarrage de l'API, sans devoir appeler /first-account-fill à la
+        # main. La création du premier compte admin reste volontairement un geste
+        # manuel séparé (scripts/create-first-admin.sh) : ce seed ne fait que
+        # préparer le terrain pour ce compte, il ne le crée pas.
+        try:
+            Initialisation.fill_roles_and_permissions(db=db)
+        except Exception as e:
+            print(f"Erreur lors du seed rôles/permissions/niveaux au démarrage : {e}")
+
         # Seed sections page d'accueil
         from app.services.home_seed import seed_home, seed_formations
         seed_home(db)
