@@ -629,6 +629,7 @@ async def create_student(
 - UI: Tailwind CSS 4.1.18
 - State: Pinia 3.0.4
 - Routing: Vue Router 5.0.1
+- Deux applications frontend distinctes partagent ce même stack sur ce dépôt : `frontend/` (interface admin générique École Nginx) et `frontend_university/` (portail public + espaces Admin/Professeur/Étudiant d'IUSTH — voir son `CLAUDE.md` pour le détail de son architecture).
 
 **Base de données**:
 - SGBD: MySQL 8.0.41
@@ -2220,6 +2221,7 @@ C:\Program Files\ecole-serve\
 |---------|------|--------|-------------|
 | 1.0 | 2026-05-15 | Analyse Claude | Création initiale du PRD |
 | 1.1 | 2026-06-28 | Claude (session) | Ajout S5 (autorisation par PIN / double approbation, §4.3) ; journal de bug §8.4 (`PATCH /user/pin` corrigé) |
+| 1.2 | 2026-09-01 | Claude (session) | Portail public IUSTH (`frontend_university/`, non couvert par ce PRD auparavant — voir son propre `CLAUDE.md`) : audit et branchement des tableaux de bord Professeur/Étudiant/Admin (plusieurs pages étaient des maquettes statiques sans appel API) ; ajout d'une section "Procédure d'admission" et d'une section "Mot du Recteur" sur les pages Admission/À propos ; fiche d'inscription envoyée par email au postulant + téléchargeable immédiatement après soumission (nouvelle route publique `/public-recu-inscription/{student_id}`, voir `app/Routes/Etudiants.py` et `app/utils/students_email.py`) ; refonte responsive de la page d'accueil (largeurs de conteneur harmonisées) |
 
 ---
 
