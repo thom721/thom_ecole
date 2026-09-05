@@ -170,6 +170,31 @@ export const useAuthStore = defineStore('auth', {
       return roles.includes('Responsable pédagogique');
     },
 
+    // Portage du garde d'impression Flutter (lib/core/print_gate.dart +
+    // lib/state/auth_state.dart) — jamais fait côté web jusqu'ici, d'où les
+    // impressions non bloquées malgré une licence expirée. Double
+    // vérification croisée entre heart_auto.descript ("{user_id}--{code}")
+    // et client_infos (code injecté au 3e segment du UUID par
+    // RClientInfos.get_all_user() côté serveur), toutes deux écrites
+    // UNIQUEMENT par cette même opération serveur — falsifier l'une sans
+    // l'autre ne suffit pas à passer ce test.
+    accessKey(state) {
+      const descript = state.user?.user?.heart_auto?.descript || '';
+      return descript.split('--')[1] || '0';
+    },
+
+    accessKeyInfo(state) {
+      const clientInfos = state.user?.user?.client_infos || '';
+      const parts = clientInfos.split('-');
+      if (parts.length < 3) return '0';
+      const seg = parts[2];
+      return seg && seg.length >= 2 ? seg.substring(0, 2) : '0';
+    },
+
+    isLicenseAuthorized() {
+      return this.accessKey === '22' && this.accessKeyInfo === this.accessKey;
+    },
+
     isAuthenticated: (state) => !!state.user && !!state.token,
 
     userName: (state) => state.user?.name || '',

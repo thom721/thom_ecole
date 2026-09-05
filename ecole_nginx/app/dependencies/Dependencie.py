@@ -8,7 +8,7 @@ from jwt import PyJWTError
 from jose import jwt, JWTError, ExpiredSignatureError
 from typing import Optional
 from app.database import get_db
-from app.Models.MModels import User,BlacklistedToken
+from app.Models.MModels import User,BlacklistedToken,Professeur
 from app.services.ServiceAuth import AuthorizationService, SECRET_KEY, ALGORITHM 
 # from jose import JWTError  # ou PyJWTError selon ta lib
 
@@ -145,6 +145,25 @@ def user_has_role(user, role_names: List[str], db: Session) -> bool:
     
     user_role_names = [r.name for r in roles]
     return any(role in user_role_names for role in role_names)
+
+def resolve_professeur_id(user, db: Session) -> Optional[str]:
+    """Résout l'id Professeur du compte connecté, qu'il se soit connecté
+    directement comme Professeur (userable_type='App\\Models\\Professeur',
+    userable_id = l'id Professeur lui-même) ou comme Personnel portant la
+    "casquette enseignante" (fiche Professeur liée via personnel_id, sans
+    compte de connexion propre — voir _sync_shadow_professeur dans
+    RAcademic.py). Même logique déjà utilisée pour la paie dans
+    RPayroll.py::_get_salaire_effectif. Renvoie None si aucun des deux cas
+    ne s'applique (ex: Personnel sans rôle enseignant)."""
+    if user.userable_type == "App\\Models\\Professeur":
+        return user.userable_id
+    if user.userable_type == "App\\Models\\Personnel":
+        professeur = db.query(Professeur).filter(
+            Professeur.personnel_id == user.userable_id,
+            Professeur.status == True
+        ).first()
+        return professeur.id if professeur else None
+    return None
 
 def user_has_permission111(user, permission_name: str, db: Session) -> bool:
     """Vérifie si l'utilisateur a une permission spécifique"""

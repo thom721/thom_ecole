@@ -1,5 +1,7 @@
 # app/routes/academic.py
-from fastapi import APIRouter, Depends, HTTPException, status,Query,Header
+from fastapi import APIRouter, Depends, HTTPException, status,Query,Header, UploadFile, File
+from app.Helper.persistent_storage import FACULTES_DIR
+import shutil, uuid
 from sqlalchemy.orm import Session, joinedload 
 from typing import List,Optional
 from sqlalchemy import or_,select
@@ -34,7 +36,7 @@ from app.Helper.context import UserContext,ActionContext
 from app.Helper.get_real_path import get_real_path
 
 import bcrypt
-from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role
+from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role,resolve_professeur_id
 from app.services.ServiceAuth import AuthorizationService
 import logging
 
@@ -143,6 +145,8 @@ class FaculteSchema(BaseModel):
     id: str | None = None
     nom: str = Field(min_length=4)
     nb_annee: str  = Field(min_length=4)
+    description: str | None = None
+    status: bool = True
 
 @router_faculte.get("/get-all-faculte", response_model=FaculteResponse)
 def get_all_facultes(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
@@ -212,6 +216,21 @@ def get_all_facultes(
 
     return {"data":facultes} 
 
+@router_faculte.get("/facultes-publiques", response_model=FaculteResponse)
+def get_facultes_publiques(db: Session = Depends(get_db)):
+    """Facultés actives (status=True) uniquement — pour la page publique
+    'Les facultés'. Contrairement à /get-all-faculte (non filtré, usage
+    admin), n'affiche jamais une faculté annoncée mais pas encore ouverte
+    (voir Audit_site_IUSTH_2026-08-27.pdf, point 2.4 : lien mort vers une
+    filière inexistante)."""
+    facultes = (
+        db.query(Faculte)
+        .filter(Faculte.status == True)
+        .order_by(Faculte.nom)
+        .all()
+    )
+    return {"data": facultes}
+
 @router_faculte.get("/show-faculte/{faculte}", response_model=FaculteResponseOne)
 def get_faculte(faculte: str, db: Session = Depends(get_db)):
     faculte = db.query(Faculte).filter(Faculte.id == faculte).first()
@@ -247,11 +266,15 @@ def store_faculte(data: FaculteSchema, db: Session = Depends(get_db),current_use
 
         faculte.nom = data.nom
         faculte.nb_annee = data.nb_annee
+        faculte.description = data.description
+        faculte.status = data.status
 
     else:
         faculte = Faculte(
             nom=data.nom,
-            nb_annee=data.nb_annee
+            nb_annee=data.nb_annee,
+            description=data.description,
+            status=data.status,
         )
         db.add(faculte)
 
@@ -259,6 +282,26 @@ def store_faculte(data: FaculteSchema, db: Session = Depends(get_db),current_use
     db.refresh(faculte)
 
     return {"success": True, "id": faculte.id}
+
+@router_faculte.post("/facultes/{faculte_id}/upload-image")
+def upload_faculte_image(
+    faculte_id: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(check_permission("Ajouter parametre")),
+):
+    faculte = db.query(Faculte).filter(Faculte.id == faculte_id).first()
+    if not faculte:
+        raise HTTPException(404, "Faculté introuvable")
+    os.makedirs(str(FACULTES_DIR), exist_ok=True)
+    ext = file.filename.split(".")[-1]
+    filename = f"{uuid.uuid4()}.{ext}"
+    disk_path = os.path.join(str(FACULTES_DIR), filename)
+    with open(disk_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    faculte.image_url = f"/static/uploads/facultes/{filename}"
+    db.commit()
+    return {"image_url": faculte.image_url}
 
 
     # if data.id:
@@ -365,7 +408,33 @@ def get_professeur(professeur_id: str, db: Session = Depends(get_db)):
     )
     if not prof:
         raise HTTPException(status_code=404, detail="Professeur non trouvé")
-    
+
+    return ProfesseurResponseShow(data=prof)
+
+
+@router_professeur.get("/mon-professeur", response_model=ProfesseurResponseShow)
+def get_mon_professeur(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    """Fiche Professeur du compte connecté — utilisée par l'espace prof
+    (ParametresView.vue) au lieu d'un GET /professeur/{userable_id} : pour
+    un Personnel avec la casquette enseignante, userable_id pointe vers le
+    Personnel, pas vers sa fiche Professeur liée (voir resolve_professeur_id,
+    app/dependencies/Dependencie.py)."""
+    professeur_id = resolve_professeur_id(current_user, db)
+    if not professeur_id:
+        raise HTTPException(status_code=404, detail="Aucune fiche professeur associée à ce compte")
+
+    prof = (
+        db.query(Professeur)
+        .options(joinedload(Professeur.user))
+        .filter(Professeur.id == professeur_id)
+        .first()
+    )
+    if not prof:
+        raise HTTPException(status_code=404, detail="Professeur non trouvé")
+
     return ProfesseurResponseShow(data=prof)
 
 
@@ -455,10 +524,8 @@ async def store_professeur(
             ) 
         
         if email_exists_in_users or email_exists_in_professeurs or email_exists_in_personnels:
-            return ErrorResponse(
-                errors={"email": ["Cet email est déjà utilisé."]}
-            )
-        
+            raise HTTPException(status_code=422, detail="Cet email est déjà utilisé.")
+
 
         try:
             alphabet = string.ascii_letters + string.digits
@@ -520,17 +587,19 @@ async def store_professeur(
                             db.add(user_role)
                         db.commit()
 
-                        if Config.check_internet_connection(): 
-                            profile = db.query(Profile).first()
-                            school_name = profile.nom if profile else ""
-                            send_activation_email(professeur.email, professeur.prenom, professeur.nom, professeur.email, temp_password,platform=school_name, role="professeur")
-                            
-
-                        else:
-                            raise HTTPException(
-                                status_code=503,
-                                detail=f"Impossible d'envoyer l'e-mail de notification (pas de connexion internet).il sera envoyé dès que possible."
-                            )
+                        # Envoi de l'email d'activation : volontairement hors de la
+                        # transaction ci-dessus. Le professeur est déjà enregistré
+                        # (commit fait) ; un échec SMTP ne doit pas faire perdre la
+                        # mise à jour (l'email n'est pas critique).
+                        try:
+                            if not Config.check_internet_connection():
+                                logger.warning("Pas de connexion internet. Email non envoyé.")
+                            else:
+                                profile = db.query(Profile).first()
+                                school_name = profile.nom if profile else ""
+                                send_activation_email(professeur.email, professeur.prenom, professeur.nom, professeur.email, temp_password,platform=school_name, role="professeur")
+                        except Exception as email_error:
+                            logger.error(f"Échec d'envoi de l'email d'activation pour {professeur.email}: {email_error}")
                 db.commit()
                 return ProfesseurResponseMsg(message="Operation reussie")
                 
@@ -572,24 +641,25 @@ async def store_professeur(
                         db.add(user_role)
                         db.flush()
 
-                    if Config.check_internet_connection():
-                        # Récupérer le nom de l'école
-                        profile = db.query(Profile).first()
-                        school_name = profile.nom if profile else "Notre École"
+                    db.commit()
 
-                        send_activation_email(professeur.email, professeur.prenom, professeur.nom, professeur.email, temp_password,platform=school_name, role="professeur")
+                    # Envoi de l'email d'activation : volontairement hors de la
+                    # transaction ci-dessus. Le professeur est déjà enregistré
+                    # (commit fait) ; un échec SMTP ne doit pas faire perdre la
+                    # création (l'email n'est pas critique).
+                    try:
+                        if not Config.check_internet_connection():
+                            logger.warning("Pas de connexion internet. Email non envoyé.")
+                        else:
+                            profile = db.query(Profile).first()
+                            school_name = profile.nom if profile else "Notre École"
+                            send_activation_email(professeur.email, professeur.prenom, professeur.nom, professeur.email, temp_password,platform=school_name, role="professeur")
+                    except Exception as email_error:
+                        logger.error(f"Échec d'envoi de l'email d'activation pour {professeur.email}: {email_error}")
 
-                        db.commit()
-                        return ProfesseurResponseMsg(message="Operation reussie")
-                    else:
-                        db.commit()
-                        return ProfesseurResponseMsg(message="Operation reussie")
-                        # raise HTTPException(
-                        #     status_code=503,
-                        #     detail=f"Impossible d'envoyer l'e-mail de notification (pas de connexion internet).il sera envoyé dès que possible.."
-                        # )
-                
-                
+                    return ProfesseurResponseMsg(message="Operation reussie")
+
+
                 db.commit()
             
             return ProfesseurResponseMsg(message="Operation reussie")

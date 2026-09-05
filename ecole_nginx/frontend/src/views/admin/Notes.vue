@@ -6,7 +6,7 @@ import { useSchoolStore,useSchoolStoreInfo } from '@/stores/schoolStore';
 import { useAuthStore } from '@/stores/auth';
  import StyleModal from '@/components/StyleModal.vue';
 import DataTable from '@/components/DataTable.vue'
-import { usePdfWithLoading } from '@/stores/usePdf';
+import { usePdfWithLoading, canPrintNonReceipt } from '@/stores/usePdf';
 const { submitPdf, loading, error, loadingMap } = usePdfWithLoading()
 
 const authStore = useAuthStore();
@@ -19,7 +19,8 @@ print_all: { mois: '', classe: '', annee_academique: ''},
 })
 
 const handlePrintBulletin = async (studentId, endpoint, evalType) => {
-  if (studentId) {    
+  if (!canPrintNonReceipt(endpoint)) return;
+  if (studentId) {
     data_print.bulletin = studentId;
     const type = evalType?.toLowerCase();
     if (type === 'mois') data_print['mois']= selections.value.mois;

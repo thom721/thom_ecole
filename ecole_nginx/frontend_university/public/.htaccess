@@ -1,0 +1,62 @@
+# IUSTH — SPA pré-rendue (Vue Router, mode history + vite-ssg)
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # ── Anciennes URL WordPress (audit CCA, points 4.3/4.4/P0-4) — redirection
+  # 301 vers leur équivalent réel sur le nouveau site, pour conserver le
+  # référencement déjà acquis et les liens déjà diffusés. Liste non
+  # exhaustive : seules les URL explicitement identifiées dans les deux
+  # audits sont couvertes ici — à compléter si Search Console en révèle
+  # d'autres une fois le site réindexé.
+  RewriteRule ^presentation/?$ /a-propos [R=301,L]
+  RewriteRule ^le-recteur(-2)?/?$ /a-propos#president [R=301,L]
+  RewriteRule ^(les-facultes|genie-civil|genie-civil-2|sces-administratives|sciences-agronomiques)/?$ /facultes [R=301,L]
+
+  # Laisse passer les vrais fichiers/dossiers (assets, images, pages
+  # pré-rendues, favicon, etc.)
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Zones dynamiques de l'app, authentifiées et gérées côté client par Vue
+  # Router (jamais pré-rendues) — on continue de leur servir index.html.
+  RewriteRule ^(admin|professeur-|student|connexion|forgot-password|first-connexion) index.html [L]
+
+  # Tout le reste ne correspond à aucune page réelle du site : vrai 404
+  # plutôt qu'un 200 sur page vide (audit CCA v2, P0-5 — "vérifier qu'une
+  # route inexistante renvoie un code 404 et non un code 200 sur page
+  # vide"). Le corps de la réponse reste la page 404 pré-rendue du site,
+  # via ErrorDocument ci-dessous.
+  RewriteRule ^ - [R=404,L]
+</IfModule>
+
+ErrorDocument 404 /404/index.html
+
+# Évite un 403 sur le listing de dossier
+Options -Indexes
+
+# Compression
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript application/json image/svg+xml
+</IfModule>
+
+# Cache navigateur : assets hashés par Vite -> cache long, pages HTML -> jamais
+# (pré-rendues à chaque build ; un cache long empêcherait de voir les mises
+# à jour de contenu sans purge manuelle côté visiteur).
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/jpg "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType image/x-icon "access plus 1 year"
+</IfModule>
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </FilesMatch>
+</IfModule>

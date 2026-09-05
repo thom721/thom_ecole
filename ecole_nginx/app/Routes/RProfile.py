@@ -55,8 +55,12 @@ def delete_profile(profile_id: str, db: Session = Depends(get_db),current_user:U
     return {"success": True, "message": "Profile deleted"}
 
 from pydantic import BaseModel, EmailStr, Field, validator
-from typing import Optional
+from typing import Optional, List
 import re
+
+class HoraireItem(BaseModel):
+    jour: str
+    horaire: str
 
 class ProfileCreate(BaseModel):
     id: Optional[str] = None
@@ -67,6 +71,12 @@ class ProfileCreate(BaseModel):
     adresse: str
     logo_image_path: Optional[str] = None # Sera utilisé pour le Base64 ou le chemin
     logo_image_base64: Optional[str] = None # Sera utilisé pour le Base64 ou le chemin
+    whatsapp_url: Optional[str] = None
+    facebook_url: Optional[str] = None
+    tiktok_url: Optional[str] = None
+    youtube_url: Optional[str] = None
+    horaires: Optional[List[HoraireItem]] = None
+    inscription: Optional[bool] = False
     is_receive_arriere: Optional[bool] = False
     age_minimum_inscription: Optional[int] = 1
 
@@ -108,6 +118,9 @@ async def store_profile(data: ProfileCreate, db: Session = Depends(get_db),curre
                 f.write(image_data)
             logo_path = f"logo/{file_name}"
 
+        # Le modèle SQLAlchemy JSON attend des dicts, pas des objets Pydantic.
+        horaires_data = [h.dict() for h in data.horaires] if data.horaires else None
+
         # 4. Update ou Create
         if db_profile:
             # Mise à jour des champs
@@ -116,6 +129,12 @@ async def store_profile(data: ProfileCreate, db: Session = Depends(get_db),curre
             db_profile.ligne1 = data.ligne1
             db_profile.ligne2 = data.ligne2
             db_profile.adresse = data.adresse
+            db_profile.whatsapp_url = data.whatsapp_url
+            db_profile.facebook_url = data.facebook_url
+            db_profile.tiktok_url = data.tiktok_url
+            db_profile.youtube_url = data.youtube_url
+            db_profile.horaires = horaires_data
+            db_profile.inscription = bool(getattr(data, 'inscription', False))
             db_profile.is_receive_arriere = bool(getattr(data, 'is_receive_arriere', False))
             db_profile.age_minimum_inscription = getattr(data, 'age_minimum_inscription', None) or 1
             if logo_path:
@@ -140,6 +159,12 @@ async def store_profile(data: ProfileCreate, db: Session = Depends(get_db),curre
                 ligne1=data.ligne1,
                 ligne2=data.ligne2,
                 adresse=data.adresse,
+                whatsapp_url=data.whatsapp_url,
+                facebook_url=data.facebook_url,
+                tiktok_url=data.tiktok_url,
+                youtube_url=data.youtube_url,
+                horaires=horaires_data,
+                inscription=bool(getattr(data, 'inscription', False)),
                 logo_image_path=logo_path,
                 logo_image_base64=data.logo_image_path if logo_path else data.logo_image_base64,
                 is_receive_arriere=bool(getattr(data, 'is_receive_arriere', False)),

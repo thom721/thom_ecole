@@ -67,6 +67,8 @@ class NiveauResponse(NiveauBase):
 class FaculteBase(BaseModel):
     nom: str
     nb_annee: str
+    description: Optional[str] = None
+    image_url: Optional[str] = None
     status: bool = False
 
 class FaculteCreate(FaculteBase):

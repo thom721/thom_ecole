@@ -303,3 +303,19 @@ class News(Base):
     created_at   = Column(DateTime, default=datetime.utcnow)
 
     category = relationship("Category")
+
+
+class Video(Base):
+    __tablename__ = "videos"
+    __table_args__ = {
+        'mysql_collate': 'utf8mb4_unicode_ci',
+        'mysql_charset': 'utf8mb4',
+         'mysql_engine':'InnoDB'
+    }
+
+    id           = Column(CHAR(36), primary_key=True, default=generate_uuid)
+    titre        = Column(String(255), nullable=False)
+    source       = Column(String(255), nullable=True)   # ex: "RTCH NEWS"
+    youtube_url  = Column(String(500), nullable=False)
+    is_published = Column(Boolean, default=True)
+    created_at   = Column(DateTime, default=datetime.utcnow)

@@ -76,10 +76,12 @@ class Faculte(Base):
     id = Column(CHAR(36), primary_key=True, default=generate_uuid)
     nom = Column(String(255), nullable=False)
     nb_annee = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    image_url = Column(String(500), nullable=True)
     status = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Relations
     etudiant_facultes = relationship("EtudiantFaculte", back_populates="faculte")
     classe_facultes = relationship("ClasseFaculte", back_populates="faculte")

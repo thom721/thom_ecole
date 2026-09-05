@@ -172,7 +172,15 @@ class GlobalModelObserver:
             # flush déjà en cours et persiste avec le commit() appelant.
             self.db.add(log_entry)
 
-            # Nettoyer le contexte
+            # Nettoyer le contexte — UNIQUEMENT dans cette branche (pas quand
+            # l'action est "Connect Autorisation") : get_all_user() modifie
+            # plusieurs User d'affilée dans la MÊME opération (même
+            # ActionContext), et after_update se déclenche une fois par ligne
+            # PENDANT le flush d'un seul commit() — effacer le contexte ici
+            # le viderait après le 1er utilisateur et ferait lever l'exception
+            # "User non authentifié" pour tous les suivants. C'est à
+            # get_all_user() lui-même de nettoyer une fois son propre batch
+            # terminé (voir RClientInfos.py), pas à chaque ligne observée.
             AdminAuthorization.clear()
             ActionContext.clear()
             PaiementContext.clear()

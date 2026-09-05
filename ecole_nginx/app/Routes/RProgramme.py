@@ -16,7 +16,7 @@ from app.Schemas.programme_schema import (
     PaginatedProgrammeResponse,ProgrammeResponseOne,ProgrammeCoursRequest
 )
 from pydantic import BaseModel
-from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role,first_or_update_safe
+from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role,first_or_update_safe,resolve_professeur_id
 router = APIRouter(prefix="/api/v1", tags=["Programmes"])
 
 # GET avec pagination, recherche et filtres
@@ -520,7 +520,9 @@ def get_programmes(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    prof_id = current_user.userable_id
+    prof_id = resolve_professeur_id(current_user, db)
+    if not prof_id:
+        raise HTTPException(status_code=404, detail="Aucune fiche professeur associée à ce compte")
 
     # 1️⃣ récupérer année active
     annee_active = db.query(AnneeAcademique)\
@@ -832,7 +834,9 @@ def get_cours_prof(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    prof_id = current_user.userable_id
+    prof_id = resolve_professeur_id(current_user, db)
+    if not prof_id:
+        return {"message": "Aucune fiche professeur associée à ce compte"}
 
     # 1️⃣ année académique active
     annee_active = db.query(AnneeAcademique)\
@@ -950,7 +954,9 @@ def get_classes_etudiants(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    prof_id = current_user.userable_id
+    prof_id = resolve_professeur_id(current_user, db)
+    if not prof_id:
+        return {"message": "Aucune fiche professeur associée à ce compte"}
 
     annee_active = db.query(AnneeAcademique)\
         .filter(AnneeAcademique.status == 1)\

@@ -1,0 +1,132 @@
+apt-get update && apt-get install -y rsync
+
+rsync -avz app/ root@82.29.153.24:/opt/edu/app/
+rsync -avz requirements.txt Dockerfile docker-compose.web.yml root@82.29.153.24:/opt/edu/
+
+
+docker compose -f docker-compose.web.yml --env-file .env.web up -d --build
+docker compose -f docker-compose.web.yml --env-file .env.web exec -T app alembic -c app/alembic1.ini upgrade head
+
+
+cat > /opt/edu/.env.web <<'EOF'
+MYSQL_ROOT_PASSWORD=L&k0l360
+SECRET_KEY=22f1ebc3a99e3105cd22563cc2bad7893146ddfc092f7e322a51dda37ccf0935
+HOST_MAC_ADDRESS=
+EOF
+
+cd /opt/edu
+docker compose -f docker-compose.web.yml --env-file .env.web up -d --build
+
+
+cd /opt/edu
+API_URL="http://localhost:9007/api/v1"
+
+# Confirme qu'aucun compte n'existe (200 = déjà fait, rien à faire)
+curl -s -o /dev/null -w "%{http_code}\n" "$API_URL/first-check"
+
+curl -s -X POST "$API_URL/first-account" \
+  -H "Content-Type: application/json" \
+  -d '{"nom":"eclole360","prenom":"eclole360","email":"eclole360@edu.cloud","first":true,"password":"P@ssw0rd"}'
+
+
+errorrrr
+
+
+cd /opt/edu
+docker compose -f docker-compose.web.yml --env-file .env.web restart app
+docker logs -f edu-app-1
+
+
+docker compose -f docker-compose.web.yml --env-file .env.web down
+rm -rf data/persist mysql_data_dir_si_bind_mount  # voir note ci-dessous
+docker volume rm edu_mysql_data
+docker compose -f docker-compose.web.yml --env-file .env.web up -d --build
+
+
+scp scripts/seed_facultes_iusth.py root@82.29.153.24:/opt/edu/
+
+# Puis sur le serveur, dans /opt/edu
+docker compose -f docker-compose.web.yml exec -T app python3 - < seed_facultes_iusth.py
+
+docker compose -f docker-compose.web.yml --env-file .env.web exec -T app alembic -c app/alembic1.ini upgrade head
+contact-email-@Iusth21#
+noreply-email-Janvier@21@
+
+
+cd /Users/kikipllc/development/school/ecole_nginx
+DB_HOST=127.0.0.1 DB_PORT=3307 DB_USER=root DB_PASSWORD='ecole360_root' DB_NAME=lekol360 \
+  ./venv/bin/python3 scripts/import_old_notes_2018_2023.py --commit
+
+
+SELECT id, descript FROM heart_autos WHERE user_id IN (SELECT id FROM users WHERE userable_type != 'App\\Models\\Etudiant');
+SELECT id, client_infos FROM users WHERE userable_type != 'App\\Models\\Etudiant';
+
+
+-- Vérifie d'abord le nombre de lignes concernées
+SELECT COUNT(*) FROM heart_autos ha
+JOIN users u ON u.id = ha.user_id
+WHERE u.userable_type != 'App\\Models\\Etudiant'
+  AND ha.descript LIKE '%--22';
+
+BEGIN;
+
+UPDATE heart_autos ha
+JOIN users u ON u.id = ha.user_id
+SET ha.descript = REPLACE(ha.descript, '--22', '--23')
+WHERE u.userable_type != 'App\\Models\\Etudiant'
+  AND ha.descript LIKE '%--22';
+
+UPDATE users
+SET client_infos = REGEXP_REPLACE(client_infos, '-22([a-z]{2})-', '-23\\1-')
+WHERE userable_type != 'App\\Models\\Etudiant'
+  AND client_infos REGEXP '-22[a-z]{2}-';
+
+-- Vérifie le résultat avant de committer
+SELECT id, descript FROM heart_autos WHERE user_id IN
+  (SELECT id FROM users WHERE userable_type != 'App\\Models\\Etudiant');
+SELECT id, client_infos FROM users WHERE userable_type != 'App\\Models\\Etudiant';
+
+COMMIT;  -- ou ROLLBACK; si le résultat ne te convient pas
+
+
+BEGIN;
+
+UPDATE users
+SET client_infos = REPLACE(client_infos, '-231-', '-23sc-')
+WHERE id IN (
+  '06f094ef-433e-4645-b1d5-933d595d22a6',
+  '1256b4eb-dd71-4fe4-9c3f-75b58bfdae01',
+  '20310244-c43f-45ef-a9da-ed046ae83c0d',
+  '2593e789-2b45-4e49-96fb-512de0663bbc',
+  '2a407f0f-63be-44e2-94d0-84a012508002',
+  '50d82fd2-ea19-49b3-8eb9-beced827fde8',
+  '50e95c54-d189-4ebe-aaab-8d70adea62c1',
+  '515b7de2-114b-4121-b8cc-dafd79a3f49c',
+  '5d7eeb8d-1a50-4da3-8cf8-a1cd36f57ac6',
+  '5ea8013c-0522-412e-b656-4afb1ce89531',
+  '6d3e60bf-c44f-4960-b317-7f605ff9759e',
+  '6e68c469-ff02-4469-bd94-3e0fc07bc01c',
+  '7a136f17-aff0-4fa5-876c-a4663a80542b',
+  '7f55a730-926b-4ec9-9ef5-9d8de39cd7fd',
+  '87f292cc-2291-41d4-b044-669f1737f25e',
+  '8a47d093-47f6-402f-a76e-651ae0e111bc',
+  '932b8026-7323-4912-8a99-b325aca230ec',
+  '9930ddf7-be63-47c6-8f9f-a4fe7761c682',
+  'a259d723-f3a3-4f66-9fc0-6d1908fa81c8',
+  'b157559b-12cd-4eb5-9900-54884faaffc8',
+  'b860da4d-d4e5-410d-a94a-fdb012e6fe80',
+  'c01075c0-46b5-4232-bdcb-dc9abed9acac',
+  'c95bc689-375c-437c-8a59-6767ff65ad05',
+  'd7692c9c-bd93-43ab-8761-4f55838ba1ae',
+  'debcecac-c2a1-44ac-b76b-9724e5bfca4d',
+  'f645230a-102c-4a35-8fa6-a78e831e2af4'
+)
+AND client_infos LIKE '%-231-%';
+
+-- doit retomber exactement sur les valeurs d'origine avec 23 au lieu de 22
+SELECT id, client_infos FROM users WHERE id IN (
+  '06f094ef-433e-4645-b1d5-933d595d22a6','1256b4eb-dd71-4fe4-9c3f-75b58bfdae01'
+  -- ... (vérifie que le format est bien xxxx-xxxx-23sc-xxxx-xxxxxxxxxxxx)
+);
+
+COMMIT;

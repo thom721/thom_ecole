@@ -226,15 +226,28 @@ def impression_bulletin(
         request_data = ''
         all_headers = []
         
-        # Récupérer l'année académique active
+        # Année académique DU BULLETIN imprimé — PAS l'année active. Un
+        # bulletin d'une année passée (ex: notes ajoutées après coup pour
+        # 2019-2022) doit chercher ses camarades de classe dans SA PROPRE
+        # année (voir data_bulletin_student plus bas) ; avec l'année active
+        # à la place (comme avant), cette jointure ne trouve jamais personne
+        # pour une année révolue, "result" reste vide, et le bulletin sort
+        # sans moyenne de classe ni classement (voir MasBulletinPrint.py,
+        # qui utilise déjà request.annee_academique — même correction ici).
         date = db.query(AnneeAcademique).filter(
-            AnneeAcademique.status == 1
+            AnneeAcademique.annee_academique == bulletin_exists.annee_academique
         ).with_entities(
             AnneeAcademique.id,
             AnneeAcademique.date_debut,
             AnneeAcademique.date_fin,
             AnneeAcademique.annee_academique
         ).first()
+
+        if not date:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Année académique introuvable pour ce bulletin ({bulletin_exists.annee_academique})."
+            )
         
         if not session:
             if mois:

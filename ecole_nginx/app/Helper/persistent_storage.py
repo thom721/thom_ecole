@@ -45,8 +45,10 @@ PROFILE_STUDENT_DIR = PROFILE_DIR / "student"
 EVENTS_DIR = BASE_DIR / "uploads" / "events"
 NEWS_DIR = BASE_DIR / "uploads" / "news"
 FORMATIONS_DIR = BASE_DIR / "uploads" / "formations"
+PAGE_SECTIONS_DIR = BASE_DIR / "uploads" / "page_sections"
+FACULTES_DIR = BASE_DIR / "uploads" / "facultes"
 
-_ALL_DIRS = [DOCUMENTS_DIR, LOGO_DIR, PROFILE_STUDENT_DIR, EVENTS_DIR, NEWS_DIR, FORMATIONS_DIR]
+_ALL_DIRS = [DOCUMENTS_DIR, LOGO_DIR, PROFILE_STUDENT_DIR, EVENTS_DIR, NEWS_DIR, FORMATIONS_DIR, PAGE_SECTIONS_DIR, FACULTES_DIR]
 
 # Ancien emplacement (à l'intérieur du dossier d'installation) — conservé
 # uniquement pour migrer une fois les fichiers déjà uploadés par une

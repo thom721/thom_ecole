@@ -223,6 +223,25 @@ class Profile(Base):
 
     logo_image_base64 = Column(LONGTEXT)
     school_url = Column(String(255))
+
+    # Réseaux sociaux — nullable : une école/institution peut n'en renseigner
+    # aucun, le frontend n'affiche alors que ceux qui sont remplis (voir
+    # ContactView.vue) plutôt qu'un lien mort "#" pour les autres.
+    whatsapp_url = Column(String(255), nullable=True)
+    facebook_url = Column(String(255), nullable=True)
+    tiktok_url = Column(String(255), nullable=True)
+    youtube_url = Column(String(255), nullable=True)
+
+    # Horaires d'accueil affichés sur la page Contact publique (voir
+    # ContactView.vue) — liste libre de {jour, horaire}, pas de nombre de
+    # lignes fixé, pour permettre plus de 2 plages si l'école en a besoin.
+    horaires = Column(JSON, nullable=True)
+
+    # Affiche/masque le bloc "Les dossiers de candidature ... sont ouverts"
+    # sur la page d'accueil (voir HomeView.vue) — pour ne pas promettre des
+    # inscriptions ouvertes en dehors de la période réelle.
+    inscription = Column(Boolean, nullable=False, default=False)
+
     # Si True : un paiement pour l'année N est refusé tant que tous les
     # versements de l'année N-1 ne sont pas soldés.
     is_receive_arriere = Column(Boolean, nullable=False, default=False)

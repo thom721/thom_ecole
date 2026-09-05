@@ -1,7 +1,8 @@
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from app.config.Config import settings
 from time import time
-from app.Routes import Etudiants, RAcademic,RCours,RProgramme,dashboard,RCoursEtudiant,RParamExam,RAnneAcademique,RClasses,RInscription,RPaiement,RPaiementParam,RClientInfos,RProfile,RAuth,RRolePermission,RVente,RLog,RNotes,RSavePaiement,Initialisation,Returns,RTransaction,RPromus,REvents,RNews,RCategory,RPresences,RFormations,RPageSections,RProduit,RCategorieProduit,RPayroll,RParametrePayroll,RPointage,RAnnulationArriere
+from app.Routes import Etudiants, RAcademic,RCours,RProgramme,dashboard,RCoursEtudiant,RParamExam,RAnneAcademique,RClasses,RInscription,RPaiement,RPaiementParam,RClientInfos,RProfile,RAuth,RRolePermission,RVente,RLog,RNotes,RSavePaiement,Initialisation,Returns,RTransaction,RPromus,REvents,RNews,RVideo,RContact,RCategory,RPresences,RFormations,RPageSections,RProduit,RCategorieProduit,RPayroll,RParametrePayroll,RPointage,RAnnulationArriere
 
 from app.Routes.pdf import BulletinPrint, paiement_recu,GlobalRepport,PaymentRepport,Register_report,VenteRecu,RegisterRepport,PedagogicRepport,MasBulletinPrint,PedaRepport,RPRepport,RExcelExport,RHoraireReport,PayrollReport,SalaireHistoriqueReport
 from fastapi.responses import JSONResponse
@@ -53,8 +54,8 @@ _RATE_LIMITS = {
 }
 _DEFAULT_RATE_LIMIT = (100, 60)
  
-app = FastAPI(   root_path="/app",
-    title="API Gestion Scolaire - Le Mignon",
+app = FastAPI(
+    title="API Gestion Scolaire",
     description="API REST pour la gestion d'établissement scolaire",
     version="1.0.0"
     # docs_url=None, redoc_url=None, openapi_url=None
@@ -101,9 +102,14 @@ app.middleware("http")(rate_limit_middleware)
 # bloque la requête réelle avec "No 'Access-Control-Allow-Origin' header"
 # même quand l'origine est par ailleurs autorisée (cas vécu sur
 # /auth/login : préflight OPTIONS rate-limité = aucun header CORS).
+# BACKEND_CORS_ORIGINS (voir app/config/Config.py) — vide par défaut, donc
+# "*" en local/dev tant qu'aucune valeur n'est fournie. En production,
+# définir BACKEND_CORS_ORIGINS=https://iusth.edu.ht (ou plusieurs origines
+# séparées par des virgules) dans .env.web pour la restreindre, sans toucher
+# au code.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # À modifier en production
+    allow_origins=settings.BACKEND_CORS_ORIGINS or ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -279,8 +285,47 @@ def is_compiled() -> bool:
 
 
 APP_ROOT = get_app_root()
+
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
+
+
+def _acquire_startup_lock():
+    """Sérialise le corps de startup_event() entre les workers gunicorn d'un
+    même conteneur (voir Dockerfile, --workers 4) : sans ça, chaque worker
+    importe app.main indépendamment et exécute ce handler en même temps, tous
+    contre une base vide au premier démarrage — DDL concurrentes
+    (create_all), doublons d'insertion (permissions/roles), tables encore
+    absentes vues par un worker pendant qu'un autre les crée. fcntl est
+    POSIX uniquement (absent sur Windows) — sans objet là-bas de toute façon,
+    Controllers/Main_run.py::start_api() n'y lance jamais qu'un seul process
+    (workers=1, pas gunicorn)."""
+    if fcntl is None:
+        return None
+    lock_file = open("/tmp/ecole_nginx_startup.lock", "w")
+    fcntl.flock(lock_file, fcntl.LOCK_EX)
+    return lock_file
+
+
+def _release_startup_lock(lock_file):
+    if lock_file is None:
+        return
+    fcntl.flock(lock_file, fcntl.LOCK_UN)
+    lock_file.close()
+
+
 @app.on_event("startup")
 def startup_event():
+    lock_file = _acquire_startup_lock()
+    try:
+        _run_startup_tasks()
+    finally:
+        _release_startup_lock(lock_file)
+
+
+def _run_startup_tasks():
     """
     Enregistrer tous les observers au démarrage de l'application
     """
@@ -500,6 +545,8 @@ app.include_router(REvents.router)
 app.include_router(RFormations.router)
 app.include_router(RPageSections.router)
 app.include_router(RNews.router)
+app.include_router(RVideo.router)
+app.include_router(RContact.router)
 app.include_router(RCategory.router)
 app.include_router(RPresences.router)
  
@@ -525,7 +572,7 @@ app.include_router(PedaRepport.router)
 @app.get("/")
 def root():
     return {
-        "message": "Bienvenue sur l'API de Gestion Scolaire - Le Mignon",
+        "message": "Bienvenue sur l'API de Gestion Scolaire",
         "version": "1.0.0",
         "docs": "/docs",
         "redoc": "/redoc"

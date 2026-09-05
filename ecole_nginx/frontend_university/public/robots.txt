@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /connexion
+Disallow: /admin
+Disallow: /first-connexion
+Disallow: /forgot-password
+
+Sitemap: https://iusth.edu.ht/sitemap.xml

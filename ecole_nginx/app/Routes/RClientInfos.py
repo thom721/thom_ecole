@@ -372,6 +372,15 @@ def get_all_user(int_value: int, db: Session):
 
     db.commit()
 
+    # Nettoyer le contexte ICI, une seule fois, une fois tout le lot commité —
+    # pas dans GlobalModelObserver.log_activity() (qui tourne une fois par
+    # User modifié PENDANT ce commit) : le vider trop tôt ferait échouer les
+    # utilisateurs suivants du même lot avec "User non authentifié lors du
+    # log" (voir app/Observers/global_observer.py). C'est cette absence de
+    # nettoyage qui laissait ActionContext bloqué sur "Connect Autorisation"
+    # pour le reste du process après un appel depuis _run_startup_tasks().
+    ActionContext.clear()
+
 
 # --------------------------
 # Endpoint équivalent store

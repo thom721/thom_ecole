@@ -16,6 +16,15 @@ class PageSection(Base):
     titre       = Column(String(255), nullable=True)
     sous_titre  = Column(String(255), nullable=True)
     description = Column(Text,        nullable=True)
+    # Type de mise en page pour les sections génériques ajoutées via l'admin
+    # (voir GenericSection.vue) : 'text_center', 'image_left', 'image_right',
+    # 'image_banner', 'cards_grid', 'stats_row'. NULL pour les 6 sections
+    # historiques de la page d'accueil (stats/cycles/features/activities/
+    # testimonials/values), qui gardent leur propre rendu sur mesure.
+    layout      = Column(String(50),  nullable=True)
+    # Image unique de section (text_left/text_right/image_banner) — distincte
+    # des images par item dans `items` (ex: cards_grid, activities).
+    image_url   = Column(String(500), nullable=True)
     is_visible  = Column(Boolean,     default=True)
     ordre       = Column(Integer,     default=0)
     items       = Column(JSON,        default=list)                 # contenu de la section

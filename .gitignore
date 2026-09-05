@@ -46,3 +46,7 @@ Thumbs.db
 # license.json, fichiers statiques uploadés) — jamais committées
 ecole_nginx/data/persist/
 ecole_nginx/logs/
+
+# Installation Moodle locale (vendored + données de session live) —
+# jamais committée, bien trop volumineuse pour ce dépôt
+moodle-iusth/

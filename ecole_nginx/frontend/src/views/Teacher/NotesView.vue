@@ -151,7 +151,7 @@ import { storeToRefs } from 'pinia';
 import DialogModal from '@/components/DialogModal.vue'
 import DataTable from '@/components/DataTable.vue'
 import Swal from 'sweetalert2';
-import { usePdfWithLoading } from '@/stores/usePdf'; 
+import { usePdfWithLoading, canPrintNonReceipt } from '@/stores/usePdf';
 const { submitPdf, loading, error, loadingMap } = usePdfWithLoading()
 
 
@@ -284,9 +284,9 @@ classe: '',
 annee_academique: ''
 })
 
-const handlePrintBulletin = async (studentId, endpoint, evalType,selections) => { 
-  
-  if (studentId) {    
+const handlePrintBulletin = async (studentId, endpoint, evalType,selections) => {
+  if (!canPrintNonReceipt(endpoint)) return;
+  if (studentId) {
     data_print.bulletin = studentId;
     const type = evalType?.toLowerCase();
     if (type === 'mois') data_print['mois']= selections;

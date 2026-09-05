@@ -391,6 +391,7 @@ import { onMounted, reactive,ref } from 'vue';
 import axios from 'axios';
 import AppToast from '@/components/AppToast.vue';
 import { useToast } from '@/composables/useToast';
+import { canPrintNonReceipt } from '@/stores/usePdf';
 const { toast, error } = useToast();
 
 const baseUrl = import.meta.env.VITE_APP_BASE_URL || '';
@@ -427,6 +428,7 @@ const error_loading    = ref({})
 const excel_loading    = ref({})
 
 const submitExcel = async (endpoint, data, filename) => {
+  if (!canPrintNonReceipt(endpoint)) return
   excel_loading.value[endpoint] = true
   try {
     const token = localStorage.getItem("auth-token")
@@ -456,6 +458,7 @@ const submitExcel = async (endpoint, data, filename) => {
 }
 
 const submitPdf = async (endpoint, data) => {
+  if (!canPrintNonReceipt(endpoint)) return
   try {
     error_loading.value[endpoint] = true
     const token = localStorage.getItem("auth-token");

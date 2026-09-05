@@ -52,6 +52,27 @@ services:
       HOST_MAC_ADDRESS: ${HOST_MAC_ADDRESS:-}
       LICENSE_FILE: /data/license.json
       STATIC_DATA_DIR: /data/static
+      # Origines autorisées en CORS (voir app/main.py) — vide par défaut,
+      # donc "*" tant que non définie. En production, une seule origine
+      # (ou plusieurs séparées par des virgules) : voir .env.web.example.
+      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-}
+      # SMTP (voir app/utils/students_email.py) — deux boîtes distinctes :
+      # noreply@ pour les notifications automatiques, contact@ pour le
+      # formulaire de contact public. Passés ici (pas seulement dans
+      # app/.env) pour ne pas dépendre du contenu de l'image Docker au
+      # moment du build — voir .env.web.example pour les valeurs réelles.
+      SMTP_HOST: ${SMTP_HOST:-smtp.hostinger.com}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-IUSTH}
+      SMTP_USER_NOREPLY: ${SMTP_USER_NOREPLY:-}
+      SMTP_PASSWORD_NOREPLY: ${SMTP_PASSWORD_NOREPLY:-}
+      SMTP_USER_CONTACT: ${SMTP_USER_CONTACT:-}
+      SMTP_PASSWORD_CONTACT: ${SMTP_PASSWORD_CONTACT:-}
+      # URL publique du frontend pour le lien "Se connecter" dans les emails
+      # d'activation (voir app/utils/students_email.py) — sans elle, retombe
+      # sur https://aplekol360.local (LAN local), inutilisable pour un vrai
+      # destinataire.
+      FRONTEND_URL: ${FRONTEND_URL:-}
     volumes:
       # Bind mount (pas un volume nommé) : le Nginx hôte a besoin d'un vrai
       # chemin sur disque pour servir /static/ directement via alias (voir

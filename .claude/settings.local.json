@@ -16,7 +16,23 @@
       "Bash(git add *)",
       "Bash(flutter build *)",
       "Bash(python3 -c \"import ast; ast.parse\\(open\\('app/Routes/RRolePermission.py'\\).read\\(\\)\\)\")",
-      "Bash(DB_PORT=3307 DB_PASSWORD=ecole360_root python3 -c ' *)"
+      "Bash(DB_PORT=3307 DB_PASSWORD=ecole360_root python3 -c ' *)",
+      "Bash(git commit -m ' *)",
+      "Bash(DB_HOST=127.0.0.1 DB_PORT=3307 DB_USER=root DB_PASSWORD=ecole360_root DB_NAME=lekol360 python3 -c ' *)",
+      "Bash(python3 -m py_compile app/Routes/RPromus.py)",
+      "Bash(awk '/if data:/{print NR\": \"$0; found=1} found && /^        else:/{print NR\": \"$0; exit}' /Users/kikipllc/development/school/ecole_nginx/app/Routes/RSavePaiement.py)",
+      "Bash(python3 -m py_compile app/Routes/RSavePaiement.py)",
+      "Bash(python3 -m py_compile app/Helper/audit_log.py)",
+      "Bash(python3 -m py_compile app/Routes/Etudiants.py)",
+      "Bash(python3 -m py_compile app/Routes/RAuth.py)",
+      "Bash(python3 -m py_compile app/Routes/RVente.py)",
+      "Bash(python3 -m py_compile app/Routes/RTransaction.py)",
+      "Bash(python3 -m py_compile app/Routes/RPaiementParam.py)",
+      "Bash(python3 -m py_compile app/Helper/audit_log.py app/Routes/Etudiants.py app/Routes/RPromus.py app/Routes/RAuth.py app/Routes/RVente.py app/Routes/RTransaction.py app/Routes/RPaiementParam.py app/Routes/RSavePaiement.py)",
+      "Bash(git log *)",
+      "Bash(python3 -m py_compile app/Routes/dashboard.py)",
+      "Bash(python3 -m py_compile app/Routes/pdf/GlobalRepport.py)",
+      "Bash(pkill -f \"vite preview --port 4174\")"
     ]
   }
 }

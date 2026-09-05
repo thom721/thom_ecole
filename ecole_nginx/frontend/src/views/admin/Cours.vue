@@ -8,6 +8,7 @@ import { useSchoolStore } from '@/stores/schoolStore';
 import { storeToRefs } from 'pinia';
 import Pagination from '@/components/Pagination.vue';
 import InputLabel from "@/components/InputLabel.vue";
+import { canPrintNonReceipt } from '@/stores/usePdf';
  
 const schoolStore = useSchoolStore();
 const { niveau, annee,classes,faculte,cours,professeur} = storeToRefs(schoolStore);
@@ -91,6 +92,7 @@ const fetchNiveauDetails = async () => {
 // le token et échouerait en 401/403 (motif déjà utilisé par
 // Rapport.vue:submitPdf pour les routes POST ; ici en GET avec params).
 const fetchAndOpenPdf = async (endpoint, params) => {
+  if (!canPrintNonReceipt(endpoint)) return;
   try {
     const token = localStorage.getItem("auth-token");
     const response = await axios.get(`${url}${endpoint}`, {

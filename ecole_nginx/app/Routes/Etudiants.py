@@ -19,7 +19,7 @@ from app.Models.MSystems import Personnel, Profile
 from typing import List, Optional
 from pydantic import BaseModel, EmailStr, field_validator
 from datetime import date, datetime  
-import base64, uuid, os  
+import base64, uuid, os, io
 from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create
 from app.Helper.pdf_personaliser import PDFGenerator
 from app.Helper.persistent_storage import BASE_DIR as STATIC_BASE_DIR, PROFILE_DIR
@@ -28,6 +28,7 @@ from app.Helper.audit_log import log_action
 import json
 from pydantic import Field
 from app.Helper.get_real_path import get_app_root
+from app.utils.students_email import send_admission_receipt_email
 
 
 router = APIRouter(prefix="/api/v1", tags=["Étudiants"])
@@ -358,11 +359,17 @@ def store_etudiant(
     else:
         if not user_has_permission(current_user,"Ajouter etudiant",db):
             raise HTTPException(
-            status_code=403, 
+            status_code=403,
             detail=f"Action impossible : l'autorisation vous est refusée."
         )
 
-   
+    if data.email:
+        email_query = db.query(Etudiant.id).filter(Etudiant.email == data.email)
+        if data.id:
+            email_query = email_query.filter(Etudiant.id != data.id)
+        if db.query(email_query.exists()).scalar():
+            raise HTTPException(status_code=422, detail="Cet email est déjà utilisé par un autre étudiant.")
+
     niveau = db.query(Niveau).filter_by(id=data.niveau_id).first()
     if not niveau:
         raise HTTPException(404, "Niveau introuvable")
@@ -679,6 +686,23 @@ def store_etudiant(
             )
 
         db.commit()
+
+        if data.email:
+            try:
+                pdf_bytes = _build_fiche_inscription_pdf(etudiant.id, db)
+                send_admission_receipt_email(
+                    to_email=data.email,
+                    prenom=data.prenom,
+                    nom=data.nom,
+                    identifiant=etudiant.identifiant,
+                    pdf_bytes=pdf_bytes,
+                )
+            except Exception as e:
+                # Ne bloque jamais l'inscription si l'email échoue (SMTP down,
+                # adresse invalide côté serveur, etc.) — le postulant peut
+                # toujours télécharger sa fiche depuis la page de confirmation.
+                print(f"[WARN] Échec envoi fiche d'inscription à {data.email} : {e}")
+
         return {"success": "Opération réussie","identifiant":etudiant.identifiant,"id":etudiant.id}
 
     except Exception as e:
@@ -687,62 +711,23 @@ def store_etudiant(
         raise HTTPException(422, str(e))
 
 
-@router.delete("/delete-student/{student_id}")
-def delete_student(student_id: int, db: Session = Depends(get_db),current_user:User= Depends(get_current_user)):
-   
-    try:
-        # Utilisation d'un bloc de transaction
-        with db.begin():
-            # Supprimer les classes liées
-            db.query(ClasseEtudiant).filter(ClasseEtudiant.etudiant_id == student_id).delete()
-            
-            # Supprimer les responsables liés
-            # (Assure-toi que le modèle Responsable est importé)
-            db.query(Responsable).filter(Responsable.etudiant_id == student_id).delete()
-            
-            # Supprimer l'étudiant
-            student = db.query(Etudiant).get(student_id)
-            if student:
-                db.delete(student)
-            else:
-                raise HTTPException(status_code=404, detail="Étudiant introuvable 4")
-
-        log_action(
-            db, current_user.id, "Étudiant supprimé définitivement",
-            "Etudiant", str(student_id),
-        )
-        return {"success": "Opération réussie"}
-
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Erreur lors de la suppression: {str(e)}")
-    
-
 
 
 # router = APIRouter(prefix="/api/v1", tags=["PDF"])
 pdf_gen = PDFGenerator()
 
-# @router.get("/print-recu-inscrit/{student_id}")
-# @router.post("/print-recu-inscrit/{student_id}")
-# @router.api_route("/print-recu-inscrit/{student_id}", methods=["GET", "POST"])
-@router.api_route("/print-recu-inscrit/{student_id}", methods=["GET", "POST"], response_model=StudentShowResponse)
-def impression_fiche(student_id: str, db: Session = Depends(get_db),current_user:User= Depends(check_permission("Imprimer enregistrement"))):
-    # 1. Récupération de l'étudiant avec ses relations (équivalent de with())
-    # student = db.query(Etudiant).options(
-    #     joinedload(Etudiant.classes_etudiant).joinedload(ClasseEtudiant.classes),
-    #     joinedload(Etudiant.classes_etudiant).joinedload(ClasseEtudiant.niveaux),
-    #     joinedload(Etudiant.classes_etudiant).joinedload(ClasseEtudiant.annee_academiques)
-    # ).filter(Etudiant.id == student_id).first()
- 
 
+def _build_fiche_inscription_pdf(student_id: str, db: Session) -> bytes:
+    """Génère le PDF de la fiche d'inscription/reçu d'un étudiant.
+
+    Factorisé pour être réutilisé par la route d'impression (admin) ET
+    le téléchargement public juste après la soumission du formulaire
+    d'admission, ainsi que par l'envoi automatique par email.
+    """
     student = db.query(Etudiant).options(
-        # 1. Chargement de la partie "Classe" (ton code existant)
         joinedload(Etudiant.classes_etudiant).joinedload(ClasseEtudiant.classes),
         joinedload(Etudiant.classes_etudiant).joinedload(ClasseEtudiant.niveaux),
         joinedload(Etudiant.classes_etudiant).joinedload(ClasseEtudiant.annee_academiques),
-        
-        # 2. Chargement de la partie "Faculté" (la nouvelle table)
         joinedload(Etudiant.etudiant_facultes).joinedload(EtudiantFaculte.faculte),
         joinedload(Etudiant.etudiant_facultes).joinedload(EtudiantFaculte.niveaux),
         joinedload(Etudiant.etudiant_facultes).joinedload(EtudiantFaculte.annee_academiques),
@@ -752,21 +737,13 @@ def impression_fiche(student_id: str, db: Session = Depends(get_db),current_user
     if not student:
         raise HTTPException(status_code=404, detail="Étudiant non trouvé")
 
-    # 2. Logique pour récupérer les frais
     frais_prix = 1000  # Valeur par défaut
     if student.classes_etudiant:
-        # On prend le premier enregistrement de classe_etudiant (comme ton [0] en PHP)
         classe_info = student.classes_etudiant[0]
-        print('classe_info.niveau_id')
-        print(classe_info.niveau_id)
-        print(classe_info.annee_academique_id)
-        print('classe_info.niveau_id')
-        
         frais = db.query(FraisInscription).filter(
             FraisInscription.niveau_id == classe_info.niveau_id,
             FraisInscription.anneeAc == classe_info.annee_academique_id
         ).first()
-        
         if frais:
             frais_prix = frais.prix
     else:
@@ -775,40 +752,66 @@ def impression_fiche(student_id: str, db: Session = Depends(get_db),current_user
             FraisInscription.niveau_id == classe_info.niveau_id,
             FraisInscription.anneeAc == classe_info.annee_academique_id
         ).first()
-        
         if frais:
             frais_prix = frais.prix
 
+    info_ecole = db.query(Profile).first()
+    is_fac = len(student.etudiant_facultes) > 0
+
+    data = {
+        "data_student": student,
+        "date": datetime.now().strftime("%d/%m/%Y"),
+        "info": info_ecole,
+        "recu": {
+            "numero": "REC-000123",
+            "montant": frais_prix
+        },
+        "is_faculte": is_fac,
+    }
+
+    pdf_buffer = pdf_gen.generate_pdf_for_api_html(
+        template_file="inscrit.html",
+        data=data,
+        output_filename="inscrit.pdf"
+    )
+    return pdf_buffer.getvalue()
+
+
+@router.api_route("/print-recu-inscrit/{student_id}", methods=["GET", "POST"], response_model=StudentShowResponse)
+def impression_fiche(student_id: str, db: Session = Depends(get_db),current_user:User= Depends(check_permission("Imprimer enregistrement"))):
     try:
-        info_ecole = db.query(Profile).first()
-        is_fac = len(student.etudiant_facultes) > 0
-
-        data = {
-            "data_student": student,
-            "date": datetime.now().strftime("%d/%m/%Y"),
-            "info": info_ecole,
-            "recu": {
-                "numero": "REC-000123",
-                "montant": frais_prix
-            },
-            "is_faculte": is_fac,
-        }
-
-        # return data
-    
-        pdf_buffer = pdf_gen.generate_pdf_for_api_html(
-            template_file="inscrit.html",  # Votre template Jinja2
-            data=data,
-            output_filename="inscrit.pdf"
-        )
+        pdf_bytes = _build_fiche_inscription_pdf(student_id, db)
         return StreamingResponse(
-               pdf_buffer,
+               io.BytesIO(pdf_bytes),
                media_type="application/pdf",
                headers={
                     "Content-Disposition": "attachment; filename=inscrit.pdf"
                }
           )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
+
+@router.api_route("/public-recu-inscription/{student_id}", methods=["GET", "POST"])
+def impression_fiche_publique(student_id: str, db: Session = Depends(get_db)):
+    """Téléchargement du reçu/fiche d'inscription juste après la soumission
+    du formulaire d'admission public — sans authentification, contrairement
+    à /print-recu-inscrit (réservé au personnel pour les réimpressions).
+    L'id étudiant (UUID) n'est communiqué qu'au postulant lui-même à l'issue
+    de sa propre soumission, comme une page de confirmation de commande."""
+    try:
+        pdf_bytes = _build_fiche_inscription_pdf(student_id, db)
+        return StreamingResponse(
+               io.BytesIO(pdf_bytes),
+               media_type="application/pdf",
+               headers={
+                    "Content-Disposition": "attachment; filename=fiche-inscription.pdf"
+               }
+          )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     

@@ -21,10 +21,10 @@ PAYMENT_TEST_MODE = os.environ.get("PAYMENT_TEST_MODE", "false").lower() == "tru
 
 def _valider_paiement(payment: Payment, db: Session) -> dict:
     """Marque un paiement comme réussi et génère la clé d'activation
-    correspondante. Cumule les jours restants du plan actuel s'il n'est pas
-    encore expiré, pour qu'un renouvellement anticipé n'efface jamais les
-    jours déjà payés (sinon generate_activation_key recalcule toujours depuis
-    aujourd'hui)."""
+    correspondante. Le nouveau cycle part TOUJOURS de la date d'expiration de
+    la dernière clé (même si elle est déjà expirée) plutôt que de la date du
+    paiement — sur demande explicite et répétée : un renouvellement tardif ne
+    doit pas décaler le cycle sur la date de paiement."""
     client = db.query(Client).filter(Client.id == payment.client_id).first()
 
     aujourdhui = datetime.utcnow().date()
@@ -37,9 +37,7 @@ def _valider_paiement(payment: Payment, db: Session) -> dict:
     )
     if cle_courante:
         try:
-            expiration_courante = datetime.strptime(cle_courante.expiration_date, "%Y-%m-%d").date()
-            if expiration_courante > base_date:
-                base_date = expiration_courante
+            base_date = datetime.strptime(cle_courante.expiration_date, "%Y-%m-%d").date()
         except (ValueError, TypeError):
             pass
 

@@ -8,6 +8,8 @@ class PageSectionBase(BaseModel):
     titre:       Optional[str]  = None
     sous_titre:  Optional[str]  = None
     description: Optional[str]  = None
+    layout:      Optional[str]  = None
+    image_url:   Optional[str]  = None
     is_visible:  Optional[bool] = True
     ordre:       Optional[int]  = 0
     items:       Optional[List[Any]] = []
@@ -19,6 +21,8 @@ class PageSectionUpdate(BaseModel):
     titre:       Optional[str]       = None
     sous_titre:  Optional[str]       = None
     description: Optional[str]       = None
+    layout:      Optional[str]       = None
+    image_url:   Optional[str]       = None
     is_visible:  Optional[bool]      = None
     ordre:       Optional[int]       = None
     items:       Optional[List[Any]] = None

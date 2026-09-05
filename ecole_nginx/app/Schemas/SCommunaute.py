@@ -8,6 +8,15 @@ class AudienceType(str, enum.Enum):
     classe      = "classe"
     professeurs = "professeurs"
 
+class ContactMessage(BaseModel):
+    prenom: str
+    nom:    str
+    email:  str
+    objet:  str = "Demande d'information"
+    tel:    Optional[str] = None
+    msg:    str
+
+
 class CategoryCreate(BaseModel):
     name: str
 
@@ -75,6 +84,27 @@ class NewsResponse(BaseModel):
     is_published: bool
     published_at: Optional[datetime]
     category:     Optional[CategoryResponse]
+    created_at:   datetime
+
+    class Config:
+        from_attributes = True
+
+
+class VideoCreate(BaseModel):
+    titre:        str
+    source:       Optional[str] = None
+    youtube_url:  str
+    is_published: bool = True
+
+class VideoUpdate(VideoCreate):
+    pass
+
+class VideoResponse(BaseModel):
+    id:           str
+    titre:        str
+    source:       Optional[str]
+    youtube_url:  str
+    is_published: bool
     created_at:   datetime
 
     class Config:

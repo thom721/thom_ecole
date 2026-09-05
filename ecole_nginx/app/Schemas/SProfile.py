@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr,computed_field
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime 
 from app.config.Config import BASE_URL
 import base64 
@@ -38,6 +38,11 @@ def save_base64_image(base64_str: str, output_dir: str, filename: str) -> str:
     return file_path
 
 
+class HoraireItem(BaseModel):
+    jour: str
+    horaire: str
+
+
 class ProfileBase(BaseModel):
     nom: str
     email: EmailStr
@@ -50,6 +55,12 @@ class ProfileBase(BaseModel):
     logo_image_path: str
     logo_image_base64: Optional[str] = None
     school_url: Optional[str] = None
+    whatsapp_url: Optional[str] = None
+    facebook_url: Optional[str] = None
+    tiktok_url: Optional[str] = None
+    youtube_url: Optional[str] = None
+    horaires: Optional[List[HoraireItem]] = None
+    inscription: Optional[bool] = False
     is_receive_arriere: Optional[bool] = False
     age_minimum_inscription: Optional[int] = 1
 

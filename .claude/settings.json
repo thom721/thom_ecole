@@ -258,7 +258,8 @@
       "Bash(python3 -c \"import ast; ast.parse\\(open\\('app/Models/MFinancials.py'\\).read\\(\\)\\)\")",
       "Bash(DB_PORT=3307 DB_PASSWORD=ecole360_root python3 /private/tmp/claude-501/-Users-kikipllc-development-school/9b38d463-2f38-4f6d-9e22-c167314efca7/scratchpad/test_payroll_logging.py)",
       "Bash(python3 -c \"import ast; ast.parse\\(open\\('app/Observers/global_observer.py'\\).read\\(\\)\\)\")",
-      "Bash(grep -n \"Text\\(\\\\s*$\\\\|_resourceLabel\\(p.name\" lib/screens/profile/tabs/permission_assignment_tab.dart)"
+      "Bash(grep -n \"Text\\(\\\\s*$\\\\|_resourceLabel\\(p.name\" lib/screens/profile/tabs/permission_assignment_tab.dart)",
+      "Bash(curl -s http://localhost:4174/facultes)"
     ],
     "additionalDirectories": [
       "/Users/kikipllc/development/school/ecole_nginx/.git",

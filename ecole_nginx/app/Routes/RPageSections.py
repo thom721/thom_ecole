@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
@@ -6,8 +6,12 @@ from app.Schemas.SPageSection import PageSectionCreate, PageSectionUpdate, PageS
 from app.services import page_section_service
 from app.dependencies.Dependencie import require_role
 from app.Models.MModels import User
+from app.Helper.persistent_storage import PAGE_SECTIONS_DIR
+import os, shutil, uuid
 
 router = APIRouter(prefix="/api/v1/page-sections", tags=["Page Sections"])
+UPLOAD_DIR = str(PAGE_SECTIONS_DIR)
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # ── Public ────────────────────────────────────────────────────────────────
 @router.get("/{page}", response_model=List[PageSectionResponse])
@@ -53,6 +57,23 @@ def toggle_section(
     if not s:
         raise HTTPException(status_code=404, detail="Section introuvable")
     return s
+
+@router.post("/upload-image")
+def upload_image(
+    file: UploadFile = File(...),
+    _: User = Depends(require_role(['admin']))
+):
+    """Upload générique pour une image d'item de section (ex: activities) —
+    l'image ne vit pas dans une colonne dédiée comme Formation.image_url,
+    mais dans le JSON `items` de la section, donc pas d'id de ligne à
+    associer ici : on renvoie juste l'URL, le frontend la stocke dans le
+    bon item avant d'enregistrer (voir saveItem() dans HomeView.vue)."""
+    ext = file.filename.split(".")[-1]
+    filename = f"{uuid.uuid4()}.{ext}"
+    disk_path = os.path.join(UPLOAD_DIR, filename)
+    with open(disk_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    return {"image_url": f"/static/uploads/page_sections/{filename}"}
 
 @router.delete("/{section_id}")
 def delete_section(
