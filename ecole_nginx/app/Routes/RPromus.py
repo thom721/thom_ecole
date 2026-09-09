@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends, Request, BackgroundTasks
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
@@ -13,6 +13,7 @@ from app.Models.MRelations import ClasseEtudiant,EtudiantFaculte,Responsable,Pie
 from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role,first_or_update_safe
 from app.Helper.context import UserContext
 from app.Helper.audit_log import log_action
+from app.Helper.elearning_webhook import notify_enrollment_changed
 
 logger = logging.getLogger(__name__)
  
@@ -443,6 +444,7 @@ async def get_promus(
 async def store_promotion(
     request: StorePromotionRequest,
     req: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -530,6 +532,11 @@ async def store_promotion(
         # ne revoit pas la première tant que la transaction n'est pas
         # validée, voir SessionLocal(autoflush=False) dans database.py).
         deja_traites = set()
+        # Synchronisation temps réel vers elearning-iusth (voir plan Épic
+        # 20) — un seul webhook groupé pour tout le lot après le commit,
+        # jamais un appel par étudiant (cette boucle peut en compter des
+        # centaines).
+        _enrollment_changes: list[dict] = []
 
         for row in student_list:
             if row.etudiant_id in deja_traites:
@@ -572,6 +579,7 @@ async def store_promotion(
                     niveau_id=request.niveau_future
                 )
                 promus_count += 1
+                _enrollment_changes.append({"etudiant_id": row.etudiant_id, "classes_id": request.classe_future, "status": True})
             else:
                 # Étudiant redoublant → même classe
                 update_or_create_classes_etudiant(
@@ -582,6 +590,7 @@ async def store_promotion(
                     niveau_id=request.niveau_id
                 )
                 redoublants_count += 1
+                _enrollment_changes.append({"etudiant_id": row.etudiant_id, "classes_id": request.classes_id, "status": True})
 
         # Aide financière (bourse) réévaluée à la promotion : appliquée dans
         # la même transaction que le déplacement de classe, sur la table
@@ -616,6 +625,8 @@ async def store_promotion(
                 old_values={"aide_financiere": ancienne_valeur},
                 new_values={"aide_financiere": nouvelle_valeur},
             )
+        if _enrollment_changes:
+            background_tasks.add_task(notify_enrollment_changed, db, request.annee_academique_future, _enrollment_changes)
 
         return {
             "success": "Opération réussie",

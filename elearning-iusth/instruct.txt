@@ -1,0 +1,48 @@
+rsync -avz --delete \
+  --exclude="frontend" \
+  --exclude="deploy" \
+  --exclude="jitsi-config" \
+  --exclude=".env" \
+  --exclude="__pycache__" \
+  --exclude="*.pyc" \
+  /Users/kikipllc/development/school/elearning-iusth/ \
+  ssh root@82.29.153.24:/opt/elearning/
+
+
+/opt/elearning/app/
+/opt/elearning/docker-compose.yml
+/opt/elearning/docker-compose.jitsi.yml
+/opt/elearning/Dockerfile
+/opt/elearning/entrypoint.sh
+/opt/elearning/.env.production
+...
+
+
+docker compose up -d
+docker compose -f docker-compose.yml -f docker-compose.jitsi.yml up -d
+
+docker exec elearning-mysql-1 mysql -uroot -p"$(grep ^MYSQL_ROOT_PASSWORD .env | cut -d= -f2)" elearning_iusth \
+  -e "SELECT email, system_role, must_change_password FROM users WHERE system_role='admin';"
+3. La vraie preuve — se connecter réellement via l'API (avec l'email/mot de passe de BOOTSTRAP_ADMIN_EMAIL/BOOTSTRAP_ADMIN_PASSWORD de votre .env) :
+
+
+curl -s -X POST https://elearning.infini-software.cloud/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@iusth.edu.ht","password":"VOTRE_MOT_DE_PASSE_BOOTSTRAP"}'
+
+
+  # 1. Copier le fichier sur le serveur
+scp deploy/nginx-meet.iusth.edu.ht.conf root@srv817831:/etc/nginx/sites-available/meet.iusth.edu.ht
+
+# 2. Sur le serveur : activer le vhost (le bloc port 80 seul, le temps d'obtenir le certificat —
+#    commentez temporairement le bloc "listen 443 ssl..." si nginx -t échoue à cause du
+#    certificat pas encore présent)
+ln -s /etc/nginx/sites-available/meet.iusth.edu.ht /etc/nginx/sites-enabled/
+nginx -t && systemctl reload nginx
+
+# 3. Obtenir le certificat
+certbot certonly --webroot -w /var/www/certbot -d meet.iusth.edu.ht
+
+# 4. Remettre le bloc 443 (ou re-télécharger le fichier complet depuis le repo), puis
+nginx -t && systemctl reload nginx
+

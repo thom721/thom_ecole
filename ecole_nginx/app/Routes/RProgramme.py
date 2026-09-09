@@ -1,6 +1,7 @@
 
 # routes/Programme_routes.py
-from fastapi import APIRouter, Depends, HTTPException, Query, Request,status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request,status, BackgroundTasks
+from app.Helper.elearning_webhook import notify_programme_changed
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy import desc, asc, or_, and_,distinct,select
 import math
@@ -263,6 +264,7 @@ def get_programme(programme_id: str, db: Session = Depends(get_db)):
 @router.post("/programme")
 def store_programme(
     payload: ProgrammeCoursRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -355,10 +357,17 @@ def store_programme(
                     detail="Non autorisé à ajouter un programme"
                 )
 
+    # Synchronisation temps réel vers elearning-iusth (voir plan Épic 20)
+    # — regroupé par année académique, un seul webhook par année présente
+    # dans ce lot, jamais un appel par programme.
+    _professeur_changes_by_annee: dict[str, list[dict]] = {}
+
     try:
-        for item in programme_items: 
+        for item in programme_items:
             item_passage = item.note_de_passage if item.note_de_passage not in (None, '') else 0
             if item.id:
+                existing_programme = db.query(Programme).filter(Programme.id == item.id).first()
+                professeur_changed = existing_programme is not None and existing_programme.professeur_id != item.professeur_id
                 db.query(Programme).filter(Programme.id == item.id).update({
                     "Cours_id": item.cours_id,
                     "niveau_id": item.niveau_id,
@@ -372,6 +381,10 @@ def store_programme(
                     "session": item.session,
                     "class_": item.class_,
                 })
+                if professeur_changed and item.professeur_id:
+                    _professeur_changes_by_annee.setdefault(item.annee_academique, []).append(
+                        {"programme_id": item.id, "professeur_id": item.professeur_id}
+                    )
             else:
                 # CREATE (équivalent firstOrCreate)
                 exists = db.query(Programme).filter(
@@ -396,8 +409,15 @@ def store_programme(
                         coefficients=item.coefficients,
                     )
                     db.add(programme)
+                    db.flush()
+                    if item.professeur_id:
+                        _professeur_changes_by_annee.setdefault(item.annee_academique, []).append(
+                            {"programme_id": programme.id, "professeur_id": item.professeur_id}
+                        )
 
         db.commit()
+        for annee_id, changes in _professeur_changes_by_annee.items():
+            background_tasks.add_task(notify_programme_changed, db, annee_id, changes)
         return {"success": "Opération réussie"}
 
     except Exception as e:

@@ -1,0 +1,832 @@
+{
+  "common": {
+    "back": "← Retour",
+    "backToMyCourses": "← Mes cours",
+    "cancel": "Annuler",
+    "create": "Créer",
+    "add": "Ajouter",
+    "remove": "Retirer",
+    "save": "Enregistrer",
+    "loading": "Chargement…",
+    "error": "Erreur",
+    "points": "points",
+    "pts": "pts",
+    "uncategorized": "Non catégorisé",
+    "none": "—",
+    "section": "Section",
+    "student": "Étudiant",
+    "students": "Étudiants",
+    "teacher": "Professeur",
+    "admin": "Admin",
+    "email": "Email",
+    "password": "Mot de passe",
+    "title": "Titre",
+    "logout": "Déconnexion"
+  },
+
+  "auth": {
+    "login": {
+      "brand": "IUSTH",
+      "heroTitle": "La plateforme d'apprentissage en ligne de l'IUSTH",
+      "heroSubtitle": "Cours, devoirs, quiz, forums et carnet de notes réunis au même endroit pour les étudiants et le corps professoral.",
+      "heroFeature1": "Cours et ressources organisés par section",
+      "heroFeature2": "Devoirs et quiz avec correction et suivi des notes",
+      "heroFeature3": "Forums de discussion et calendrier de cours",
+      "welcomeBack": "Bon retour",
+      "subtitle": "Connectez-vous à IUSTH e-learning",
+      "email": "Email",
+      "password": "Mot de passe",
+      "showPassword": "Afficher le mot de passe",
+      "hidePassword": "Masquer le mot de passe",
+      "forgotPassword": "Mot de passe oublié ?",
+      "submit": "Se connecter",
+      "submitting": "Connexion…",
+      "invalidCredentials": "Identifiants invalides",
+      "resetSuccess": "Mot de passe réinitialisé avec succès. Vous pouvez vous connecter.",
+      "cookiesLabel": "Confidentialité et stockage local",
+      "cookiesBody": "Cette plateforme ne dépose aucun cookie tiers ni publicitaire. Un seul jeton de connexion (JWT) est conservé dans le stockage local de votre navigateur, uniquement pour vous garder connecté·e — il est supprimé à la déconnexion."
+    },
+    "forgotPassword": {
+      "title": "Mot de passe oublié",
+      "subtitle": "Indiquez votre email de connexion, un lien de réinitialisation vous sera envoyé s'il correspond à un compte.",
+      "email": "Email",
+      "submit": "Envoyer le lien de réinitialisation",
+      "submitting": "Envoi…",
+      "error": "Erreur lors de l'envoi",
+      "backToLogin": "← Retour à la connexion"
+    },
+    "resetPassword": {
+      "title": "Choisir un nouveau mot de passe",
+      "newPassword": "Nouveau mot de passe",
+      "confirmPassword": "Confirmer le nouveau mot de passe",
+      "submit": "Définir le nouveau mot de passe",
+      "submitting": "Enregistrement…",
+      "passwordMismatch": "Les deux mots de passe ne correspondent pas",
+      "error": "Erreur lors de la réinitialisation",
+      "invalidLink": "Lien de réinitialisation manquant ou invalide.",
+      "requestNewLink": "Demander un nouveau lien"
+    },
+    "changePassword": {
+      "title": "Nouveau mot de passe requis",
+      "subtitle": "Votre compte a été créé automatiquement avec un mot de passe temporaire. Choisissez-en un nouveau avant de continuer.",
+      "currentPassword": "Mot de passe temporaire (communiqué par l'établissement)",
+      "newPassword": "Nouveau mot de passe",
+      "confirmPassword": "Confirmer le nouveau mot de passe",
+      "submit": "Définir le nouveau mot de passe",
+      "submitting": "Enregistrement…",
+      "passwordMismatch": "Les deux mots de passe ne correspondent pas",
+      "error": "Erreur lors du changement de mot de passe"
+    }
+  },
+
+  "layout": {
+    "studentBrand": "IUSTH e-learning",
+    "teacherBrand": "IUSTH e-learning — Professeur",
+    "adminBrand": "IUSTH e-learning — Admin",
+    "menuToggle": "Menu",
+    "backToAdmin": "← Retour à l'administration",
+    "navCourses": "Cours",
+    "navCalendar": "Calendrier",
+    "navPlans": "Plans",
+    "navCategories": "Catégories",
+    "navUsers": "Utilisateurs",
+    "navIntegrationImport": "Import ecole_nginx",
+    "navStudentActivation": "Activation étudiants"
+  },
+
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Tout marquer comme lu",
+    "empty": "Aucune notification."
+  },
+
+  "notFound": {
+    "title": "Page introuvable",
+    "backHome": "Retour à l'accueil"
+  },
+
+  "admin": {
+    "categories": {
+      "title": "Catégories",
+      "namePlaceholder": "Nom",
+      "slugPlaceholder": "slug"
+    },
+    "courses": {
+      "title": "Tous les cours",
+      "newCourse": "+ Nouveau cours",
+      "shortNamePlaceholder": "Code (short_name)",
+      "fullNamePlaceholder": "Nom complet",
+      "summaryPlaceholder": "Résumé",
+      "searchPlaceholder": "Rechercher un cours (nom ou code)…",
+      "resultsCount": "{total} cours",
+      "noResults": "Aucun cours ne correspond à cette recherche.",
+      "prevPage": "← Précédent",
+      "nextPage": "Suivant →",
+      "pageOf": "Page {page} / {pages}"
+    },
+    "users": {
+      "title": "Utilisateurs",
+      "createTitle": "Créer un utilisateur",
+      "firstNamePlaceholder": "Prénom",
+      "lastNamePlaceholder": "Nom",
+      "emailPlaceholder": "Email",
+      "passwordPlaceholder": "Mot de passe",
+      "roleStudent": "Étudiant",
+      "roleTeacher": "Professeur",
+      "roleAdmin": "Admin",
+      "colName": "Nom",
+      "colEmail": "Email",
+      "colRole": "Rôle",
+      "colStatus": "Statut",
+      "statusActive": "actif",
+      "statusDisabled": "désactivé",
+      "deactivate": "Désactiver"
+    },
+    "integrationImport": {
+      "title": "Importer les cours depuis ecole_nginx",
+      "subtitle": "Récupère les vrais programmes (matière + professeur + année) déjà saisis dans le système de gestion scolaire.",
+      "yearLabel": "Année académique",
+      "yearPlaceholder": "Choisir une année…",
+      "importButton": "Importer",
+      "importing": "Import en cours…",
+      "resultSummary": "{created} cours créé(s), {updated} mis à jour.",
+      "accountsCreatedTitle": "{count} compte(s) professeur créé(s) automatiquement — mot de passe temporaire, à communiquer ; réinitialisation obligatoire à la première connexion :",
+      "warningsTitle": "Avertissements (aucun email connu) :",
+      "unreachableError": "Impossible de contacter ecole_nginx",
+      "importError": "Erreur lors de l'import",
+      "credentialsSyncTitle": "Synchroniser les identifiants professeurs/personnel",
+      "credentialsSyncSubtitle": "Crée un compte elearning-iusth avec le même email et le même mot de passe qu'ecole_nginx pour chaque professeur/personnel qui n'en a pas encore — un compte déjà existant n'est jamais modifié.",
+      "syncButton": "Synchroniser",
+      "syncing": "Synchronisation en cours…",
+      "syncError": "Erreur lors de la synchronisation",
+      "credentialsCreated": "{count} compte(s) créé(s) :",
+      "credentialsSkipped": "{count} compte(s) déjà existant(s), ignoré(s)."
+    },
+    "studentActivation": {
+      "title": "Activation étudiants (ecole_nginx)",
+      "subtitle": "Active un étudiant réel de ecole_nginx dans elearning-iusth et l'inscrit automatiquement aux cours de sa classe/année déjà importés. L'import de cours doit avoir été fait au préalable pour cette année.",
+      "classeLabel": "Classe",
+      "classePlaceholder": "Choisir une classe…",
+      "emailPlaceholder": "email de connexion",
+      "activateButton": "Activer",
+      "activating": "Activation…",
+      "accountCreated": "Compte créé",
+      "accountExisting": "Compte déjà existant",
+      "enrolledCount": "{count} cours inscrit(s)",
+      "activateError": "Erreur lors de l'activation"
+    },
+    "roles": {
+      "navLink": "Rôles et permissions",
+      "title": "Rôles et permissions",
+      "subtitle": "Affine ce qu'un compte admin précis peut faire, au-delà du rôle admin de base — par exemple lancer une réunion du personnel.",
+      "rolesListTitle": "Rôles existants",
+      "noPermissions": "Aucune permission",
+      "addRole": "+ Ajouter un rôle",
+      "assignTitle": "Attribuer un rôle",
+      "emailPlaceholder": "email du compte admin",
+      "chooseRole": "Choisir un rôle…",
+      "assignButton": "Attribuer",
+      "userNotFound": "Aucun compte trouvé avec cet email",
+      "assignedSuccess": "Rôle attribué avec succès",
+      "assignError": "Erreur lors de l'attribution"
+    }
+  },
+
+  "student": {
+    "courseList": {
+      "title": "Mes cours",
+      "empty": "Vous n'êtes inscrit à aucun cours pour le moment."
+    },
+    "courseDetail": {
+      "myGrades": "📊 Mes notes",
+      "calendar": "📅 Calendrier",
+      "progress": "Progression : {percent}%",
+      "done": "Terminé",
+      "outOfPoints": "Sur {points} points",
+      "noTimeLimit": "Sans limite de temps",
+      "minutes": "{count} min"
+    },
+    "assignmentSubmit": {
+      "grade": "Note : {grade}",
+      "title": "Soumettre le devoir",
+      "answerLabel": "Réponse",
+      "fileLabel": "Fichier (optionnel)",
+      "submit": "Envoyer",
+      "submitSuccess": "Devoir soumis avec succès.",
+      "submitError": "Erreur lors de la soumission"
+    },
+    "quizTake": {
+      "maxAttemptsReached": "Nombre maximum de tentatives atteint",
+      "status": "Statut : {status}",
+      "score": "Note : {score} / {max}",
+      "graded": "Note : {score} / {max}",
+      "pendingManualGrading": "En attente de correction manuelle",
+      "title": "Quiz",
+      "yourAnswer": "Votre réponse : {answer}",
+      "correct": "Correct",
+      "incorrect": "Incorrect",
+      "awardedOf": "{awarded} / {points} points",
+      "awaitingCorrection": "En attente de correction",
+      "noAnswer": "(aucune réponse)",
+      "noAnswerShort": "(aucune)",
+      "answerPlaceholder": "réponse",
+      "numericAnswerPlaceholder": "votre réponse",
+      "orderingHint": "Utilisez les flèches pour remettre les éléments dans le bon ordre.",
+      "dragDropHint": "Glissez chaque élément sur la zone qui lui correspond.",
+      "submitQuiz": "Soumettre le quiz"
+    },
+    "grades": {
+      "title": "Mes notes",
+      "finalGrade": "Note finale"
+    }
+  },
+
+  "teacher": {
+    "courseList": {
+      "title": "Mes cours",
+      "importCourse": "+ Importer un cours",
+      "newCourse": "+ Nouveau cours",
+      "shortNameLabel": "Code (short_name)",
+      "fullNameLabel": "Nom complet",
+      "summaryLabel": "Résumé",
+      "empty": "Aucun cours pour le moment."
+    },
+    "courseDetail": {
+      "gradebook": "📊 Carnet de notes",
+      "calendar": "📅 Calendrier",
+      "completion": "✓ Achèvement",
+      "accessLog": "🔍 Journal d'accès",
+      "export": "⬇ Exporter",
+      "enrolledStudents": "Étudiants inscrits",
+      "unenroll": "Retirer",
+      "enrollEmailPlaceholder": "email de l'étudiant",
+      "enroll": "Inscrire",
+      "enrollError": "Erreur lors de l'inscription",
+      "addResource": "+ Ajouter une ressource (page)",
+      "addAssignment": "+ Ajouter un devoir",
+      "addQuiz": "+ Ajouter un quiz",
+      "addForum": "+ Ajouter un forum",
+      "addChoice": "+ Ajouter un sondage",
+      "choiceOptionsPlaceholder": "options, séparées par des virgules",
+      "choiceAllowMultiple": "Autoriser plusieurs choix",
+      "addGlossary": "+ Ajouter un glossaire",
+      "glossaryAllowStudentEntries": "Les étudiants peuvent ajouter des entrées",
+      "glossaryRequireApproval": "Validation par l'enseignant requise",
+      "addWiki": "+ Ajouter un wiki",
+      "addSection": "+ Ajouter une section",
+      "titlePlaceholder": "titre",
+      "contentPlaceholder": "contenu",
+      "pointsPlaceholder": "points",
+      "quizMinutesPlaceholder": "minutes (vide = illimité)",
+      "sectionTitlePlaceholder": "titre de la section",
+      "manage": "Gérer →",
+      "grade": "Corriger"
+    },
+    "assignmentGrading": {
+      "title": "Corriger les soumissions",
+      "empty": "Aucune soumission pour le moment.",
+      "student": "Étudiant : {id}",
+      "noText": "(pas de texte)",
+      "attachedFile": "Fichier joint : {path}",
+      "gradePlaceholder": "note",
+      "feedbackPlaceholder": "commentaire",
+      "gradeButton": "Noter",
+      "alreadyGraded": "Déjà noté : {grade}"
+    },
+    "quizBuilder": {
+      "viewAttempts": "Voir les tentatives / corriger",
+      "fixedQuestions": "Questions fixes",
+      "chooseQuestion": "Choisir une question…",
+      "randomDraw": "Tirage aléatoire",
+      "questionsFromCategory": "{count} question(s) de \"{category}\"",
+      "categoryPlaceholder": "Catégorie…",
+      "countPlaceholder": "nombre",
+      "questionBank": "+ Créer une question dans la banque",
+      "newCategoryPlaceholder": "nouvelle catégorie",
+      "addCategory": "+ Catégorie",
+      "categoryOptional": "Catégorie (optionnel)",
+      "typeMultipleChoice": "QCM",
+      "typeTrueFalse": "Vrai / Faux",
+      "typeShortAnswer": "Réponse courte",
+      "typeEssay": "Essai",
+      "typeMatching": "Appariement",
+      "typeNumerical": "Numérique",
+      "typeCalculated": "Calculée",
+      "typeMultianswer": "Texte à trous (cloze)",
+      "typeOrdering": "Remise en ordre",
+      "typeDragAndDrop": "Glisser-déposer",
+      "questionTextPlaceholder": "énoncé",
+      "clozeTextHint": "énoncé — utilisez [0], [1]... pour repérer chaque sous-question ci-dessous",
+      "optionPlaceholder": "option",
+      "correctLabel": "correcte",
+      "addOption": "+ option",
+      "acceptedAnswersPlaceholder": "réponses acceptées, séparées par des virgules",
+      "matchLeftPlaceholder": "élément",
+      "matchRightPlaceholder": "correspond à",
+      "orderingHint": "Saisissez les éléments dans le BON ordre — c'est cet ordre qui sera la référence de correction.",
+      "numericalValuePlaceholder": "valeur",
+      "tolerancePlaceholder": "tolérance",
+      "addAcceptedValue": "+ valeur acceptée",
+      "calculatedHint": "La formule utilise les mêmes variables {x}/{y}... que l'énoncé, ex. \"{x}+{y}\". Chaque variable doit avoir le même nombre de valeurs candidates.",
+      "calculatedFormulaPlaceholder": "formule de correction, ex. {x}+{y}",
+      "variableNamePlaceholder": "nom (ex. x)",
+      "variableValuesPlaceholder": "valeurs candidates, séparées par des virgules",
+      "addVariable": "+ variable",
+      "clozeHint": "Une ligne par sous-question, dans l'ordre où elles apparaissent dans l'énoncé ([0], [1]...).",
+      "mcOptionsPlaceholder": "options, séparées par des virgules",
+      "mcCorrectIndexPlaceholder": "index de la bonne option (0 = la première)",
+      "addClozePart": "+ sous-question",
+      "createQuestion": "Créer la question"
+    },
+    "quizGrading": {
+      "title": "Tentatives",
+      "empty": "Aucune tentative pour le moment.",
+      "student": "Étudiant : {id}",
+      "score": "Note : {score} / {max}",
+      "gradeEssays": "Corriger les essais",
+      "noAnswer": "(pas de réponse)",
+      "pointsPlaceholder": "points",
+      "feedbackPlaceholder": "commentaire",
+      "gradeButton": "Noter"
+    },
+    "gradebook": {
+      "title": "Carnet de notes",
+      "student": "Étudiant",
+      "subtotal": "Sous-total",
+      "finalGrade": "Note finale",
+      "variable": "variable",
+      "addCategory": "+ Ajouter une catégorie de notes",
+      "categoryNamePlaceholder": "nom",
+      "categoryWeightPlaceholder": "poids %",
+      "addManualGrade": "+ Ajouter une note manuelle",
+      "itemTitlePlaceholder": "titre",
+      "maxPointsPlaceholder": "points max"
+    },
+    "completionReport": {
+      "title": "Achèvement du cours",
+      "student": "Étudiant",
+      "progress": "Progression",
+      "completedCount": "Complétés"
+    },
+    "accessLog": {
+      "title": "Journal d'accès",
+      "byContent": "Par contenu",
+      "colContent": "Contenu",
+      "colType": "Type",
+      "colViews": "Vues",
+      "colUniqueStudents": "Étudiants uniques",
+      "colLastAccess": "Dernier accès",
+      "byStudent": "Par étudiant",
+      "colStudent": "Étudiant",
+      "colTotalViews": "Vues totales"
+    },
+    "courseImport": {
+      "title": "Importer un cours",
+      "fileLabel": "Fichier d'export (.json)",
+      "shortNameLabel": "Code du nouveau cours (short_name)",
+      "fullNameLabel": "Nom complet (optionnel, sinon celui de l'export)",
+      "importButton": "Importer",
+      "invalidJson": "Fichier JSON invalide",
+      "missingFields": "Choisissez un fichier et un code de cours",
+      "importError": "Erreur lors de l'import",
+      "importedTitle": "Cours importé : {name}",
+      "openCourse": "Ouvrir le cours →",
+      "warningsTitle": "Avertissements :"
+    }
+  },
+
+  "forum": {
+    "newDiscussion": "+ Nouvelle discussion",
+    "titlePlaceholder": "titre",
+    "messagePlaceholder": "message",
+    "publish": "Publier",
+    "postCount": "{count} message(s)",
+    "subscribed": "🔔 Abonné",
+    "subscribe": "🔕 S'abonner",
+    "replyPlaceholder": "répondre à ce message",
+    "reply": "Répondre"
+  },
+
+  "choice": {
+    "noAnswerOption": "Aucune réponse",
+    "respond": "Répondre",
+    "updateResponse": "Modifier ma réponse",
+    "alreadyAnswered": "Votre réponse a été enregistrée.",
+    "resultsTitle": "Résultats",
+    "resultsHidden": "Les résultats ne sont pas encore visibles."
+  },
+
+  "glossary": {
+    "addEntry": "+ Ajouter une entrée",
+    "conceptPlaceholder": "concept",
+    "definitionPlaceholder": "définition",
+    "pending": "En attente de validation",
+    "approve": "Approuver",
+    "empty": "Aucune entrée pour le moment."
+  },
+
+  "wiki": {
+    "history": "Historique",
+    "edit": "Modifier",
+    "emptyPage": "Cette page est encore vide.",
+    "editHint": "Contenu de la page — utilisez [[Nom de page]] pour lier une autre page du wiki.",
+    "readonly": "Cette page est en lecture seule.",
+    "createPage": "Créer cette page",
+    "createPageHint": "La page « {title} » n'existe pas encore.",
+    "version": "Version",
+    "date": "Date",
+    "compareFrom": "De",
+    "compareTo": "À",
+    "compare": "Comparer",
+    "modeCollaborative": "Collaboratif (une seule instance partagée)",
+    "modeIndividual": "Individuel (une instance par étudiant)",
+    "individualSubwikisTitle": "Choisir un wiki étudiant"
+  },
+
+  "groups": {
+    "navLink": "👥 Groupes",
+    "title": "Groupes et groupements",
+    "groups": "Groupes",
+    "groupings": "Groupements",
+    "namePlaceholder": "nom",
+    "memberEmailPlaceholder": "email du membre",
+    "modeNoGroups": "Aucun groupe",
+    "modeSeparate": "Groupes séparés",
+    "modeVisible": "Groupes visibles"
+  },
+
+  "cohorts": {
+    "navLink": "🏷️ Cohortes",
+    "title": "Cohortes",
+    "namePlaceholder": "nom"
+  },
+
+  "scales": {
+    "navLink": "🎚️ Échelles",
+    "title": "Échelles et notes-lettres",
+    "scalesTitle": "Échelles",
+    "namePlaceholder": "nom de l'échelle",
+    "levelPlaceholder": "libellé du niveau",
+    "addLevel": "+ niveau",
+    "siteWide": "site",
+    "lettersTitle": "Barème de lettres",
+    "lettersHint": "Aucune ligne configurée = barème par défaut (A≥90, B≥80, C≥70, D≥60, F≥0).",
+    "letterPlaceholder": "lettre",
+    "addLetter": "+ lettre",
+    "noScale": "Aucune échelle (points)"
+  },
+
+  "lesson": {
+    "navLink": "📘 Leçons",
+    "addLesson": "+ Ajouter une leçon",
+    "title": "Leçon",
+    "viewGrading": "Corriger les essais",
+    "settingsTitle": "Réglages",
+    "passwordPlaceholder": "mot de passe (vide = aucun)",
+    "maxAttemptsPlaceholder": "tentatives max par question (vide = illimité)",
+    "timeLimitPlaceholder": "minutes (vide = illimité)",
+    "allowRetake": "Autoriser à refaire la leçon",
+    "pagesTitle": "Pages",
+    "addPage": "+ Ajouter une page",
+    "typeContent": "Contenu",
+    "contentPlaceholder": "contenu de la page",
+    "defaultAnswerHint": "Si aucune réponse ne correspond, la DERNIÈRE de la liste sert de réponse par défaut.",
+    "addAnswer": "+ réponse",
+    "jumpNextPage": "Page suivante",
+    "jumpPreviousPage": "Page précédente",
+    "jumpSpecificPage": "Page précise…",
+    "jumpEndOfLesson": "Fin de la leçon",
+    "choosePage": "Choisir une page…",
+    "buttonLabelPlaceholder": "libellé du bouton",
+    "candidateAnswerPlaceholder": "réponse candidate",
+    "gradingTitle": "Correction des essais",
+    "gradingEmpty": "Aucun essai en attente de correction.",
+    "passwordPromptPlaceholder": "mot de passe (si requis)",
+    "start": "Commencer",
+    "completedScore": "Terminé — {score} / {max}",
+    "pendingManualGrading": "En attente de correction manuelle",
+    "answerButton": "Répondre",
+    "continueButton": "Continuer"
+  },
+
+  "workshop": {
+    "navLink": "🛠️ Atelier",
+    "addWorkshop": "+ Ajouter un atelier",
+    "viewGrading": "Corriger",
+    "phaseTitle": "Phase",
+    "switchPhase": "Passer à cette phase",
+    "phase": {
+      "setup": "Mise en place",
+      "submission": "Soumission",
+      "assessment": "Évaluation",
+      "evaluation": "Évaluation des évaluations",
+      "closed": "Fermé"
+    },
+    "strategy": {
+      "accumulative": "Cumulatif",
+      "comments": "Commentaires",
+      "numerrors": "Nombre d'erreurs",
+      "rubric": "Grille"
+    },
+    "gradeLabel": "Note max de soumission",
+    "gradinggradeLabel": "Note max de qualité d'évaluation",
+    "comparisonLabel": "Sévérité de comparaison (1-9)",
+    "usePeerAssessment": "Évaluation par les pairs",
+    "useSelfAssessment": "Auto-évaluation",
+    "dimensionsTitle": "Dimensions",
+    "dimensionDescriptionPlaceholder": "description de la dimension",
+    "weightPlaceholder": "poids",
+    "labelNoPlaceholder": "libellé « non »",
+    "labelYesPlaceholder": "libellé « oui »",
+    "levelDefinitionPlaceholder": "définition du niveau",
+    "addLevel": "+ niveau",
+    "addDimension": "+ dimension",
+    "numerrorsMapTitle": "Table nombre d'erreurs → %",
+    "numerrorsMapHint": "0 erreur vaut toujours 100%. Le palier défini le plus proche en dessous s'applique sinon.",
+    "allocationTitle": "Allocation des évaluations",
+    "byAuthor": "par {id}",
+    "byReviewer": "par {id}",
+    "chooseSubmission": "Choisir une soumission…",
+    "reviewerIdPlaceholder": "id de l'évaluateur",
+    "allocateRandom": "Répartir aléatoirement",
+    "gradingTitle": "Correction de l'atelier",
+    "computedGrade": "Note calculée : {percent}% — note finale : {final}",
+    "gradeOverridePlaceholder": "remplacer la note",
+    "receivedAssessments": "Évaluations reçues",
+    "qualityGrade": "qualité d'évaluation : {percent}%",
+    "gradinggradeOverridePlaceholder": "remplacer la note de qualité",
+    "feedbackReviewerPlaceholder": "retour à l'évaluateur",
+    "mySubmissionTitle": "Ma soumission",
+    "finalGrade": "Note finale : {grade} / {max}",
+    "noSubmissionYet": "Aucune soumission pour le moment.",
+    "myAssessmentsTitle": "Mes évaluations à faire",
+    "noAssessmentsAssigned": "Aucune évaluation ne vous a été assignée.",
+    "assessSubmission": "Évaluer cette soumission",
+    "peerCommentPlaceholder": "commentaire",
+    "feedbackAuthorPlaceholder": "retour à l'auteur",
+    "assessmentSaved": "Évaluation enregistrée."
+  },
+
+  "messaging": {
+    "tab": {
+      "conversations": "Conversations",
+      "contacts": "Contacts",
+      "blocked": "Bloqués",
+      "privacy": "Confidentialité"
+    },
+    "emailPlaceholder": "email",
+    "startConversation": "Démarrer",
+    "withUser": "avec {id}",
+    "noMessagesYet": "Aucun message.",
+    "conversationTitle": "Conversation",
+    "mute": "🔕 Mettre en sourdine",
+    "unmute": "🔔 Réactiver",
+    "messagePlaceholder": "votre message",
+    "send": "Envoyer",
+    "selectConversation": "Sélectionnez une conversation.",
+    "contactsTitle": "Mes contacts",
+    "requestsTitle": "Demandes de contact",
+    "direction": {
+      "incoming": "reçue",
+      "outgoing": "envoyée"
+    },
+    "accept": "Accepter",
+    "blockedTitle": "Utilisateurs bloqués",
+    "unblock": "Débloquer",
+    "privacyTitle": "Qui peut me contacter",
+    "privacy": {
+      "course_member": "Toute personne partageant un de mes cours",
+      "only_contacts": "Mes contacts uniquement",
+      "site": "N'importe qui sur la plateforme"
+    }
+  },
+
+  "badges": {
+    "navLink": "🏅 Badges",
+    "title": "Badges",
+    "myBadgesTitle": "Mes badges",
+    "addBadge": "+ Ajouter un badge",
+    "editCriteria": "Modifier les critères",
+    "addCriterion": "+ critère",
+    "criteriaType": {
+      "activity": "Achèvement d'une activité",
+      "course": "Achèvement complet du cours (100%)",
+      "grade": "Note finale minimale",
+      "cohort": "Appartenance à une cohorte"
+    },
+    "itemType": {
+      "resource": "Ressource",
+      "assignment": "Devoir",
+      "quiz": "Quiz",
+      "lesson": "Leçon",
+      "workshop": "Atelier"
+    },
+    "itemIdPlaceholder": "identifiant de l'activité",
+    "minPercentPlaceholder": "seuil %",
+    "cohortIdPlaceholder": "identifiant de la cohorte",
+    "awardEmailPlaceholder": "email de l'étudiant",
+    "awardManually": "Attribuer manuellement",
+    "reevaluate": "Réévaluer",
+    "descriptionPlaceholder": "description",
+    "emojiPlaceholder": "emoji",
+    "status": {
+      "draft": "Brouillon",
+      "active": "Actif",
+      "archived": "Archivé"
+    },
+    "earnedOn": "Obtenu le {date}",
+    "noBadges": "Aucun badge pour le moment."
+  },
+
+  "competency": {
+    "navLink": "🎯 Compétences",
+    "frameworksTitle": "Référentiels de compétences",
+    "addFramework": "+ Ajouter un référentiel",
+    "idnumberPlaceholder": "identifiant unique (idnumber)",
+    "scaleIdPlaceholder": "identifiant de l'échelle (optionnel)",
+    "addCompetency": "+ Ajouter une compétence",
+    "noParent": "Aucune (compétence racine)",
+    "proficientMinRankPlaceholder": "rang minimum pour \"maîtrisé\"",
+    "ruleType": {
+      "none": "Aucune règle automatique",
+      "all": "Toutes les activités liées",
+      "any": "Une seule des activités liées"
+    },
+    "ruleOutcome": {
+      "none": "Aucun résultat automatique",
+      "evidence": "Enregistrer une preuve seulement",
+      "complete": "Marquer maîtrisée"
+    },
+    "courseCompetenciesTitle": "Compétences du cours",
+    "gradeRank": "Rang",
+    "proficient": "Maîtrisé",
+    "linkActivity": "Lier à une activité",
+    "linkCompetency": "Lier une compétence au cours",
+    "chooseCompetency": "Choisir une compétence…",
+    "myCompetenciesTitle": "Mes compétences",
+    "proficientYes": "Maîtrisée",
+    "proficientNo": "Non maîtrisée",
+    "evidenceHistory": "Historique des preuves",
+    "evidenceAction": {
+      "log": "Consultation enregistrée",
+      "complete": "Marquée maîtrisée automatiquement",
+      "override": "Note remplacée manuellement"
+    },
+    "rank": "rang",
+    "noCompetencies": "Aucune compétence pour le moment.",
+    "plansTitle": "Plans de compétences",
+    "addPlan": "+ Ajouter un plan",
+    "competencyIdPlaceholder": "identifiant de la compétence",
+    "planStatus": {
+      "draft": "Brouillon",
+      "active": "Actif",
+      "complete": "Terminé",
+      "waiting_for_review": "En attente de révision",
+      "in_review": "En révision"
+    }
+  },
+
+  "courseFormat": {
+    "settingsTitle": "Format du cours",
+    "formatLabel": "Format",
+    "format": {
+      "topics": "Thématique (sections)",
+      "weeks": "Hebdomadaire",
+      "social": "Social (un seul forum)"
+    },
+    "displayLabel": "Affichage",
+    "display": {
+      "single_page": "Toutes les sections sur une page",
+      "paginated": "Une section à la fois"
+    },
+    "socialForumLabel": "Forum désigné",
+    "chooseForum": "Choisir un forum…",
+    "openForum": "ouvrir",
+    "noSocialForum": "Aucun forum désigné pour ce cours social pour le moment.",
+    "weekRange": "Semaine du {start} au {end}"
+  },
+
+  "dashboard": {
+    "navLink": "🏠 Tableau de bord",
+    "title": "Mon tableau de bord",
+    "addBlock": "+ Ajouter un bloc",
+    "hidden": "Masqué.",
+    "unreadCount": "{count} message(s) non lu(s)",
+    "blockType": {
+      "my_courses": "Mes cours",
+      "calendar": "Calendrier",
+      "recent_activity": "Activité récente",
+      "grades_overview": "Aperçu des notes",
+      "badges": "Badges",
+      "messages": "Messages",
+      "online_users": "Utilisateurs en ligne",
+      "html": "Bloc de texte libre"
+    },
+    "region": {
+      "main": "Colonne principale",
+      "side": "Colonne latérale"
+    }
+  },
+
+  "courseExport": {
+    "includeStudentData": "Inclure les données étudiantes",
+    "targetLabel": "Destination",
+    "targetNewCourse": "Nouveau cours"
+  },
+
+  "access": {
+    "completionTitle": "Achèvement",
+    "modeNone": "Aucun suivi",
+    "modeManual": "Manuel (l'étudiant coche lui-même)",
+    "modeAutomatic": "Automatique",
+    "automaticHint": "Automatique : marqué terminé dès la consultation (ressource/forum) ou la réponse (sondage) ; pour un devoir/quiz, dès la notation.",
+    "conditionsTitle": "Accès conditionnel",
+    "noConditions": "Aucune condition — toujours accessible.",
+    "addCondition": "+ Ajouter une condition",
+    "typeDate": "Date",
+    "typeGrade": "Note minimale",
+    "typeCompletion": "Achèvement d'une autre activité",
+    "typeGroup": "Appartenance à un groupe",
+    "logicAnd": "ET (toutes les conditions requises)",
+    "logicOr": "OU (une seule condition suffit)",
+    "fromLabel": "À partir du",
+    "untilLabel": "Jusqu'au",
+    "chooseGradeItem": "Choisir un item du carnet de notes…",
+    "itemIdPlaceholder": "identifiant de l'activité requise",
+    "chooseGroup": "Choisir un groupe…",
+    "restrictedTitle": "Accès restreint"
+  },
+
+  "enroll": {
+    "title": "Rejoindre ce cours",
+    "subtitle": "Saisissez le code d'accès s'il vous a été communiqué, ou laissez vide.",
+    "keyLabel": "Code d'accès (optionnel)",
+    "selfEnroll": "S'inscrire",
+    "guestEnroll": "Accéder en invité",
+    "success": "Inscription réussie, redirection…",
+    "methodsTitle": "Méthodes d'inscription",
+    "selfEnrollEnabled": "Auto-inscription activée",
+    "guestEnabled": "Accès invité activé",
+    "keyOptionalPlaceholder": "code d'accès (vide = aucun code requis)",
+    "cohortSyncs": "Cohortes synchronisées",
+    "chooseCohort": "Choisir une cohorte…"
+  },
+
+  "calendar": {
+    "days": ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"],
+    "noEvents": "Aucun événement.",
+    "addEvent": "+ Ajouter un événement",
+    "titlePlaceholder": "titre"
+  },
+
+  "liveSession": {
+    "navLink": "🎥 En direct",
+    "addLiveSession": "+ Ajouter une session en direct",
+    "scheduledStart": "Début",
+    "scheduledEnd": "Fin",
+    "join": "Rejoindre",
+    "leaveHint": "Fermez l'appel pour revenir à la page du cours.",
+    "loadError": "Vous n'avez pas accès à cette session (vous n'êtes probablement pas inscrit à ce cours).",
+    "editSettings": "Modifier les réglages",
+    "joinWindowLabel": "Ouverture avant le début (minutes)",
+    "viewAttendance": "Voir la présence",
+    "attendanceTitle": "Présence — session en direct",
+    "colStudent": "Étudiant",
+    "colFirstJoined": "Première connexion",
+    "colLastLeft": "Dernière déconnexion",
+    "colJoinCount": "Nombre de connexions",
+    "colStatus": "Statut",
+    "statusInSession": "En session",
+    "statusLeft": "Parti"
+  },
+
+  "interactiveVideo": {
+    "navLink": "🎬 Vidéo interactive",
+    "addVideo": "+ Ajouter une vidéo interactive",
+    "sourceUrl": "Lien externe",
+    "sourceFile": "Fichier uploadé",
+    "sourceLabel": "Source",
+    "checkpointsTitle": "Points d'arrêt",
+    "addCheckpoint": "+ Ajouter un point d'arrêt",
+    "timestampPlaceholder": "secondes",
+    "selectQuestion": "Choisir une question de la banque du cours",
+    "viewGrading": "Corriger les essais",
+    "gradingTitle": "Correction — vidéo interactive",
+    "gradingEmpty": "Aucun essai en attente de correction.",
+    "start": "Commencer",
+    "answerButton": "Répondre",
+    "finishButton": "Terminer",
+    "completedScore": "Terminé — {score}/{max} points",
+    "pendingManualGrading": "En attente de correction manuelle (essai)"
+  },
+
+  "staffMeeting": {
+    "navLink": "🧑‍🏫 Réunions",
+    "title": "Réunions du personnel",
+    "subtitle": "Réunions Jitsi réservées au personnel sélectionné — une personne non invitée ne peut jamais la trouver.",
+    "addMeeting": "+ Nouvelle réunion",
+    "mine": "Mes réunions",
+    "none": "Aucune réunion.",
+    "youCreated": "vous l'avez créée"
+  }
+}

@@ -1,0 +1,11 @@
+Frontend : http://localhost:5174 — 
+connectez-vous avec prof@iusth.edu.ht / ProfLocal2026! (professeur) 
+ou etudiant@iusth.edu.ht / EtudLocal2026! (étudiant) 
+ou admin@iusth.edu.ht / AdminLocal2026! (admin)
+
+Email : dorcemanese1976@gmail.com
+Mot de passe : Test2026!
+
+Connexion Moodle (http://localhost:8080) : 
+     identifiant admin, 
+     mot de passe IusthAdmin2026!

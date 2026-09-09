@@ -1,0 +1,44 @@
+# IUSTH e-learning — SPA (Vue Router, mode history). Contrairement au
+# portail vitrine (frontend_university), ce frontend est une SPA purement
+# côté client (pas de pré-rendu vite-ssg) : toute route inconnue du serveur
+# doit retomber sur index.html, Vue Router se charge du reste.
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Laisse passer les vrais fichiers/dossiers (assets, favicon, etc.)
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Tout le reste est une route Vue Router (/student/..., /teacher/...,
+  # /admin/..., /login...) — jamais une vraie page serveur.
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Évite un 403 sur le listing de dossier
+Options -Indexes
+
+# Compression
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript application/json image/svg+xml
+</IfModule>
+
+# Cache navigateur : assets hashés par Vite -> cache long, index.html -> jamais
+# (sinon une mise à jour de l'app ne serait visible qu'après purge manuelle
+# côté visiteur).
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType image/x-icon "access plus 1 year"
+</IfModule>
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </FilesMatch>
+</IfModule>

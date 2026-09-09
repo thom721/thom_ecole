@@ -14,6 +14,15 @@ import { useHead } from '@unhead/vue'
 
 const appName = import.meta.env.VITE_APP_NAME
 
+// Les pages publiques sont pré-rendues en fichiers statiques (dist/<route>/
+// index.html) : l'hébergeur (règle DirectorySlash d'Apache) redirige donc en
+// 301 l'URL sans slash final vers sa forme avec slash. canonical/og:url
+// doivent pointer directement sur cette forme finale — sinon la page déclare
+// comme "canonique" une adresse qui redirige elle-même ailleurs.
+function withTrailingSlash(path) {
+  return path === '/' || path.endsWith('/') ? path : `${path}/`
+}
+
 export function registerHead() {
   const route = useRoute()
 
@@ -22,10 +31,10 @@ export function registerHead() {
     meta: () => [
       { name: 'description', content: route.meta?.description ?? '' },
       { property: 'og:title', content: route.meta?.title ?? appName },
-      { property: 'og:url', content: `${import.meta.env.VITE_APP_URL}${route.path}` },
+      { property: 'og:url', content: `${import.meta.env.VITE_APP_URL}${withTrailingSlash(route.path)}` },
     ],
     link: () => [
-      { rel: 'canonical', href: `${import.meta.env.VITE_APP_URL}${route.path}` },
+      { rel: 'canonical', href: `${import.meta.env.VITE_APP_URL}${withTrailingSlash(route.path)}` },
     ],
   })
 }

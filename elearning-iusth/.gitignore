@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.env
+.env.production
+app/static/uploads/*
+!app/static/uploads/.gitkeep
+
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.production
+
+# Secrets internes du serveur Jitsi self-hébergé (Épic 17) — jamais
+# committés, générés une fois via secrets.token_hex.
+.env.jitsi
+jitsi-config/

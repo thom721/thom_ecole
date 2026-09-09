@@ -103,10 +103,17 @@
      {# Note: entetesVersements doit être passé depuis Python pour plus de simplicité #}
 
      {% if classe != 'All' %}
+          {% if liste_suivi %}
+          <p>
+               Liste de suivis de paiements les élèves de la <strong>{{ classe }}</strong> de l'année académique
+               <strong>{{ annee_academique }}</strong>.
+          </p>
+          {% else %}
           <p>
                Ce rapport synthétise les paiements effectués par les élèves de la <strong>{{ classe }}</strong>.
                Il détaille le statut du versement : acquitté, partiel ou non payé.
           </p>
+          {% endif %}
 
      <table id="collapse" style="width:100%; margin-top:17px">
           <thead>
@@ -120,8 +127,10 @@
                     <th>{{ entete[:10] }}.</th>
                     {% endfor %}
                     {% endif %}
+                    {% if not liste_suivi %}
                     <th>Avance</th>
                     <th>Balance</th>
+                    {% endif %}
                </tr>
           </thead>
           <tbody>
@@ -158,6 +167,9 @@
 
                     {% set pay_val = payments.paiements.get(versement) %}
 
+                    {% if liste_suivi %}
+                    <td></td>
+                    {% else %}
                     {% if pay_val is sameas true %}
                          <td style="text-align: center; color: green;">Acquitté</td>
                          {% elif pay_val is sameas false %}
@@ -176,8 +188,8 @@
                     {% elif pay_val is number %}
                          <td style="text-align: center; color: orange;">{{ pay_val }} Gdes</td>
                          {% set totals.avance = totals.avance + (payments.paiements.avance | default(0) | float) %}
-                    {% else %} 
-                         <td style="text-align: center; color: red;">0 Gdes</td>                     
+                    {% else %}
+                         <td style="text-align: center; color: red;">0 Gdes</td>
 
                     {% endif %}
 
@@ -193,6 +205,7 @@
                     {% else %}
                          <td style="text-align: center; color: red;">{{_pay_val.not_paie}}</td>
                     {% endif %}
+                    {% endif %}
                     {% else %}
                     <!-- a implementer si #de tous les versements -->
                      <!-- {{payments.entetesVersements}} -->
@@ -200,16 +213,20 @@
                     {% set row = namespace(depot=0, avance=0, balance=0) %}
                     {% set col = namespace(depot=0, avance=0, balance=0) %}
 
-                         {% for entete in payments.entetesVersements.keys() %}
+                         {% for entete in entetesVersements.keys() %}
                          {% set row_versement._entete=entete %}
+                         {% if liste_suivi %}
+                         <td></td>
+                         {% else %}
                          {% set pay_val = payments.paiements.get(entete) %}
+                         {% set montant_du = payments.entetesVersements.get(entete, entetesVersements.get(entete, 0)) %}
                               {% if pay_val is sameas true %}
                               <td style="text-align: center; color: green;">Acquitté</td>
                               {% set totals.depot = totals.depot + (payments.check_echeances.get(entete) | default(0) | float) %}
                               {% elif pay_val is sameas false %}
                               <td style="text-align: center; color: red;">0 Gdes</td>
-                              {% set row.balance = row.balance + (payments.entetesVersements[entete] | default(0) | float) %}
-                              {% set totals.balance = totals.balance + (payments.entetesVersements[entete] | default(0) | float) %}
+                              {% set row.balance = row.balance + (montant_du | default(0) | float) %}
+                              {% set totals.balance = totals.balance + (montant_du | default(0) | float) %}
                               {% elif pay_val is number %}
                               <td style="text-align: center; color: orange;">{{ payments.paiements.get(entete) }} Gdes</td>
                               {% set totals.avance = totals.avance + (payments.paiements.get(entete) | default(0) | float) %}
@@ -217,16 +234,22 @@
                               {% set col.balance = (payments.paiements.balance | default(0) | float) %}
                               {% else %}
                               <td style="text-align: center; color: red;">0 Gdes</td>
+                              {% set row.balance = row.balance + (montant_du | default(0) | float) %}
+                              {% set totals.balance = totals.balance + (montant_du | default(0) | float) %}
+                              {% endif %}
                               {% endif %}
                               {% endfor %}
 
-                              {# Colonne Avance #}  
-                              <td style="text-align: center; color: orange;">{{ row.avance }}</td> 
-                              {# Colonne Balance #} 
-                              <td style="text-align: center;">{{row.balance + col.balance}} Gdes</td> 
+                              {% if not liste_suivi %}
+                              {# Colonne Avance #}
+                              <td style="text-align: center; color: orange;">{{ row.avance }}</td>
+                              {# Colonne Balance #}
+                              <td style="text-align: center;">{{row.balance + col.balance}} Gdes</td>
+                              {% endif %}
                     {% endif %}
                </tr>
                {% endfor %}
+               {% if not liste_suivi %}
                <tr style="background-color:#ccc; font-weight:bold">
                     <td colspan='2'>TOTAL</td>
                     {% if versement == 'tous les versements' %}
@@ -237,6 +260,7 @@
                     <td>{{ totals.avance }} GDES</td>
                     <td>{{ totals.balance }} GDES</td>
                </tr>
+               {% endif %}
           </tbody>
      </table>
      {% else %}

@@ -32,7 +32,32 @@
       "Bash(git log *)",
       "Bash(python3 -m py_compile app/Routes/dashboard.py)",
       "Bash(python3 -m py_compile app/Routes/pdf/GlobalRepport.py)",
-      "Bash(pkill -f \"vite preview --port 4174\")"
+      "Bash(pkill -f \"vite preview --port 4174\")",
+      "Bash(curl -s -o /dev/null -w \"healthcheck: %{http_code}\\\\n\" http://localhost:8000/docs)",
+      "Bash(python3 test_epic1.py)",
+      "Bash(python3 test_epic1_questions.py)",
+      "Bash(python3 test_epic1_attempt.py)",
+      "Bash(python3 test_epic1_attempt2.py)",
+      "Bash(python3 test_epic1_regression.py)",
+      "Bash(python3 -c \"import json; json.load\\(open\\('src/i18n/locales/fr.json'\\)\\); json.load\\(open\\('src/i18n/locales/en.json'\\)\\); print\\('JSON OK'\\)\")",
+      "Bash(python3 test_epic1_patch.py)",
+      "Bash(find /Users/kikipllc/development/school/elearning-iusth -iname main.py -not -path */node_modules/* -not -path */venv/*)",
+      "Bash(find /Users/kikipllc/development/school/elearning-iusth/frontend/src/stores -iname forum*)",
+      "Bash(find /Users/kikipllc/development/school/elearning-iusth/frontend/src -iname *.json -path *locale* -o -iname *i18n*)",
+      "Bash(python3 test_epic3_forum_regression.py)",
+      "Bash(python3 test_epic4.py)",
+      "Bash(python3 test_epic4b.py)",
+      "Bash(python3 -c \"import json; print\\(json.load\\(open\\('epic1_state.json'\\)\\)['student_token']\\)\")",
+      "Bash(python3 -c \"import json; print\\(json.load\\(open\\('epic4_state.json'\\)\\)['subwiki_id']\\)\")",
+      "Bash(curl -s http://localhost:8000/api/v1/subwikis/__TRACKED_VAR__ -H 'Authorization: Bearer __TRACKED_VAR__')",
+      "Bash(python3 -c \"import json; print\\(json.load\\(open\\('/private/tmp/claude-501/-Users-kikipllc-development-school/9b38d463-2f38-4f6d-9e22-c167314efca7/scratchpad/epic1_state.json'\\)\\)['student_token']\\)\")",
+      "Bash(python3 -c \"import json; print\\(json.load\\(open\\('/private/tmp/claude-501/-Users-kikipllc-development-school/9b38d463-2f38-4f6d-9e22-c167314efca7/scratchpad/epic4_state.json'\\)\\)['subwiki_id']\\)\")",
+      "Bash(curl -s -G http://localhost:8000/api/v1/wiki-pages/by-title --data-urlencode subwiki_id=__TRACKED_VAR__ --data-urlencode 'title=Page Fantome' -H 'Authorization: Bearer __CMDSUB_OUTPUT__' -w '\\\\nHTTP %{http_code}\\\\n')",
+      "Bash(python3 test_epic5.py)",
+      "Bash(python3 test_epic5b.py)",
+      "Bash(python3 test_epic6.py)",
+      "Bash(python3 test_epic6b.py)",
+      "Bash(python3 test_epic7.py)"
     ]
   }
 }

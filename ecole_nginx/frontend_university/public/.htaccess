@@ -13,6 +13,7 @@
   RewriteRule ^presentation/?$ /a-propos [R=301,L]
   RewriteRule ^le-recteur(-2)?/?$ /a-propos#president [R=301,L]
   RewriteRule ^(les-facultes|genie-civil|genie-civil-2|sces-administratives|sciences-agronomiques)/?$ /facultes [R=301,L]
+  RewriteRule ^formation/?$ /formations [R=301,L]
 
   # Laisse passer les vrais fichiers/dossiers (assets, images, pages
   # pré-rendues, favicon, etc.)

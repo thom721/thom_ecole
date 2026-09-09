@@ -1,7 +1,7 @@
 # app/routes/etudiant.py
 from sqlalchemy import select
 
-from fastapi import APIRouter, Depends, HTTPException, status,Query
+from fastapi import APIRouter, Depends, HTTPException, status,Query,BackgroundTasks
 from sqlalchemy.orm import Session , joinedload
 from fastapi.responses import  StreamingResponse
 from typing import List,Optional
@@ -25,6 +25,7 @@ from app.Helper.pdf_personaliser import PDFGenerator
 from app.Helper.persistent_storage import BASE_DIR as STATIC_BASE_DIR, PROFILE_DIR
 from app.Helper.context import UserContext,ActionContext
 from app.Helper.audit_log import log_action
+from app.Helper.elearning_webhook import notify_enrollment_changed
 import json
 from pydantic import Field
 from app.Helper.get_real_path import get_app_root
@@ -325,6 +326,7 @@ def generate_uuid():
 @router.post("/etudiant")
 def store_etudiant(
     data: EtudiantSchema,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user:User=Depends(get_current_user)
 ):
@@ -405,8 +407,9 @@ def store_etudiant(
         
 
         # =====================c
-        # =====================  
+        # =====================
         count_student = db.query(ClasseEtudiant).filter(ClasseEtudiant.etudiant_id == etudiant.id).count()
+        _classe_etudiant_changes_for_webhook = None  # voir plan Épic 20 — renseigné seulement pour les niveaux non universitaires/techniques (ClasseEtudiant réellement touché)
         if niveau.name in ["Universitaire", "Technique"]:
             update_or_create(
                 db,
@@ -422,6 +425,20 @@ def store_etudiant(
                 },
             )
         else:
+            # Ancienne classe lue AVANT l'upsert (voir plan Épic 20) : sans
+            # ça, un changement de classe en cours d'année via cette route
+            # (update_or_create réécrit classes_id sur la même ligne, pas
+            # une nouvelle ligne) ne signalerait jamais à elearning-iusth
+            # que l'étudiant a quitté son ancienne classe.
+            _existing_classe_etudiant = (
+                db.query(ClasseEtudiant)
+                .filter(ClasseEtudiant.etudiant_id == etudiant.id,
+                        ClasseEtudiant.annee_academique_id == data.annee_academique_id,
+                        ClasseEtudiant.niveau_id == data.niveau_id)
+                .first()
+            )
+            _previous_classes_id = _existing_classe_etudiant.classes_id if _existing_classe_etudiant else None
+
             update_or_create(
                 db,
                 ClasseEtudiant,
@@ -435,6 +452,15 @@ def store_etudiant(
                     "classes_id": data.classe_actuelle_id,
                 },
             )
+            # Synchronisation temps réel vers elearning-iusth (voir plan
+            # Épic 20) — après le commit, en arrière-plan, jamais bloquant.
+            _classe_etudiant_changes_for_webhook = [
+                {"etudiant_id": etudiant.id, "classes_id": data.classe_actuelle_id, "status": True},
+            ]
+            if _previous_classes_id and _previous_classes_id != data.classe_actuelle_id:
+                _classe_etudiant_changes_for_webhook.append(
+                    {"etudiant_id": etudiant.id, "classes_id": _previous_classes_id, "status": False}
+                )
 
 
 
@@ -506,6 +532,8 @@ def store_etudiant(
             old_values=old_etudiant_snapshot,
             new_values=etudiant_data,
         )
+        if _classe_etudiant_changes_for_webhook is not None:
+            background_tasks.add_task(notify_enrollment_changed, db, data.annee_academique_id, _classe_etudiant_changes_for_webhook)
         return {"success": "Opération réussie"}
 
     except Exception as e:

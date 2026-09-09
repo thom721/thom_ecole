@@ -29,6 +29,7 @@ class PrintPaymentReportRequest(BaseModel):
     date_debut: str = Field(..., description="Date de début",min_length=36)
     date_fin: Optional[str]=None
     versement: str = Field(..., description="Type de versement ou 'tous les versements'")
+    liste_suivi: bool = Field(False, description="Liste de suivis : masque les montants, n'affiche que les infos des élèves")
     
     @field_validator('classe', 'versement','date_debut')
     @classmethod
@@ -528,6 +529,8 @@ def print_payment_report(
             "classe":request.classe,
             "entetesVersements":check_echeance_s,
             "date": datetime.now().strftime("%d/%m/%Y"),
+            "liste_suivi": request.liste_suivi,
+            "annee_academique": annee.annee_academique,
         }
 
             

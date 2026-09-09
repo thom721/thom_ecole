@@ -161,6 +161,33 @@ class SimpleSettings:
     UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "uploads")
     STATIC_DIR: str = os.getenv("STATIC_DIR", "static")
 
+    # Intégration elearning-iusth (export lecture seule Programme/Cours) —
+    # clé partagée machine-à-machine, distincte de l'auth JWT utilisateur.
+    INTEGRATION_API_KEY: Optional[str] = os.getenv("INTEGRATION_API_KEY")
+
+    # Webhook de synchronisation temps réel VERS elearning-iusth (Épic 20
+    # côté elearning-iusth) — appel sortant fire-and-forget déclenché en
+    # arrière-plan après inscription d'étudiant/changement de professeur.
+    # Même valeur que elearning-iusth/.env::ECOLE_NGINX_WEBHOOK_KEY.
+    ELEARNING_WEBHOOK_URL: Optional[str] = os.getenv("ELEARNING_WEBHOOK_URL")
+    ELEARNING_WEBHOOK_KEY: Optional[str] = os.getenv("ELEARNING_WEBHOOK_KEY")
+
+    # Garde-fou supplémentaire, distinct de INTEGRATION_API_KEY : exporter un
+    # hash de mot de passe (Épic 22, sync des identifiants professeur/personnel)
+    # est plus sensible que le reste de l'export en lecture seule — désactivé
+    # par défaut même si la clé d'intégration est correcte.
+    INTEGRATION_ALLOW_CREDENTIAL_SYNC: bool = os.getenv("INTEGRATION_ALLOW_CREDENTIAL_SYNC", "False").lower() == "true"
+
+    # Le déploiement web (docker-compose.web.yml, serveur partagé) ne doit
+    # jamais vérifier ni écrire l'abonnement/licence lui-même : l'abonnement
+    # est rattaché à l'installation locale (mac de CE serveur, voir
+    # app/Helper/license_check.py), pas au VPS qui l'héberge — une
+    # vérification indépendante côté web bloquerait tout le monde dès que le
+    # mac détecté sur le VPS ne correspond pas à celui de la clé (ce qui a
+    # déjà bloqué la prod). Désactivé par défaut (false) pour ne rien changer
+    # au comportement de docker-compose.yml (auto-hébergement local).
+    DISABLE_LICENSE_CHECK: bool = os.getenv("DISABLE_LICENSE_CHECK", "False").lower() == "true"
+
 
 settings = SimpleSettings()
 

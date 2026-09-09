@@ -50,6 +50,12 @@ services:
       # conteneur, pas celle de la machine, ce qui rendrait la licence
       # instable. Optionnel : ${HOST_MAC_ADDRESS:-}.
       HOST_MAC_ADDRESS: ${HOST_MAC_ADDRESS:-}
+      # L'abonnement/licence est rattaché à l'installation locale (mac de CE
+      # serveur), pas à ce VPS qui héberge une copie web — une vérification
+      # indépendante ici échouerait à chaque redémarrage (mac différent de
+      # celui qui a généré la clé) et bloquerait tout le monde sans rapport
+      # avec l'état réel de l'abonnement. Voir app/main.py::_run_startup_tasks.
+      DISABLE_LICENSE_CHECK: "true"
       LICENSE_FILE: /data/license.json
       STATIC_DATA_DIR: /data/static
       # Origines autorisées en CORS (voir app/main.py) — vide par défaut,
@@ -73,6 +79,25 @@ services:
       # sur https://aplekol360.local (LAN local), inutilisable pour un vrai
       # destinataire.
       FRONTEND_URL: ${FRONTEND_URL:-}
+      # Webhook de synchronisation temps réel VERS elearning-iusth (Épic 20,
+      # elearning-iusth) — appel sortant fire-and-forget déclenché en
+      # arrière-plan (BackgroundTasks) après inscription/changement de
+      # professeur. Même valeur que elearning-iusth/.env.production::
+      # ECOLE_NGINX_WEBHOOK_KEY. Vide par défaut : tant que non renseignée,
+      # aucun appel n'est tenté (voir Helper/elearning_webhook.py, échecs
+      # réseau déjà interceptés et journalisés, jamais bloquants).
+      ELEARNING_WEBHOOK_URL: ${ELEARNING_WEBHOOK_URL:-}
+      ELEARNING_WEBHOOK_KEY: ${ELEARNING_WEBHOOK_KEY:-}
+      # Export en lecture seule pour elearning-iusth (import de cours +
+      # synchro identifiants professeur/personnel, Épics intégration +
+      # Épic 22) — clé partagée machine-à-machine, même valeur que
+      # elearning-iusth/.env.production::ECOLE_NGINX_INTEGRATION_KEY.
+      INTEGRATION_API_KEY: ${INTEGRATION_API_KEY:-}
+      # Désactivé par défaut : exporter un hash de mot de passe (Épic 22)
+      # est plus sensible que le reste de l'export en lecture seule — à
+      # activer explicitement ("true") seulement si la synchro des
+      # identifiants est réellement voulue en production.
+      INTEGRATION_ALLOW_CREDENTIAL_SYNC: ${INTEGRATION_ALLOW_CREDENTIAL_SYNC:-false}
     volumes:
       # Bind mount (pas un volume nommé) : le Nginx hôte a besoin d'un vrai
       # chemin sur disque pour servir /static/ directement via alias (voir

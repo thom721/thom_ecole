@@ -95,7 +95,16 @@
                 <option v-for="v in versements" :key="v" :value="v">{{ v }}</option>
               </select>
             </div>
-            <div class="flex justify-end gap-2 pt-1">
+            <div class="flex items-center justify-between pt-1">
+              <label class="flex items-center gap-2.5 cursor-pointer group">
+                <div class="relative">
+                  <input type="checkbox" v-model="forms.payment.liste_suivi" class="sr-only peer" />
+                  <div class="w-9 h-5 bg-white/[0.07] peer-checked:bg-[#4f8ef7]/70 rounded-full transition-colors duration-200 border border-white/[0.1] peer-checked:border-[#4f8ef7]/40"></div>
+                  <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-[#7c83a0] peer-checked:bg-white rounded-full transition-all duration-200 peer-checked:translate-x-4"></div>
+                </div>
+                <span class="text-[12px] text-[#7c83a0] group-hover:text-[#c0c7d8] transition-colors">Liste de suivis</span>
+              </label>
+              <div class="flex items-center gap-2">
               <button @click="submitExcel('/export-excel-paiement', forms.payment, 'rapport_paiement.xlsx')" class="excel-btn" :disabled="excel_loading['/export-excel-paiement']">
                 <svg v-if="excel_loading['/export-excel-paiement']" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
                 <svg v-else class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
@@ -108,6 +117,7 @@
                   Imprimer
                 </span>
               </button>
+              </div>
             </div>
           </div>
         </div>
@@ -398,7 +408,7 @@ const baseUrl = import.meta.env.VITE_APP_BASE_URL || '';
 
 const forms = reactive({
   global:      { type: '', date_debut: '', date_fin: '' },
-  payment:     { classe: 'All', date_debut: '', date_fin: '', versement: 'tous les Versements' },
+  payment:     { classe: 'All', date_debut: '', date_fin: '', versement: 'tous les Versements', liste_suivi: false },
   pedago:      { cycle: 'All', classe: 'Toutes les classes', annee_ac: '', mois: '', identifiant: false },
   admin:       { cycle: 'All', classe: 'All', annee_ac: '', identifiant: false },
   presence:    { date_debut: '', date_fin: '', classe: 'All' },

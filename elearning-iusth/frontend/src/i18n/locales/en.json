@@ -1,0 +1,832 @@
+{
+  "common": {
+    "back": "← Back",
+    "backToMyCourses": "← My courses",
+    "cancel": "Cancel",
+    "create": "Create",
+    "add": "Add",
+    "remove": "Remove",
+    "save": "Save",
+    "loading": "Loading…",
+    "error": "Error",
+    "points": "points",
+    "pts": "pts",
+    "uncategorized": "Uncategorized",
+    "none": "—",
+    "section": "Section",
+    "student": "Student",
+    "students": "Students",
+    "teacher": "Teacher",
+    "admin": "Admin",
+    "email": "Email",
+    "password": "Password",
+    "title": "Title",
+    "logout": "Log out"
+  },
+
+  "auth": {
+    "login": {
+      "brand": "IUSTH",
+      "heroTitle": "IUSTH's online learning platform",
+      "heroSubtitle": "Courses, assignments, quizzes, forums and gradebook, all in one place for students and faculty.",
+      "heroFeature1": "Courses and resources organized by section",
+      "heroFeature2": "Assignments and quizzes with grading and grade tracking",
+      "heroFeature3": "Discussion forums and course calendar",
+      "welcomeBack": "Welcome back",
+      "subtitle": "Sign in to IUSTH e-learning",
+      "email": "Email",
+      "password": "Password",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "forgotPassword": "Forgot password?",
+      "submit": "Sign in",
+      "submitting": "Signing in…",
+      "invalidCredentials": "Invalid credentials",
+      "resetSuccess": "Password reset successfully. You can now sign in.",
+      "cookiesLabel": "Privacy and local storage",
+      "cookiesBody": "This platform sets no third-party or advertising cookies. A single sign-in token (JWT) is kept in your browser's local storage, only to keep you signed in — it is removed when you log out."
+    },
+    "forgotPassword": {
+      "title": "Forgot password",
+      "subtitle": "Enter your sign-in email — a reset link will be sent to it if it matches an account.",
+      "email": "Email",
+      "submit": "Send reset link",
+      "submitting": "Sending…",
+      "error": "Error while sending",
+      "backToLogin": "← Back to sign in"
+    },
+    "resetPassword": {
+      "title": "Choose a new password",
+      "newPassword": "New password",
+      "confirmPassword": "Confirm new password",
+      "submit": "Set new password",
+      "submitting": "Saving…",
+      "passwordMismatch": "The two passwords do not match",
+      "error": "Error while resetting password",
+      "invalidLink": "Missing or invalid reset link.",
+      "requestNewLink": "Request a new link"
+    },
+    "changePassword": {
+      "title": "New password required",
+      "subtitle": "Your account was created automatically with a temporary password. Choose a new one before continuing.",
+      "currentPassword": "Temporary password (provided by the institution)",
+      "newPassword": "New password",
+      "confirmPassword": "Confirm new password",
+      "submit": "Set new password",
+      "submitting": "Saving…",
+      "passwordMismatch": "The two passwords do not match",
+      "error": "Error while changing password"
+    }
+  },
+
+  "layout": {
+    "studentBrand": "IUSTH e-learning",
+    "teacherBrand": "IUSTH e-learning — Teacher",
+    "adminBrand": "IUSTH e-learning — Admin",
+    "menuToggle": "Menu",
+    "backToAdmin": "← Back to administration",
+    "navCourses": "Courses",
+    "navCalendar": "Calendar",
+    "navPlans": "Plans",
+    "navCategories": "Categories",
+    "navUsers": "Users",
+    "navIntegrationImport": "Import from ecole_nginx",
+    "navStudentActivation": "Student activation"
+  },
+
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all as read",
+    "empty": "No notifications."
+  },
+
+  "notFound": {
+    "title": "Page not found",
+    "backHome": "Back to home"
+  },
+
+  "admin": {
+    "categories": {
+      "title": "Categories",
+      "namePlaceholder": "Name",
+      "slugPlaceholder": "slug"
+    },
+    "courses": {
+      "title": "All courses",
+      "newCourse": "+ New course",
+      "shortNamePlaceholder": "Code (short_name)",
+      "fullNamePlaceholder": "Full name",
+      "summaryPlaceholder": "Summary",
+      "searchPlaceholder": "Search a course (name or code)…",
+      "resultsCount": "{total} courses",
+      "noResults": "No course matches this search.",
+      "prevPage": "← Previous",
+      "nextPage": "Next →",
+      "pageOf": "Page {page} of {pages}"
+    },
+    "users": {
+      "title": "Users",
+      "createTitle": "Create a user",
+      "firstNamePlaceholder": "First name",
+      "lastNamePlaceholder": "Last name",
+      "emailPlaceholder": "Email",
+      "passwordPlaceholder": "Password",
+      "roleStudent": "Student",
+      "roleTeacher": "Teacher",
+      "roleAdmin": "Admin",
+      "colName": "Name",
+      "colEmail": "Email",
+      "colRole": "Role",
+      "colStatus": "Status",
+      "statusActive": "active",
+      "statusDisabled": "disabled",
+      "deactivate": "Deactivate"
+    },
+    "integrationImport": {
+      "title": "Import courses from ecole_nginx",
+      "subtitle": "Fetches the real programs (subject + teacher + year) already entered in the school management system.",
+      "yearLabel": "Academic year",
+      "yearPlaceholder": "Choose a year…",
+      "importButton": "Import",
+      "importing": "Importing…",
+      "resultSummary": "{created} course(s) created, {updated} updated.",
+      "accountsCreatedTitle": "{count} teacher account(s) created automatically — temporary password, to be shared; password reset required at first login:",
+      "warningsTitle": "Warnings (no known email):",
+      "unreachableError": "Could not reach ecole_nginx",
+      "importError": "Error during import",
+      "credentialsSyncTitle": "Sync teacher/staff credentials",
+      "credentialsSyncSubtitle": "Creates an elearning-iusth account with the same email and same password as ecole_nginx for every teacher/staff member who doesn't have one yet — an existing account is never modified.",
+      "syncButton": "Synchronize",
+      "syncing": "Syncing…",
+      "syncError": "Error during synchronization",
+      "credentialsCreated": "{count} account(s) created:",
+      "credentialsSkipped": "{count} account(s) already existed, skipped."
+    },
+    "studentActivation": {
+      "title": "Student activation (ecole_nginx)",
+      "subtitle": "Activates a real ecole_nginx student in elearning-iusth and automatically enrolls them in the already-imported courses for their class/year. Course import must have been run for that year first.",
+      "classeLabel": "Class",
+      "classePlaceholder": "Choose a class…",
+      "emailPlaceholder": "login email",
+      "activateButton": "Activate",
+      "activating": "Activating…",
+      "accountCreated": "Account created",
+      "accountExisting": "Account already existed",
+      "enrolledCount": "{count} course(s) enrolled",
+      "activateError": "Error during activation"
+    },
+    "roles": {
+      "navLink": "Roles and permissions",
+      "title": "Roles and permissions",
+      "subtitle": "Refines what a specific admin account can do, beyond the base admin role — for example starting a staff meeting.",
+      "rolesListTitle": "Existing roles",
+      "noPermissions": "No permissions",
+      "addRole": "+ Add a role",
+      "assignTitle": "Assign a role",
+      "emailPlaceholder": "admin account email",
+      "chooseRole": "Choose a role…",
+      "assignButton": "Assign",
+      "userNotFound": "No account found with this email",
+      "assignedSuccess": "Role assigned successfully",
+      "assignError": "Error while assigning"
+    }
+  },
+
+  "student": {
+    "courseList": {
+      "title": "My courses",
+      "empty": "You are not enrolled in any course yet."
+    },
+    "courseDetail": {
+      "myGrades": "📊 My grades",
+      "calendar": "📅 Calendar",
+      "progress": "Progress: {percent}%",
+      "done": "Done",
+      "outOfPoints": "Out of {points} points",
+      "noTimeLimit": "No time limit",
+      "minutes": "{count} min"
+    },
+    "assignmentSubmit": {
+      "grade": "Grade: {grade}",
+      "title": "Submit assignment",
+      "answerLabel": "Answer",
+      "fileLabel": "File (optional)",
+      "submit": "Submit",
+      "submitSuccess": "Assignment submitted successfully.",
+      "submitError": "Error during submission"
+    },
+    "quizTake": {
+      "maxAttemptsReached": "Maximum number of attempts reached",
+      "status": "Status: {status}",
+      "score": "Grade: {score} / {max}",
+      "graded": "Grade: {score} / {max}",
+      "pendingManualGrading": "Awaiting manual grading",
+      "title": "Quiz",
+      "yourAnswer": "Your answer: {answer}",
+      "correct": "Correct",
+      "incorrect": "Incorrect",
+      "awardedOf": "{awarded} / {points} points",
+      "awaitingCorrection": "Awaiting grading",
+      "noAnswer": "(no answer)",
+      "noAnswerShort": "(none)",
+      "answerPlaceholder": "answer",
+      "numericAnswerPlaceholder": "your answer",
+      "orderingHint": "Use the arrows to put the items in the right order.",
+      "dragDropHint": "Drag each item onto its matching zone.",
+      "submitQuiz": "Submit quiz"
+    },
+    "grades": {
+      "title": "My grades",
+      "finalGrade": "Final grade"
+    }
+  },
+
+  "teacher": {
+    "courseList": {
+      "title": "My courses",
+      "importCourse": "+ Import a course",
+      "newCourse": "+ New course",
+      "shortNameLabel": "Code (short_name)",
+      "fullNameLabel": "Full name",
+      "summaryLabel": "Summary",
+      "empty": "No courses yet."
+    },
+    "courseDetail": {
+      "gradebook": "📊 Gradebook",
+      "calendar": "📅 Calendar",
+      "completion": "✓ Completion",
+      "accessLog": "🔍 Access log",
+      "export": "⬇ Export",
+      "enrolledStudents": "Enrolled students",
+      "unenroll": "Remove",
+      "enrollEmailPlaceholder": "student's email",
+      "enroll": "Enroll",
+      "enrollError": "Error while enrolling",
+      "addResource": "+ Add a resource (page)",
+      "addAssignment": "+ Add an assignment",
+      "addQuiz": "+ Add a quiz",
+      "addForum": "+ Add a forum",
+      "addChoice": "+ Add a poll",
+      "choiceOptionsPlaceholder": "options, comma-separated",
+      "choiceAllowMultiple": "Allow multiple choices",
+      "addGlossary": "+ Add a glossary",
+      "glossaryAllowStudentEntries": "Students can add entries",
+      "glossaryRequireApproval": "Teacher approval required",
+      "addWiki": "+ Add a wiki",
+      "addSection": "+ Add a section",
+      "titlePlaceholder": "title",
+      "contentPlaceholder": "content",
+      "pointsPlaceholder": "points",
+      "quizMinutesPlaceholder": "minutes (empty = unlimited)",
+      "sectionTitlePlaceholder": "section title",
+      "manage": "Manage →",
+      "grade": "Grade"
+    },
+    "assignmentGrading": {
+      "title": "Grade submissions",
+      "empty": "No submissions yet.",
+      "student": "Student: {id}",
+      "noText": "(no text)",
+      "attachedFile": "Attached file: {path}",
+      "gradePlaceholder": "grade",
+      "feedbackPlaceholder": "feedback",
+      "gradeButton": "Grade",
+      "alreadyGraded": "Already graded: {grade}"
+    },
+    "quizBuilder": {
+      "viewAttempts": "View attempts / grade",
+      "fixedQuestions": "Fixed questions",
+      "chooseQuestion": "Choose a question…",
+      "randomDraw": "Random draw",
+      "questionsFromCategory": "{count} question(s) from \"{category}\"",
+      "categoryPlaceholder": "Category…",
+      "countPlaceholder": "count",
+      "questionBank": "+ Create a question in the bank",
+      "newCategoryPlaceholder": "new category",
+      "addCategory": "+ Category",
+      "categoryOptional": "Category (optional)",
+      "typeMultipleChoice": "Multiple choice",
+      "typeTrueFalse": "True / False",
+      "typeShortAnswer": "Short answer",
+      "typeEssay": "Essay",
+      "typeMatching": "Matching",
+      "typeNumerical": "Numerical",
+      "typeCalculated": "Calculated",
+      "typeMultianswer": "Fill-in-the-blanks (cloze)",
+      "typeOrdering": "Ordering",
+      "typeDragAndDrop": "Drag and drop",
+      "questionTextPlaceholder": "question text",
+      "clozeTextHint": "question text — use [0], [1]... to mark each sub-question below",
+      "optionPlaceholder": "option",
+      "correctLabel": "correct",
+      "addOption": "+ option",
+      "acceptedAnswersPlaceholder": "accepted answers, comma-separated",
+      "matchLeftPlaceholder": "item",
+      "matchRightPlaceholder": "matches",
+      "orderingHint": "Enter the items in the CORRECT order — this order becomes the grading reference.",
+      "numericalValuePlaceholder": "value",
+      "tolerancePlaceholder": "tolerance",
+      "addAcceptedValue": "+ accepted value",
+      "calculatedHint": "The formula uses the same {x}/{y}... variables as the question text, e.g. \"{x}+{y}\". Every variable must have the same number of candidate values.",
+      "calculatedFormulaPlaceholder": "grading formula, e.g. {x}+{y}",
+      "variableNamePlaceholder": "name (e.g. x)",
+      "variableValuesPlaceholder": "candidate values, comma-separated",
+      "addVariable": "+ variable",
+      "clozeHint": "One line per sub-question, in the order they appear in the question text ([0], [1]...).",
+      "mcOptionsPlaceholder": "options, comma-separated",
+      "mcCorrectIndexPlaceholder": "index of the correct option (0 = first)",
+      "addClozePart": "+ sub-question",
+      "createQuestion": "Create question"
+    },
+    "quizGrading": {
+      "title": "Attempts",
+      "empty": "No attempts yet.",
+      "student": "Student: {id}",
+      "score": "Grade: {score} / {max}",
+      "gradeEssays": "Grade essays",
+      "noAnswer": "(no answer)",
+      "pointsPlaceholder": "points",
+      "feedbackPlaceholder": "feedback",
+      "gradeButton": "Grade"
+    },
+    "gradebook": {
+      "title": "Gradebook",
+      "student": "Student",
+      "subtotal": "Subtotal",
+      "finalGrade": "Final grade",
+      "variable": "variable",
+      "addCategory": "+ Add a grade category",
+      "categoryNamePlaceholder": "name",
+      "categoryWeightPlaceholder": "weight %",
+      "addManualGrade": "+ Add a manual grade",
+      "itemTitlePlaceholder": "title",
+      "maxPointsPlaceholder": "max points"
+    },
+    "completionReport": {
+      "title": "Course completion",
+      "student": "Student",
+      "progress": "Progress",
+      "completedCount": "Completed"
+    },
+    "accessLog": {
+      "title": "Access log",
+      "byContent": "By content",
+      "colContent": "Content",
+      "colType": "Type",
+      "colViews": "Views",
+      "colUniqueStudents": "Unique students",
+      "colLastAccess": "Last access",
+      "byStudent": "By student",
+      "colStudent": "Student",
+      "colTotalViews": "Total views"
+    },
+    "courseImport": {
+      "title": "Import a course",
+      "fileLabel": "Export file (.json)",
+      "shortNameLabel": "New course code (short_name)",
+      "fullNameLabel": "Full name (optional, otherwise the export's)",
+      "importButton": "Import",
+      "invalidJson": "Invalid JSON file",
+      "missingFields": "Choose a file and a course code",
+      "importError": "Error during import",
+      "importedTitle": "Course imported: {name}",
+      "openCourse": "Open course →",
+      "warningsTitle": "Warnings:"
+    }
+  },
+
+  "forum": {
+    "newDiscussion": "+ New discussion",
+    "titlePlaceholder": "title",
+    "messagePlaceholder": "message",
+    "publish": "Post",
+    "postCount": "{count} message(s)",
+    "subscribed": "🔔 Subscribed",
+    "subscribe": "🔕 Subscribe",
+    "replyPlaceholder": "reply to this message",
+    "reply": "Reply"
+  },
+
+  "choice": {
+    "noAnswerOption": "No answer",
+    "respond": "Respond",
+    "updateResponse": "Update my response",
+    "alreadyAnswered": "Your response has been recorded.",
+    "resultsTitle": "Results",
+    "resultsHidden": "Results are not visible yet."
+  },
+
+  "glossary": {
+    "addEntry": "+ Add an entry",
+    "conceptPlaceholder": "concept",
+    "definitionPlaceholder": "definition",
+    "pending": "Awaiting approval",
+    "approve": "Approve",
+    "empty": "No entries yet."
+  },
+
+  "wiki": {
+    "history": "History",
+    "edit": "Edit",
+    "emptyPage": "This page is still empty.",
+    "editHint": "Page content — use [[Page name]] to link another wiki page.",
+    "readonly": "This page is read-only.",
+    "createPage": "Create this page",
+    "createPageHint": "The page \"{title}\" does not exist yet.",
+    "version": "Version",
+    "date": "Date",
+    "compareFrom": "From",
+    "compareTo": "To",
+    "compare": "Compare",
+    "modeCollaborative": "Collaborative (one shared instance)",
+    "modeIndividual": "Individual (one instance per student)",
+    "individualSubwikisTitle": "Choose a student's wiki"
+  },
+
+  "groups": {
+    "navLink": "👥 Groups",
+    "title": "Groups and groupings",
+    "groups": "Groups",
+    "groupings": "Groupings",
+    "namePlaceholder": "name",
+    "memberEmailPlaceholder": "member's email",
+    "modeNoGroups": "No groups",
+    "modeSeparate": "Separate groups",
+    "modeVisible": "Visible groups"
+  },
+
+  "cohorts": {
+    "navLink": "🏷️ Cohorts",
+    "title": "Cohorts",
+    "namePlaceholder": "name"
+  },
+
+  "scales": {
+    "navLink": "🎚️ Scales",
+    "title": "Scales and grade letters",
+    "scalesTitle": "Scales",
+    "namePlaceholder": "scale name",
+    "levelPlaceholder": "level label",
+    "addLevel": "+ level",
+    "siteWide": "site-wide",
+    "lettersTitle": "Grade letter boundaries",
+    "lettersHint": "No configured row = default scheme (A≥90, B≥80, C≥70, D≥60, F≥0).",
+    "letterPlaceholder": "letter",
+    "addLetter": "+ letter",
+    "noScale": "No scale (points)"
+  },
+
+  "lesson": {
+    "navLink": "📘 Lessons",
+    "addLesson": "+ Add a lesson",
+    "title": "Lesson",
+    "viewGrading": "Grade essays",
+    "settingsTitle": "Settings",
+    "passwordPlaceholder": "password (blank = none)",
+    "maxAttemptsPlaceholder": "max attempts per question (blank = unlimited)",
+    "timeLimitPlaceholder": "minutes (blank = unlimited)",
+    "allowRetake": "Allow retaking this lesson",
+    "pagesTitle": "Pages",
+    "addPage": "+ Add a page",
+    "typeContent": "Content",
+    "contentPlaceholder": "page content",
+    "defaultAnswerHint": "If no answer matches, the LAST one in the list is used as the default.",
+    "addAnswer": "+ answer",
+    "jumpNextPage": "Next page",
+    "jumpPreviousPage": "Previous page",
+    "jumpSpecificPage": "Specific page…",
+    "jumpEndOfLesson": "End of lesson",
+    "choosePage": "Choose a page…",
+    "buttonLabelPlaceholder": "button label",
+    "candidateAnswerPlaceholder": "candidate answer",
+    "gradingTitle": "Essay grading",
+    "gradingEmpty": "No essay awaiting grading.",
+    "passwordPromptPlaceholder": "password (if required)",
+    "start": "Start",
+    "completedScore": "Completed — {score} / {max}",
+    "pendingManualGrading": "Awaiting manual grading",
+    "answerButton": "Answer",
+    "continueButton": "Continue"
+  },
+
+  "workshop": {
+    "navLink": "🛠️ Workshop",
+    "addWorkshop": "+ Add a workshop",
+    "viewGrading": "Grade",
+    "phaseTitle": "Phase",
+    "switchPhase": "Switch to this phase",
+    "phase": {
+      "setup": "Setup",
+      "submission": "Submission",
+      "assessment": "Assessment",
+      "evaluation": "Grading evaluation",
+      "closed": "Closed"
+    },
+    "strategy": {
+      "accumulative": "Accumulative",
+      "comments": "Comments",
+      "numerrors": "Number of errors",
+      "rubric": "Rubric"
+    },
+    "gradeLabel": "Max submission grade",
+    "gradinggradeLabel": "Max grading-quality grade",
+    "comparisonLabel": "Comparison severity (1-9)",
+    "usePeerAssessment": "Peer assessment",
+    "useSelfAssessment": "Self-assessment",
+    "dimensionsTitle": "Dimensions",
+    "dimensionDescriptionPlaceholder": "dimension description",
+    "weightPlaceholder": "weight",
+    "labelNoPlaceholder": "\"no\" label",
+    "labelYesPlaceholder": "\"yes\" label",
+    "levelDefinitionPlaceholder": "level definition",
+    "addLevel": "+ level",
+    "addDimension": "+ dimension",
+    "numerrorsMapTitle": "Error count → % table",
+    "numerrorsMapHint": "0 errors is always worth 100%. The nearest defined row below applies otherwise.",
+    "allocationTitle": "Assessment allocation",
+    "byAuthor": "by {id}",
+    "byReviewer": "by {id}",
+    "chooseSubmission": "Choose a submission…",
+    "reviewerIdPlaceholder": "reviewer id",
+    "allocateRandom": "Allocate randomly",
+    "gradingTitle": "Grade the workshop",
+    "computedGrade": "Computed: {percent}% — final grade: {final}",
+    "gradeOverridePlaceholder": "override grade",
+    "receivedAssessments": "Assessments received",
+    "qualityGrade": "grading quality: {percent}%",
+    "gradinggradeOverridePlaceholder": "override grading grade",
+    "feedbackReviewerPlaceholder": "feedback to reviewer",
+    "mySubmissionTitle": "My submission",
+    "finalGrade": "Final grade: {grade} / {max}",
+    "noSubmissionYet": "No submission yet.",
+    "myAssessmentsTitle": "My assessments to do",
+    "noAssessmentsAssigned": "No assessment has been assigned to you.",
+    "assessSubmission": "Assess this submission",
+    "peerCommentPlaceholder": "comment",
+    "feedbackAuthorPlaceholder": "feedback to the author",
+    "assessmentSaved": "Assessment saved."
+  },
+
+  "messaging": {
+    "tab": {
+      "conversations": "Conversations",
+      "contacts": "Contacts",
+      "blocked": "Blocked",
+      "privacy": "Privacy"
+    },
+    "emailPlaceholder": "email",
+    "startConversation": "Start",
+    "withUser": "with {id}",
+    "noMessagesYet": "No messages.",
+    "conversationTitle": "Conversation",
+    "mute": "🔕 Mute",
+    "unmute": "🔔 Unmute",
+    "messagePlaceholder": "your message",
+    "send": "Send",
+    "selectConversation": "Select a conversation.",
+    "contactsTitle": "My contacts",
+    "requestsTitle": "Contact requests",
+    "direction": {
+      "incoming": "received",
+      "outgoing": "sent"
+    },
+    "accept": "Accept",
+    "blockedTitle": "Blocked users",
+    "unblock": "Unblock",
+    "privacyTitle": "Who can contact me",
+    "privacy": {
+      "course_member": "Anyone sharing one of my courses",
+      "only_contacts": "My contacts only",
+      "site": "Anyone on the platform"
+    }
+  },
+
+  "badges": {
+    "navLink": "🏅 Badges",
+    "title": "Badges",
+    "myBadgesTitle": "My badges",
+    "addBadge": "+ Add a badge",
+    "editCriteria": "Edit criteria",
+    "addCriterion": "+ criterion",
+    "criteriaType": {
+      "activity": "Completion of an activity",
+      "course": "Full course completion (100%)",
+      "grade": "Minimum final grade",
+      "cohort": "Cohort membership"
+    },
+    "itemType": {
+      "resource": "Resource",
+      "assignment": "Assignment",
+      "quiz": "Quiz",
+      "lesson": "Lesson",
+      "workshop": "Workshop"
+    },
+    "itemIdPlaceholder": "activity id",
+    "minPercentPlaceholder": "threshold %",
+    "cohortIdPlaceholder": "cohort id",
+    "awardEmailPlaceholder": "student's email",
+    "awardManually": "Award manually",
+    "reevaluate": "Re-evaluate",
+    "descriptionPlaceholder": "description",
+    "emojiPlaceholder": "emoji",
+    "status": {
+      "draft": "Draft",
+      "active": "Active",
+      "archived": "Archived"
+    },
+    "earnedOn": "Earned on {date}",
+    "noBadges": "No badges yet."
+  },
+
+  "competency": {
+    "navLink": "🎯 Competencies",
+    "frameworksTitle": "Competency frameworks",
+    "addFramework": "+ Add a framework",
+    "idnumberPlaceholder": "unique id (idnumber)",
+    "scaleIdPlaceholder": "scale id (optional)",
+    "addCompetency": "+ Add a competency",
+    "noParent": "None (root competency)",
+    "proficientMinRankPlaceholder": "minimum rank for \"proficient\"",
+    "ruleType": {
+      "none": "No automatic rule",
+      "all": "All linked activities",
+      "any": "Any one linked activity"
+    },
+    "ruleOutcome": {
+      "none": "No automatic outcome",
+      "evidence": "Record evidence only",
+      "complete": "Mark as proficient"
+    },
+    "courseCompetenciesTitle": "Course competencies",
+    "gradeRank": "Rank",
+    "proficient": "Proficient",
+    "linkActivity": "Link to an activity",
+    "linkCompetency": "Link a competency to this course",
+    "chooseCompetency": "Choose a competency…",
+    "myCompetenciesTitle": "My competencies",
+    "proficientYes": "Proficient",
+    "proficientNo": "Not yet proficient",
+    "evidenceHistory": "Evidence history",
+    "evidenceAction": {
+      "log": "Viewing logged",
+      "complete": "Automatically marked proficient",
+      "override": "Grade manually overridden"
+    },
+    "rank": "rank",
+    "noCompetencies": "No competencies yet.",
+    "plansTitle": "Learning plans",
+    "addPlan": "+ Add a plan",
+    "competencyIdPlaceholder": "competency id",
+    "planStatus": {
+      "draft": "Draft",
+      "active": "Active",
+      "complete": "Complete",
+      "waiting_for_review": "Waiting for review",
+      "in_review": "In review"
+    }
+  },
+
+  "courseFormat": {
+    "settingsTitle": "Course format",
+    "formatLabel": "Format",
+    "format": {
+      "topics": "Topics (sections)",
+      "weeks": "Weekly",
+      "social": "Social (single forum)"
+    },
+    "displayLabel": "Display",
+    "display": {
+      "single_page": "All sections on one page",
+      "paginated": "One section at a time"
+    },
+    "socialForumLabel": "Designated forum",
+    "chooseForum": "Choose a forum…",
+    "openForum": "open",
+    "noSocialForum": "No forum designated for this social course yet.",
+    "weekRange": "Week of {start} to {end}"
+  },
+
+  "dashboard": {
+    "navLink": "🏠 Dashboard",
+    "title": "My dashboard",
+    "addBlock": "+ Add a block",
+    "hidden": "Hidden.",
+    "unreadCount": "{count} unread message(s)",
+    "blockType": {
+      "my_courses": "My courses",
+      "calendar": "Calendar",
+      "recent_activity": "Recent activity",
+      "grades_overview": "Grades overview",
+      "badges": "Badges",
+      "messages": "Messages",
+      "online_users": "Online users",
+      "html": "Free text block"
+    },
+    "region": {
+      "main": "Main column",
+      "side": "Side column"
+    }
+  },
+
+  "courseExport": {
+    "includeStudentData": "Include student data",
+    "targetLabel": "Destination",
+    "targetNewCourse": "New course"
+  },
+
+  "access": {
+    "completionTitle": "Completion",
+    "modeNone": "No tracking",
+    "modeManual": "Manual (student ticks it themselves)",
+    "modeAutomatic": "Automatic",
+    "automaticHint": "Automatic: marked done as soon as viewed (resource/forum) or answered (poll); for an assignment/quiz, as soon as it's graded.",
+    "conditionsTitle": "Conditional access",
+    "noConditions": "No condition — always accessible.",
+    "addCondition": "+ Add a condition",
+    "typeDate": "Date",
+    "typeGrade": "Minimum grade",
+    "typeCompletion": "Completion of another activity",
+    "typeGroup": "Group membership",
+    "logicAnd": "AND (all conditions required)",
+    "logicOr": "OR (any one condition is enough)",
+    "fromLabel": "From",
+    "untilLabel": "Until",
+    "chooseGradeItem": "Choose a gradebook item…",
+    "itemIdPlaceholder": "required activity's id",
+    "chooseGroup": "Choose a group…",
+    "restrictedTitle": "Restricted access"
+  },
+
+  "enroll": {
+    "title": "Join this course",
+    "subtitle": "Enter the access code if you were given one, or leave it blank.",
+    "keyLabel": "Access code (optional)",
+    "selfEnroll": "Enrol me",
+    "guestEnroll": "Access as guest",
+    "success": "Enrolled successfully, redirecting…",
+    "methodsTitle": "Enrolment methods",
+    "selfEnrollEnabled": "Self-enrolment enabled",
+    "guestEnabled": "Guest access enabled",
+    "keyOptionalPlaceholder": "access code (blank = no code required)",
+    "cohortSyncs": "Synced cohorts",
+    "chooseCohort": "Choose a cohort…"
+  },
+
+  "calendar": {
+    "days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "noEvents": "No events.",
+    "addEvent": "+ Add an event",
+    "titlePlaceholder": "title"
+  },
+
+  "liveSession": {
+    "navLink": "🎥 Live",
+    "addLiveSession": "+ Add a live session",
+    "scheduledStart": "Start",
+    "scheduledEnd": "End",
+    "join": "Join",
+    "leaveHint": "Close the call to return to the course page.",
+    "loadError": "You don't have access to this session (you're probably not enrolled in this course).",
+    "editSettings": "Edit settings",
+    "joinWindowLabel": "Open before start (minutes)",
+    "viewAttendance": "View attendance",
+    "attendanceTitle": "Attendance — live session",
+    "colStudent": "Student",
+    "colFirstJoined": "First joined",
+    "colLastLeft": "Last left",
+    "colJoinCount": "Join count",
+    "colStatus": "Status",
+    "statusInSession": "In session",
+    "statusLeft": "Left"
+  },
+
+  "interactiveVideo": {
+    "navLink": "🎬 Interactive video",
+    "addVideo": "+ Add an interactive video",
+    "sourceUrl": "External link",
+    "sourceFile": "Uploaded file",
+    "sourceLabel": "Source",
+    "checkpointsTitle": "Checkpoints",
+    "addCheckpoint": "+ Add a checkpoint",
+    "timestampPlaceholder": "seconds",
+    "selectQuestion": "Choose a question from the course bank",
+    "viewGrading": "Grade essays",
+    "gradingTitle": "Grading — interactive video",
+    "gradingEmpty": "No essay pending grading.",
+    "start": "Start",
+    "answerButton": "Answer",
+    "finishButton": "Finish",
+    "completedScore": "Completed — {score}/{max} points",
+    "pendingManualGrading": "Pending manual grading (essay)"
+  },
+
+  "staffMeeting": {
+    "navLink": "🧑‍🏫 Meetings",
+    "title": "Staff meetings",
+    "subtitle": "Jitsi meetings restricted to selected staff — someone not invited can never find it.",
+    "addMeeting": "+ New meeting",
+    "mine": "My meetings",
+    "none": "No meetings.",
+    "youCreated": "you created this"
+  }
+}

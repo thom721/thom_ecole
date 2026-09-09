@@ -51,6 +51,26 @@ services:
       # /data est déjà monté sur le volume "license_data", donc /data/static
       # en hérite et persiste de la même façon.
       STATIC_DATA_DIR: /data/static
+      # Clé partagée pour l'export lecture seule Programme/Cours consommé
+      # par elearning-iusth (voir plan d'intégration) — même valeur côté
+      # elearning-iusth/.env sous ECOLE_NGINX_INTEGRATION_KEY.
+      INTEGRATION_API_KEY: "1QZVfxvFoOAlebqV1XiinxNPx7rIF7uUzUmko0bZD5c"
+      # Webhook de synchronisation temps réel VERS elearning-iusth (Épic
+      # 20, elearning-iusth) — appel sortant fire-and-forget déclenché en
+      # arrière-plan (BackgroundTasks) après inscription/changement de
+      # professeur. Même valeur que elearning-iusth/docker-compose.yml::
+      # ECOLE_NGINX_WEBHOOK_KEY. Reste inactif côté elearning-iusth tant
+      # que ECOLE_NGINX_AUTO_PROVISION_TEACHERS n'y est pas explicitement
+      # activé (voir Épic 20).
+      ELEARNING_WEBHOOK_URL: "http://host.docker.internal:8000/api/v1"
+      ELEARNING_WEBHOOK_KEY: "8f2b6c1e9d47a3f5b0c8e2d4a6f1b9c7e3d5a8f0b2c4e6d8a0f2b4c6e8d0a2f4"
+      # Épic 22 : autorise l'export du hash de mot de passe (professeur/
+      # personnel) via /integration/staff-credentials, en plus de la clé
+      # d'intégration ci-dessus — désactivé par défaut ailleurs, activé
+      # explicitement ici uniquement pour IUSTH.
+      INTEGRATION_ALLOW_CREDENTIAL_SYNC: "true"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # nécessaire sur Linux ; déjà fourni nativement sur Mac/Windows
     volumes:
       - license_data:/data
     ports:

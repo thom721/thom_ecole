@@ -1,0 +1,165 @@
+# Stack Jitsi Meet self-hébergée (Épic 17 — cours en direct). Fichier
+# compose SÉPARÉ de docker-compose.yml (profil réseau très différent —
+# port UDP 10000 pour le flux média WebRTC réel — voir plan). Combiner :
+#   docker compose -f docker-compose.yml -f docker-compose.jitsi.yml up -d
+#
+# Images officielles jamais reconstruites (ghcr.io/jitsi/*). Secrets dans
+# .env à la racine (jamais committé, voir .gitignore — modèle sans valeurs
+# réelles : .env.example), nommé littéralement ".env" (pas ".env.jitsi")
+# car c'est le SEUL nom que Docker Compose charge automatiquement pour
+# l'interpolation ${VAR} d'un fichier compose — un ancien ".env.jitsi" non
+# auto-chargé avait fait résoudre ces variables en chaîne vide en silence
+# (cassant le JWT Jitsi à toute recréation de conteneur), corrigé ici en
+# unifiant tout dans le même .env que docker-compose.yml.
+# JWT_APP_ID/JWT_APP_SECRET doivent rester identiques à
+# JITSI_JWT_APP_ID/JITSI_JWT_APP_SECRET côté service `app` de
+# docker-compose.yml (même fichier .env, mêmes valeurs).
+#
+# Risque documenté dans le plan : Docker Desktop macOS n'a pas de vrai
+# mode réseau `host` — la négociation ICE du flux JVB (UDP 10000) peut ne
+# pas aboutir malgré des conteneurs par ailleurs sains.
+services:
+  jitsi-web:
+    image: ghcr.io/jitsi/web:stable
+    restart: unless-stopped
+    ports:
+      # 8080 déjà pris par moodle-iusth-web-1 sur cette même machine —
+      # confirmé via `docker ps`, pas supposé. HTTPS obligatoire (voir
+      # note ci-dessous) : port 8443 du conteneur exposé sur l'hôte,
+      # 8090 conservé pour un accès HTTP direct au conteneur (redirigé
+      # vers HTTPS), pas pour l'usage du widget.
+      - "8090:8000"
+      - "8443:8443"
+    environment:
+      - PUBLIC_URL=${JITSI_BASE_URL}
+      - TZ=${TZ}
+      # external_api.js construit TOUJOURS une URL https:// pour le widget
+      # intégré (constructeur à 2 arguments), quelle que soit la config
+      # passée côté frontend — vérifié empiriquement dans un DOM headless.
+      # Deux façons valables de satisfaire ce https:// selon l'environnement,
+      # toutes deux couvertes par JITSI_DISABLE_HTTPS (.env) sans dupliquer
+      # ce fichier compose :
+      #   - En dev local (JITSI_DISABLE_HTTPS=0, .env) : aucun nginx devant
+      #     ce conteneur — il génère lui-même un certificat auto-signé
+      #     (valable 10 ans). Un navigateur affiche un avertissement la
+      #     première fois : ouvrir https://localhost:8443 directement une
+      #     fois et accepter l'exception AVANT de cliquer "Rejoindre" dans
+      #     l'app (sinon l'iframe reste bloquée en silence).
+      #   - En production (JITSI_DISABLE_HTTPS=1, .env.production) : un
+      #     nginx hôte termine le vrai TLS (Let's Encrypt/certbot, même
+      #     patron que deploy/nginx-meet.iusth.edu.ht.conf et que le nginx
+      #     de ecole_nginx) et reverse-proxy en clair vers ce conteneur —
+      #     ce dernier n'a alors plus besoin de gérer son propre certificat.
+      - DISABLE_HTTPS=${JITSI_DISABLE_HTTPS:-0}
+      - ENABLE_AUTH=1
+      - AUTH_TYPE=jwt
+      - JWT_APP_ID=${JWT_APP_ID}
+      - JWT_APP_SECRET=${JWT_APP_SECRET}
+      - JWT_ACCEPTED_ISSUERS=${JWT_APP_ID}
+      - JWT_ACCEPTED_AUDIENCES=${JWT_APP_ID}
+      - JWT_ALLOW_EMPTY=0
+      - ENABLE_WELCOME_PAGE=0
+      # Empêche la bannière/l'écran "Ouvrir dans l'app Jitsi Meet" sur
+      # navigateur mobile — reste toujours sur la version web, ce qui est
+      # nécessaire ici puisque le JWT n'est valable que dans ce contexte
+      # web (jamais transmis à l'app mobile native).
+      - MOBILE_APP_PROMO=false
+      - XMPP_DOMAIN=meet.jitsi
+      - XMPP_AUTH_DOMAIN=auth.meet.jitsi
+      - XMPP_BOSH_URL_BASE=http://jitsi-prosody:5280
+      - XMPP_MUC_DOMAIN=muc.meet.jitsi
+    volumes:
+      - ./jitsi-config/web:/config:Z
+      - ./jitsi-config/transcripts:/usr/share/jitsi-meet/transcripts:Z
+    depends_on:
+      - jitsi-prosody
+    networks:
+      - jitsi-meet
+
+  jitsi-prosody:
+    image: ghcr.io/jitsi/prosody:stable
+    restart: unless-stopped
+    expose:
+      - "5222"
+      - "5269"
+      - "5347"
+      - "5280"
+    environment:
+      - TZ=${TZ}
+      - AUTH_TYPE=jwt
+      - ENABLE_AUTH=1
+      - JWT_APP_ID=${JWT_APP_ID}
+      - JWT_APP_SECRET=${JWT_APP_SECRET}
+      - JWT_ACCEPTED_ISSUERS=${JWT_APP_ID}
+      - JWT_ACCEPTED_AUDIENCES=${JWT_APP_ID}
+      - JWT_ALLOW_EMPTY=0
+      - XMPP_DOMAIN=meet.jitsi
+      - XMPP_AUTH_DOMAIN=auth.meet.jitsi
+      - XMPP_MUC_DOMAIN=muc.meet.jitsi
+      - XMPP_INTERNAL_MUC_DOMAIN=internal-muc.meet.jitsi
+      - JICOFO_COMPONENT_SECRET=${JICOFO_COMPONENT_SECRET}
+      - JICOFO_AUTH_USER=focus
+      - JICOFO_AUTH_PASSWORD=${JICOFO_AUTH_PASSWORD}
+      - JVB_AUTH_USER=${JVB_AUTH_USER}
+      - JVB_AUTH_PASSWORD=${JVB_AUTH_PASSWORD}
+      - PUBLIC_URL=${JITSI_BASE_URL}
+    volumes:
+      - ./jitsi-config/prosody/config:/config:Z
+      - ./jitsi-config/prosody/prosody-plugins-custom:/prosody-plugins-custom:Z
+    networks:
+      jitsi-meet:
+        aliases:
+          - xmpp.meet.jitsi
+
+  jitsi-jicofo:
+    image: ghcr.io/jitsi/jicofo:stable
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+      - AUTH_TYPE=jwt
+      - ENABLE_AUTH=1
+      - XMPP_DOMAIN=meet.jitsi
+      - XMPP_AUTH_DOMAIN=auth.meet.jitsi
+      - XMPP_MUC_DOMAIN=muc.meet.jitsi
+      - XMPP_SERVER=jitsi-prosody
+      - JICOFO_COMPONENT_SECRET=${JICOFO_COMPONENT_SECRET}
+      - JICOFO_AUTH_USER=focus
+      - JICOFO_AUTH_PASSWORD=${JICOFO_AUTH_PASSWORD}
+      - JVB_BREWERY_MUC=jvbbrewery
+    volumes:
+      - ./jitsi-config/jicofo:/config:Z
+    depends_on:
+      - jitsi-prosody
+    networks:
+      - jitsi-meet
+
+  jitsi-jvb:
+    image: ghcr.io/jitsi/jvb:stable
+    restart: unless-stopped
+    ports:
+      - "10000:10000/udp"
+    environment:
+      - TZ=${TZ}
+      - XMPP_AUTH_DOMAIN=auth.meet.jitsi
+      - XMPP_INTERNAL_MUC_DOMAIN=internal-muc.meet.jitsi
+      - XMPP_SERVER=jitsi-prosody
+      - JVB_AUTH_USER=${JVB_AUTH_USER}
+      - JVB_AUTH_PASSWORD=${JVB_AUTH_PASSWORD}
+      - JVB_BREWERY_MUC=jvbbrewery
+      - JVB_PORT=10000
+      # Docker Desktop macOS : pas de vrai mode réseau `host`, on annonce
+      # localhost pour un navigateur sur la même machine hôte (voir
+      # risque documenté dans le plan Épic 17) — à remplacer par une
+      # vraie IP publique en déploiement réel.
+      - JVB_ADVERTISE_IPS=127.0.0.1
+      - JVB_STUN_SERVERS=stun.l.google.com:19302
+    volumes:
+      - ./jitsi-config/jvb:/config:Z
+    depends_on:
+      - jitsi-prosody
+    networks:
+      - jitsi-meet
+
+networks:
+  jitsi-meet:
+    name: jitsi-meet

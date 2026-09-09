@@ -1,0 +1,53 @@
+# LMS maison IUSTH — projet entièrement séparé de ecole_nginx/ (juste les
+# conventions de code sont reprises, voir Dockerfile/app/*). Pas de service
+# certgen/nginx-HTTPS-local ni de licence/HOST_MAC_ADDRESS : spécifiques à
+# ecole_nginx, sans objet ici.
+#
+# Toutes les valeurs réelles (secrets compris) vivent dans .env à la racine
+# (jamais committé, voir .gitignore ; modèle sans valeurs réelles :
+# .env.example) — chargé ici via env_file, et via l'interpolation ${VAR}
+# native de Docker Compose pour les endroits où une valeur brute est
+# nécessaire (ex. la commande du healthcheck ci-dessous).
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      MYSQL_DATABASE: elearning_iusth
+    # Pas de port publié sur l'hôte : MySQL n'est joignable que depuis le
+    # réseau Docker interne (le service `app`), jamais depuis l'extérieur.
+    # Pour un accès ponctuel via un client externe (DBeaver, TablePlus…),
+    # utiliser `docker exec -it elearning-iusth-mysql-1 mysql -uroot -p`
+    # ou publier temporairement le port en local plutôt que de le laisser
+    # ouvert en continu.
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    env_file:
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # déjà fourni nativement sur Mac/Windows, nécessaire sur Linux
+    volumes:
+      - uploads_data:/data/uploads
+      # Montage du code source pour le développement local (édition à chaud
+      # sans rebuild, et les migrations générées atterrissent sur l'hôte).
+      - ./app:/srv/elearning-iusth/app
+    ports:
+      - "8000:8000"
+
+volumes:
+  mysql_data:
+  uploads_data:

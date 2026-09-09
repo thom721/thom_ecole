@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from app.config.Config import settings
 from time import time
-from app.Routes import Etudiants, RAcademic,RCours,RProgramme,dashboard,RCoursEtudiant,RParamExam,RAnneAcademique,RClasses,RInscription,RPaiement,RPaiementParam,RClientInfos,RProfile,RAuth,RRolePermission,RVente,RLog,RNotes,RSavePaiement,Initialisation,Returns,RTransaction,RPromus,REvents,RNews,RVideo,RContact,RCategory,RPresences,RFormations,RPageSections,RProduit,RCategorieProduit,RPayroll,RParametrePayroll,RPointage,RAnnulationArriere
+from app.Routes import Etudiants, RAcademic,RCours,RProgramme,dashboard,RCoursEtudiant,RParamExam,RAnneAcademique,RClasses,RInscription,RPaiement,RPaiementParam,RClientInfos,RProfile,RAuth,RRolePermission,RVente,RLog,RNotes,RSavePaiement,Initialisation,Returns,RTransaction,RPromus,REvents,RNews,RVideo,RContact,RCategory,RPresences,RFormations,RPageSections,RProduit,RCategorieProduit,RPayroll,RParametrePayroll,RPointage,RAnnulationArriere,RIntegrationExport
 
 from app.Routes.pdf import BulletinPrint, paiement_recu,GlobalRepport,PaymentRepport,Register_report,VenteRecu,RegisterRepport,PedagogicRepport,MasBulletinPrint,PedaRepport,RPRepport,RExcelExport,RHoraireReport,PayrollReport,SalaireHistoriqueReport
 from fastapi.responses import JSONResponse
@@ -16,6 +16,7 @@ from app.Models.MSystems import Log, LogActive, HeartAuto
 from app.database import SessionLocal, engine, Base,get_engine_dynamically
 import os
 import sys
+import threading
 from datetime import datetime
 from pathlib import Path
 from app.Helper.get_real_path import get_real_path
@@ -316,8 +317,115 @@ def _release_startup_lock(lock_file):
     lock_file.close()
 
 
+def _refresh_license_status_once() -> None:
+    """Recalcule le statut de licence à partir de log_actives et l'applique
+    (users.client_infos / heart_autos.descript) si besoin — logique reprise
+    telle quelle de l'ancien bloc inline de _run_startup_tasks(). Utilisée
+    à la fois au démarrage et par _license_refresh_loop ci-dessous : ouvre
+    sa propre session DB (au lieu de recevoir celle de l'appelant) pour
+    pouvoir tourner en toute sécurité depuis un thread séparé."""
+    db = SessionLocal()
+    try:
+        dernier_log = db.query(LogActive).order_by(LogActive.created_at.desc()).first()
+        if not dernier_log:
+            return
+
+        if sys.platform == "win32":
+            from Helper.server_key_generate import _key_for_expiration_graphic, get_mac_address
+        else:
+            from app.Helper.license_check import _key_for_expiration as _key_for_expiration_graphic, get_host_mac as get_mac_address
+
+        mac = get_mac_address()
+        signature_valide = True
+        if dernier_log.days_valid is not None:
+            expected_key = _key_for_expiration_graphic(
+                mac, dernier_log.exprired_at, dernier_log.days_valid
+            )
+            signature_valide = (
+                expected_key.replace("-", "").upper()
+                == (dernier_log.new_key or "").replace("-", "").upper()
+            )
+
+        try:
+            expire = datetime.utcnow().date() > datetime.strptime(
+                dernier_log.exprired_at, "%Y-%m-%d"
+            ).date()
+        except ValueError:
+            expire = True
+
+        status = 22 if (signature_valide and not expire) else 23
+
+        # get_all_user() réécrit users.client_infos/heart_autos.descript pour
+        # TOUS les users (+ un log d'audit par user via global_observer) —
+        # inutile de le refaire si le statut appliqué la dernière fois est
+        # déjà le bon.
+        current_heart = (
+            db.query(HeartAuto)
+            .join(User, HeartAuto.user_id == User.id)
+            .filter(User.userable_type != "App\\Models\\Etudiant")
+            .first()
+        )
+        deja_a_jour = (
+            current_heart is not None
+            and current_heart.descript.endswith(f"--{status}")
+        )
+
+        if deja_a_jour:
+            print(f" Statut licence (log_actives) : {status} (déjà à jour, rien à faire)")
+        else:
+            from app.Helper.context import ActionContext
+            ActionContext.set_action("Connect Autorisation")
+            RClientInfos.get_all_user(status, db)
+            db.commit()
+            print(
+                f" Statut licence (log_actives) : {status} "
+                f"(signature_valide={signature_valide}, expire={expire})"
+            )
+    except Exception as e:
+        print(f"Erreur lors de la vérification d'expiration : {e}")
+    finally:
+        db.close()
+
+
+# Deux fois par jour par défaut (configurable via LICENSE_REFRESH_INTERVAL_SECONDS) :
+# constaté sur un vrai serveur (institutionlemignon) que le statut de
+# licence (users.client_infos / heart_autos.descript) restait figé sur sa
+# valeur d'avant expiration pendant plus d'une semaine — _run_startup_tasks()
+# ne recalcule qu'une fois PAR LANCEMENT du process, et un service Windows
+# (Esystem/NSSM) peut tourner des jours sans jamais vraiment redémarrer
+# (Démarrage rapide de Windows qui hiberne la session système au lieu de
+# l'arrêter, ou simplement un PC qu'on n'éteint jamais). Cette boucle
+# revérifie PENDANT que le service tourne, pour que l'expiration soit prise
+# en compte sans dépendre d'un redémarrage qui peut ne jamais arriver.
+_LICENSE_REFRESH_INTERVAL_SECONDS = int(os.getenv("LICENSE_REFRESH_INTERVAL_SECONDS", str(12 * 3600)))
+
+
+def _license_refresh_loop() -> None:
+    """Boucle du thread d'arrière-plan démarré par startup_event() ci-dessous.
+    Thread daemon : ne retarde jamais l'arrêt du process. _refresh_license_status_once()
+    gère déjà ses propres erreurs (voir son except) ; ce try/except est une
+    seconde ceinture pour ne jamais tuer la boucle elle-même."""
+    stop_wait = threading.Event()
+    while True:
+        stop_wait.wait(_LICENSE_REFRESH_INTERVAL_SECONDS)
+        try:
+            _refresh_license_status_once()
+        except Exception as e:
+            print(f"Erreur dans la boucle de revérification périodique de licence : {e}")
+
+
 @app.on_event("startup")
 def startup_event():
+    # Démarré ici, PAS dans _run_startup_tasks() : indépendant du verrou
+    # multi-workers et de tout le reste de la routine de démarrage, pour
+    # qu'un souci ailleurs (migrations, seed...) n'empêche jamais cette
+    # boucle de démarrer. DISABLE_LICENSE_CHECK (déploiement web, voir plus
+    # bas) : même raison que pour la vérification au démarrage, un VPS web
+    # a un mac différent de celui qui a généré la clé, revérifier périodiquement
+    # y échouerait à chaque fois sans rapport avec l'abonnement réel.
+    if not settings.DISABLE_LICENSE_CHECK:
+        threading.Thread(target=_license_refresh_loop, daemon=True).start()
+
     lock_file = _acquire_startup_lock()
     try:
         _run_startup_tasks()
@@ -415,62 +523,19 @@ def _run_startup_tasks():
         # licence sans passer par une vraie activation) — pas pour les
         # lignes déjà existantes avant l'ajout de ce champ (legacy, non
         # revérifiables rétroactivement, comportement inchangé pour elles).
-        try:
-            dernier_log = db.query(LogActive).order_by(LogActive.created_at.desc()).first()
-            if dernier_log:
-                if sys.platform == "win32":
-                    from Helper.server_key_generate import _key_for_expiration_graphic, get_mac_address
-                else:
-                    from app.Helper.license_check import _key_for_expiration as _key_for_expiration_graphic, get_host_mac as get_mac_address
-
-                mac = get_mac_address()
-                signature_valide = True
-                if dernier_log.days_valid is not None:
-                    expected_key = _key_for_expiration_graphic(
-                        mac, dernier_log.exprired_at, dernier_log.days_valid
-                    )
-                    signature_valide = (
-                        expected_key.replace("-", "").upper()
-                        == (dernier_log.new_key or "").replace("-", "").upper()
-                    )
-
-                try:
-                    expire = datetime.utcnow().date() > datetime.strptime(
-                        dernier_log.exprired_at, "%Y-%m-%d"
-                    ).date()
-                except ValueError:
-                    expire = True
-
-                status = 22 if (signature_valide and not expire) else 23
-
-                # get_all_user() réécrit users.client_infos/heart_autos.descript
-                # pour TOUS les users (+ un log d'audit par user via
-                # global_observer) — inutile de le refaire à chaque démarrage
-                # si le statut appliqué la dernière fois est déjà le bon.
-                current_heart = (
-                    db.query(HeartAuto)
-                    .join(User, HeartAuto.user_id == User.id)
-                    .filter(User.userable_type != "App\\Models\\Etudiant")
-                    .first()
-                )
-                deja_a_jour = (
-                    current_heart is not None
-                    and current_heart.descript.endswith(f"--{status}")
-                )
-
-                if deja_a_jour:
-                    print(f" Statut licence (log_actives) au démarrage : {status} (déjà à jour, rien à faire)")
-                else:
-                    from app.Helper.context import ActionContext
-                    ActionContext.set_action("Connect Autorisation")
-                    RClientInfos.get_all_user(status, db)
-                    db.commit()
-                    print(
-                        f" Statut licence (log_actives) au démarrage : {status} "
-                        f"(signature_valide={signature_valide}, expire={expire})"
-                    )
-        except Exception as e:
-            print(f"Erreur lors de la vérification d'expiration au démarrage : {e}")
+        #
+        # Uniquement pour l'installation locale : l'abonnement est rattaché
+        # au mac de CETTE machine, pas à un VPS qui hébergerait une copie web
+        # (docker-compose.web.yml) — un tel VPS a forcément un mac différent
+        # de celui utilisé pour générer la clé, donc une vérification
+        # indépendante y échouerait à chaque redémarrage et bloquerait tout
+        # le monde, sans rapport avec l'état réel de l'abonnement. Voir
+        # settings.DISABLE_LICENSE_CHECK (DISABLE_LICENSE_CHECK=true dans
+        # docker-compose.web.yml).
+        if settings.DISABLE_LICENSE_CHECK:
+            print(" Vérification de licence au démarrage désactivée (DISABLE_LICENSE_CHECK=true, déploiement web)")
+        else:
+            _refresh_license_status_once()
 
         # Seed rôles/permissions/niveaux (déjà idempotent : ne crée que ce qui
         # manque) — pour qu'un premier déploiement headless (web/Docker) les ait
@@ -542,6 +607,7 @@ app.include_router(RTransaction.router_transac)
 app.include_router(RPromus.router)
 
 app.include_router(REvents.router)
+app.include_router(RIntegrationExport.router)
 app.include_router(RFormations.router)
 app.include_router(RPageSections.router)
 app.include_router(RNews.router)
