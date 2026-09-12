@@ -40,7 +40,18 @@ def enroll_user(
 @router.get("/courses/{course_id}/enrollments", response_model=list[EnrollmentOut],
             dependencies=[Depends(require_course_role(_TEACHING_ROLES))])
 def list_enrollments(course_id: str, db: Session = Depends(get_db)):
-    return db.query(Enrollment).filter(Enrollment.course_id == course_id).all()
+    enrollments = db.query(Enrollment).filter(Enrollment.course_id == course_id).all()
+    users_by_id = {
+        u.id: u
+        for u in db.query(User).filter(User.id.in_([e.user_id for e in enrollments])).all()
+    } if enrollments else {}
+    return [
+        EnrollmentOut.model_validate(e).model_copy(update={
+            "user_name": f"{users_by_id[e.user_id].first_name} {users_by_id[e.user_id].last_name}" if e.user_id in users_by_id else None,
+            "user_email": users_by_id[e.user_id].email if e.user_id in users_by_id else None,
+        })
+        for e in enrollments
+    ]
 
 
 @router.delete("/enrollments/{enrollment_id}", status_code=status.HTTP_204_NO_CONTENT)

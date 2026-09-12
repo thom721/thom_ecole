@@ -2,7 +2,10 @@
   <div v-if="course">
     <router-link to="/teacher/courses" class="text-sm text-gray-500 hover:underline">{{ t('common.backToMyCourses') }}</router-link>
     <div class="flex items-center justify-between mt-2 mb-6">
-      <h1 class="text-lg font-bold text-gray-900">{{ course.full_name }}</h1>
+      <div>
+        <h1 class="text-lg font-bold text-gray-900">{{ course.full_name }}</h1>
+        <p v-if="categoryName" class="text-xs text-gray-500 mt-0.5">{{ t('teacher.courseDetail.faculty') }} : {{ categoryName }}</p>
+      </div>
       <div class="flex gap-3 flex-wrap">
         <router-link :to="`/teacher/courses/${course.id}/gradebook`" class="text-sm text-blue-600 hover:underline">{{ t('teacher.courseDetail.gradebook') }}</router-link>
         <router-link :to="`/teacher/courses/${course.id}/groups`" class="text-sm text-blue-600 hover:underline">{{ t('groups.navLink') }}</router-link>
@@ -54,7 +57,7 @@
       <h2 class="font-semibold text-gray-900 mb-3">{{ t('teacher.courseDetail.enrolledStudents') }}</h2>
       <ul class="text-sm mb-3">
         <li v-for="e in enrollments" :key="e.id" class="flex items-center justify-between py-1">
-          <span>{{ e.user_id }} — {{ e.role_in_course }}
+          <span>{{ e.user_name || e.user_id }} — {{ e.role_in_course }}
             <span class="text-gray-400">({{ e.method || 'manual' }}<template v-if="e.status !== 'active'">, {{ e.status }}</template>)</span>
           </span>
           <button class="text-red-600 text-xs" @click="onUnenroll(e.id)">{{ t('teacher.courseDetail.unenroll') }}</button>
@@ -217,6 +220,10 @@
             <option value="">{{ t('scales.noScale') }}</option>
             <option v-for="s in courseScales" :key="s.id" :value="s.id">{{ s.name }}</option>
           </select>
+          <label class="flex items-center gap-1 text-xs text-gray-600 whitespace-nowrap">
+            <input type="checkbox" v-model="newAssignmentGroupMode[section.id]" />
+            {{ t('teacher.courseDetail.groupAssignment') }}
+          </label>
           <button class="bg-gray-900 text-white rounded-lg px-3 py-1 text-sm" @click="onAddAssignment(section.id)">{{ t('common.add') }}</button>
         </div>
       </details>
@@ -362,6 +369,8 @@ const scalesStore = useScalesStore()
 const courseExportStore = useCourseExportStore()
 
 const course = computed(() => courses.currentCourse)
+const categories = ref([])
+const categoryName = computed(() => categories.value.find(c => c.id === course.value?.category_id)?.name || null)
 const enrollments = ref([])
 const enrollEmail = ref('')
 const enrollMessage = ref('')
@@ -376,6 +385,7 @@ const newResourceContent = reactive({})
 const newAssignmentTitle = reactive({})
 const newAssignmentPoints = reactive({})
 const newAssignmentScaleId = reactive({})
+const newAssignmentGroupMode = reactive({})
 const courseScales = ref([])
 const newQuizTitle = reactive({})
 const newQuizTimeLimit = reactive({})
@@ -425,6 +435,7 @@ function formatDate(iso) {
 
 async function loadAll() {
   await courses.fetchCourse(route.params.id)
+  categories.value = await courses.fetchCategories()
   enrollments.value = await enrollmentStore.fetchEnrollments(route.params.id)
   enrollmentSettings.value = await enrollmentMethodsStore.fetchSettings(route.params.id)
   cohortSyncs.value = await enrollmentMethodsStore.fetchCohortSyncs(route.params.id)
@@ -508,10 +519,12 @@ async function onAddAssignment(sectionId) {
     max_points: Number(newAssignmentPoints[sectionId]) || 100,
     scale_id: newAssignmentScaleId[sectionId] || null,
     submission_type: 'both',
+    group_mode: !!newAssignmentGroupMode[sectionId],
   })
   newAssignmentTitle[sectionId] = ''
   newAssignmentPoints[sectionId] = ''
   newAssignmentScaleId[sectionId] = ''
+  newAssignmentGroupMode[sectionId] = false
   await loadAll()
 }
 

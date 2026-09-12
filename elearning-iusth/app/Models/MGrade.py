@@ -32,6 +32,14 @@ class GradeCategory(Base):
     name = Column(String(200), nullable=False)
     weight_percent = Column(Numeric(5, 2), nullable=False)
     sort_order = Column(Integer, nullable=False, default=0)
+    # Rattache cette catégorie à une phase d'évaluation externe (voir plan
+    # Épic 24, ecole_nginx : notation Intra/Final du niveau Universitaire) —
+    # None = ne compte que dans le final_percent global de ce carnet de
+    # notes, comme avant. 'intra'/'finale' = compte AUSSI dans un total
+    # séparé par phase (RGrades.py::_build_report), pour que ecole_nginx
+    # puisse ajouter la bonne contribution à la bonne évaluation sans
+    # doublon entre Intra et Final.
+    evaluation_phase = Column(String(10), nullable=True)
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

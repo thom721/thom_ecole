@@ -5,9 +5,10 @@ from app.database import get_db
 from app.Models.MCourse import Course
 from app.Models.MEnrollment import Enrollment, CourseRole, EnrollmentStatus
 from app.Models.MUser import User
-from app.Schemas.SWebhook import EnrollmentChangedIn, ProgrammeChangedIn, WebhookAckOut
+from app.Schemas.SWebhook import EnrollmentChangedIn, ProgrammeChangedIn, ProgrammeDeletedIn, WebhookAckOut, DevoirGradeOut
 from app.dependencies.webhook_auth import require_webhook_key
-from app.Routes.RIntegration import resolve_courses_for_classe
+from app.Routes.RIntegration import resolve_courses_for_classe, _upsert_course_from_programme
+from app.Routes.RGrades import _build_report
 
 router = APIRouter(prefix="/webhooks/ecole-nginx", tags=["webhooks"],
                     dependencies=[Depends(require_webhook_key)])
@@ -63,42 +64,86 @@ def enrollment_changed(data: EnrollmentChangedIn, db: Session = Depends(get_db))
 
 @router.post("/programme-changed", response_model=WebhookAckOut)
 def programme_changed(data: ProgrammeChangedIn, db: Session = Depends(get_db)):
-    """Synchronisation temps réel d'un changement de professeur sur un
-    Programme (voir plan Épic 20). N'ajoute JAMAIS le retrait d'un ancien
-    professeur (décision de périmètre 4 — ecole_nginx ne transmet que le
-    nouveau professeur_id, retirer l'ancien sur une supposition serait
-    risqué)."""
+    """Synchronisation temps réel d'un Programme créé ou modifié côté
+    ecole_nginx (voir plan Épic 20) — upserte le Course correspondant avec
+    le même helper que l'import complet (_upsert_course_from_programme,
+    RIntegration.py), pour ne jamais diverger entre les deux chemins.
+    `skipped` ne compte ici que les lignes sans email professeur connu ET
+    sans compte elearning-iusth existant (le Course est upserté dans tous
+    les cas, seul le rattachement enseignant peut être sauté)."""
     processed = 0
     skipped = 0
+    category_cache: dict[str, str] = {}
+    teacher_cache: dict[str, "User | None"] = {}
+    unmatched_courses_by_label: dict[str, list[str]] = {}
 
-    for change in data.changes:
-        if not change.professeur_login_email:
-            skipped += 1
-            continue
-        user = db.query(User).filter(User.email == change.professeur_login_email).first()
-        if user is None:
-            skipped += 1
-            continue
-        course = (
-            db.query(Course)
-            .filter(Course.external_source == "ecole_nginx", Course.external_ref_id == change.programme_id)
-            .first()
+    for programme in data.changes:
+        _course, _is_new, _account_created_label = _upsert_course_from_programme(
+            db, programme, category_cache, teacher_cache, unmatched_courses_by_label
         )
-        if course is None:
-            skipped += 1
-            continue
-
-        enrollment = (
-            db.query(Enrollment)
-            .filter(Enrollment.course_id == course.id, Enrollment.user_id == user.id)
-            .first()
-        )
-        if enrollment is None:
-            db.add(Enrollment(course_id=course.id, user_id=user.id,
-                               role_in_course=CourseRole.teacher, status=EnrollmentStatus.active))
-        elif enrollment.status == EnrollmentStatus.suspended:
-            enrollment.status = EnrollmentStatus.active
         processed += 1
+
+    skipped = sum(len(courses) for courses in unmatched_courses_by_label.values())
 
     db.commit()
     return WebhookAckOut(processed=processed, skipped=skipped)
+
+
+@router.post("/programme-deleted", response_model=WebhookAckOut)
+def programme_deleted(data: ProgrammeDeletedIn, db: Session = Depends(get_db)):
+    """Un Programme supprimé côté ecole_nginx n'est jamais rattrapé par un
+    import (l'import n'upserte que ce qu'il reçoit, il ne supprime rien de
+    ce qui manque en face) — sans cet évènement dédié, le cours resterait
+    visible indéfiniment côté elearning-iusth. On masque (is_visible=False)
+    plutôt que de supprimer le Course : ça préserve tout contenu déjà
+    construit dessus (sections, devoirs...) au cas où le programme
+    réapparaîtrait plus tard (voir _upsert_course_from_programme, qui
+    remet is_visible=True sur un cours retrouvé)."""
+    course = (
+        db.query(Course)
+        .filter(Course.external_source == "ecole_nginx", Course.external_ref_id == data.programme_id)
+        .first()
+    )
+    if course is None:
+        return WebhookAckOut(processed=0, skipped=1)
+
+    course.is_visible = False
+    db.commit()
+    return WebhookAckOut(processed=1, skipped=0)
+
+
+@router.get("/devoirs-grades", response_model=list[DevoirGradeOut])
+def devoirs_grades(programme_id: str, db: Session = Depends(get_db)):
+    """Export tiré par ecole_nginx (jamais poussé) pour afficher, sur ses
+    propres écrans de saisie de notes, la contribution des devoirs gérés
+    ici — voir plan Épic 24. Réutilise _build_report (RGrades.py) tel
+    quel : c'est le même calcul pondéré par GradeCategory que la page
+    Gradebook du professeur, pas une nouvelle logique d'agrégation.
+    Aucun Course synchronisé pour ce Programme => liste vide, jamais une
+    erreur (ecole_nginx doit pouvoir afficher une note sans intégration
+    elearning-iusth active)."""
+    course = (
+        db.query(Course)
+        .filter(Course.external_source == "ecole_nginx", Course.external_ref_id == programme_id)
+        .first()
+    )
+    if course is None:
+        return []
+
+    report = _build_report(db, course.id)
+    student_ids = [row.student_id for row in report.rows]
+    emails = {
+        u.id: u.email
+        for u in db.query(User).filter(User.id.in_(student_ids)).all()
+    } if student_ids else {}
+
+    return [
+        DevoirGradeOut(
+            email=emails[row.student_id],
+            note_devoirs=float(row.final_percent) if row.final_percent is not None else None,
+            note_devoirs_intra=float(row.intra_percent) if row.intra_percent is not None else None,
+            note_devoirs_finale=float(row.finale_percent) if row.finale_percent is not None else None,
+        )
+        for row in report.rows
+        if row.student_id in emails
+    ]

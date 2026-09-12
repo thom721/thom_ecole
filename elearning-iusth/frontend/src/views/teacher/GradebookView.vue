@@ -11,6 +11,8 @@
             <template v-for="group in groups" :key="group.id ?? 'uncat'">
               <th :colspan="group.items.length + 1" class="px-3 py-1 text-center border-b border-l border-gray-200 font-semibold">
                 {{ group.name }} <span v-if="group.weight_percent !== null" class="text-gray-400 font-normal">({{ group.weight_percent }}%)</span>
+                <span v-if="group.evaluation_phase === 'intra'" class="text-blue-500 font-normal">· {{ t('teacher.gradebook.phaseIntra') }}</span>
+                <span v-if="group.evaluation_phase === 'finale'" class="text-blue-500 font-normal">· {{ t('teacher.gradebook.phaseFinale') }}</span>
               </th>
             </template>
             <th class="sticky right-0 bg-gray-50 px-3 py-2 text-center border-b border-l border-gray-200 font-semibold">{{ t('teacher.gradebook.finalGrade') }}</th>
@@ -73,6 +75,11 @@
         <div class="mt-3 flex gap-2">
           <input v-model="newCategoryName" :placeholder="t('teacher.gradebook.categoryNamePlaceholder')" class="border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1" />
           <input v-model="newCategoryWeight" type="number" :placeholder="t('teacher.gradebook.categoryWeightPlaceholder')" class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-28" />
+          <select v-model="newCategoryPhase" class="border border-gray-300 rounded-lg px-2 py-2 text-sm w-32">
+            <option value="">{{ t('teacher.gradebook.phaseNone') }}</option>
+            <option value="intra">{{ t('teacher.gradebook.phaseIntra') }}</option>
+            <option value="finale">{{ t('teacher.gradebook.phaseFinale') }}</option>
+          </select>
           <button class="bg-gray-900 text-white rounded-lg px-3 py-2 text-sm font-semibold" @click="onAddCategory">{{ t('common.add') }}</button>
         </div>
       </details>
@@ -116,6 +123,7 @@ const report = ref(null)
 const scales = ref([])
 const newCategoryName = ref('')
 const newCategoryWeight = ref('')
+const newCategoryPhase = ref('')
 const newItemTitle = ref('')
 const newItemMaxPoints = ref('')
 const newItemCategoryId = ref('')
@@ -138,7 +146,7 @@ const groups = computed(() => {
     }
   }
   const result = report.value.categories.map((c) => ({
-    id: c.id, name: c.name, weight_percent: c.weight_percent, items: byCategory[c.id] || [],
+    id: c.id, name: c.name, weight_percent: c.weight_percent, evaluation_phase: c.evaluation_phase, items: byCategory[c.id] || [],
   }))
   if (uncategorized.length) result.push({ id: null, name: t('common.uncategorized'), weight_percent: null, items: uncategorized })
   return result
@@ -170,9 +178,14 @@ async function onManualGrade(itemId, studentId, value) {
 
 async function onAddCategory() {
   if (!newCategoryName.value || !newCategoryWeight.value) return
-  await grades.createGradeCategory(courseId, { name: newCategoryName.value, weight_percent: Number(newCategoryWeight.value) })
+  await grades.createGradeCategory(courseId, {
+    name: newCategoryName.value,
+    weight_percent: Number(newCategoryWeight.value),
+    evaluation_phase: newCategoryPhase.value || null,
+  })
   newCategoryName.value = ''
   newCategoryWeight.value = ''
+  newCategoryPhase.value = ''
   await load()
 }
 

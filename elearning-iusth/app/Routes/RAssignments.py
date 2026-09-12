@@ -60,7 +60,7 @@ def get_assignment(
         if get_enrollment_or_none(db, section.course_id, current_user.id) is None:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Non inscrit à ce cours")
     log_access(db, current_user, section.course_id, AccessItemType.assignment, assignment_id)
-    return assignment
+    return AssignmentOut.model_validate(assignment).model_copy(update={"course_id": section.course_id})
 
 
 @router.patch("/assignments/{assignment_id}", response_model=AssignmentOut)

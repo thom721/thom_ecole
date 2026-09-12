@@ -306,7 +306,7 @@ def _build_report(db: Session, course_id: str, only_student_id: str | None = Non
         return GradeEntryOut(earned=points, possible=possible if points is not None else None,
                               is_graded=points is not None, label=_scale_label(item, points))
 
-    categories_out = [GradeReportCategoryOut(id=c.id, name=c.name, weight_percent=c.weight_percent, sort_order=c.sort_order) for c in categories]
+    categories_out = [GradeReportCategoryOut(id=c.id, name=c.name, weight_percent=c.weight_percent, sort_order=c.sort_order, evaluation_phase=c.evaluation_phase) for c in categories]
     items_out = [GradeReportItemOut(id=i.id, grade_category_id=i.grade_category_id, kind=i.kind,
                                      assignment_id=i.assignment_id, quiz_id=i.quiz_id, lesson_id=i.lesson_id,
                                      workshop_id=i.workshop_id,
@@ -327,6 +327,22 @@ def _build_report(db: Session, course_id: str, only_student_id: str | None = Non
         category_subtotals: dict[str, CategorySubtotalOut] = {}
         weighted_sum = Decimal("0")
         weight_used = Decimal("0")
+        # Totaux indépendants par phase (voir plan Épic 24) — une catégorie
+        # taguée evaluation_phase compte À LA FOIS dans le blend général
+        # ci-dessus ET dans son total de phase ; les deux calculs sont
+        # indépendants, pas exclusifs.
+        #
+        # ATTENTION : ce total de phase n'est PAS une moyenne pondérée
+        # relative comme final_percent ci-dessus (où le poids d'une seule
+        # catégorie s'annule dans earned/weight_used). weight_percent y
+        # représente une allocation ABSOLUE du total de la phase côté
+        # ecole_nginx (ex: "ce devoir vaut 25% de l'Intra") — donc chaque
+        # catégorie contribue weight_percent × (percent_catégorie / 100),
+        # additionné SANS division par la somme des poids. Avec un seul
+        # devoir à 25% noté 7/10 (70%), la contribution est 25 × 0.70 =
+        # 17.5 (17.5% de l'Intra), pas juste 70% — voir plan Épic 24.
+        phase_weighted_sum = {"intra": Decimal("0"), "finale": Decimal("0")}
+        phase_has_data = {"intra": False, "finale": False}
 
         for category in categories:
             graded_entries = by_category.get(category.id, [])
@@ -338,6 +354,9 @@ def _build_report(db: Session, course_id: str, only_student_id: str | None = Non
             category_subtotals[category.id] = CategorySubtotalOut(earned=earned, possible=possible, percent=percent)
             weighted_sum += percent * category.weight_percent
             weight_used += category.weight_percent
+            if category.evaluation_phase in phase_weighted_sum:
+                phase_weighted_sum[category.evaluation_phase] += category.weight_percent * percent / 100
+                phase_has_data[category.evaluation_phase] = True
 
         uncategorized_entries = by_category.get(None, [])
         uncategorized_subtotal = None
@@ -351,12 +370,15 @@ def _build_report(db: Session, course_id: str, only_student_id: str | None = Non
             weight_used += uncategorized_weight
 
         final_percent = (weighted_sum / weight_used) if weight_used else None
+        intra_percent = phase_weighted_sum["intra"] if phase_has_data["intra"] else None
+        finale_percent = phase_weighted_sum["finale"] if phase_has_data["finale"] else None
 
         rows.append(StudentGradeRowOut(
             student_id=student.id, student_name=f"{student.first_name} {student.last_name}",
             entries=entries, category_subtotals=category_subtotals,
             uncategorized_subtotal=uncategorized_subtotal, final_percent=final_percent,
             final_letter=resolve_letter(db, course_id, final_percent),
+            intra_percent=intra_percent, finale_percent=finale_percent,
         ))
 
     return GradeReportOut(course_id=course_id, categories=categories_out, items=items_out, rows=rows)

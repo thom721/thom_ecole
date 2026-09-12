@@ -21,3 +21,8 @@ class EnrollmentOut(BaseModel):
     enrolled_by: str | None = None
     enrolled_at: datetime
     method: str | None = None
+    # Résolus depuis User dans list_enrollments (REnrollments.py) — pas des
+    # colonnes d'Enrollment, juste pour l'affichage (nom au lieu de
+    # user_id brut sur la page de détail du cours).
+    user_name: str | None = None
+    user_email: str | None = None

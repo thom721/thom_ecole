@@ -41,6 +41,12 @@ class Assignment(Base):
     # de max_points en points libres (voir plan Épic 8) — Submission.grade
     # porte alors le rang du niveau choisi (1..N), pas des points bruts.
     scale_id = Column(String(36), ForeignKey("scales.id"), nullable=True)
+    # Devoir noté par groupe (voir plan Épic 24) : la notation se fait une
+    # fois par Group (groups.id), puis est recopiée sur chaque membre —
+    # Submission reste 1 ligne par étudiant (student_id porte toujours la
+    # clé de calcul du carnet de notes), group_id n'est là que pour la
+    # traçabilité/l'affichage groupé côté notation.
+    group_mode = Column(Boolean, nullable=False, default=False)
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
@@ -60,6 +66,9 @@ class Submission(Base):
     id = Column(String(36), primary_key=True, default=generate_uuid)
     assignment_id = Column(String(36), ForeignKey("assignments.id"), nullable=False)
     student_id = Column(String(36), ForeignKey("users.id"), nullable=False)
+    # Renseigné uniquement quand cette ligne provient d'une notation de
+    # groupe (Assignment.group_mode) — voir RSubmissions.py::grade_group.
+    group_id = Column(String(36), ForeignKey("groups.id"), nullable=True)
     submitted_text = Column(Text, nullable=True)
     file_path = Column(String(1000), nullable=True)
     status = Column(SAEnum(SubmissionStatus), nullable=False, default=SubmissionStatus.draft)

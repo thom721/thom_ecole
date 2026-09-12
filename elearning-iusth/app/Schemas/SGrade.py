@@ -10,12 +10,15 @@ class GradeCategoryCreate(BaseModel):
     name: str
     weight_percent: Decimal
     sort_order: int = 0
+    # 'intra' | 'finale' | None — voir MGrade.py::GradeCategory.evaluation_phase
+    evaluation_phase: str | None = None
 
 
 class GradeCategoryUpdate(BaseModel):
     name: str | None = None
     weight_percent: Decimal | None = None
     sort_order: int | None = None
+    evaluation_phase: str | None = None
 
 
 class GradeCategoryOut(BaseModel):
@@ -25,6 +28,7 @@ class GradeCategoryOut(BaseModel):
     name: str
     weight_percent: Decimal
     sort_order: int
+    evaluation_phase: str | None = None
 
 
 class GradeItemCreate(BaseModel):
@@ -88,6 +92,7 @@ class GradeReportCategoryOut(BaseModel):
     name: str
     weight_percent: Decimal
     sort_order: int
+    evaluation_phase: str | None = None
 
 
 class GradeReportItemOut(BaseModel):
@@ -127,6 +132,11 @@ class StudentGradeRowOut(BaseModel):
     uncategorized_subtotal: CategorySubtotalOut | None = None
     final_percent: Decimal | None = None
     final_letter: str | None = None
+    # Totaux pondérés calculés uniquement sur les catégories tagguées
+    # evaluation_phase='intra'/'finale' (voir plan Épic 24) — indépendants
+    # de final_percent, qui continue de mélanger toutes les catégories.
+    intra_percent: Decimal | None = None
+    finale_percent: Decimal | None = None
 
 
 class GradeReportOut(BaseModel):
