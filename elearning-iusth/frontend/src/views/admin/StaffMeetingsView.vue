@@ -43,7 +43,11 @@ import { useAuthStore } from '@/stores/auth'
 const { t } = useI18n()
 const staffMeetings = useStaffMeetingsStore()
 const auth = useAuthStore()
-const basePath = computed(() => (auth.isAdmin ? '/admin' : '/teacher'))
+const basePath = computed(() => {
+  if (auth.isAdmin) return '/admin'
+  if (auth.isStaff) return '/staff'
+  return '/teacher'
+})
 
 const canCreate = ref(false)
 const eligibleUsers = ref([])

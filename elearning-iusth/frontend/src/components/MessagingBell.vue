@@ -18,7 +18,7 @@ const unreadCount = ref(0)
 let pollInterval = null
 
 const messagesPath = computed(() => {
-  const base = auth.isAdmin ? '/admin' : auth.isTeacher ? '/teacher' : '/student'
+  const base = auth.isAdmin ? '/admin' : auth.isTeacher ? '/teacher' : auth.isStaff ? '/staff' : '/student'
   return `${base}/messages`
 })
 

@@ -83,6 +83,7 @@
     "studentBrand": "IUSTH e-learning",
     "teacherBrand": "IUSTH e-learning — Professeur",
     "adminBrand": "IUSTH e-learning — Admin",
+    "staffBrand": "IUSTH e-learning — Personnel",
     "menuToggle": "Menu",
     "backToAdmin": "← Retour à l'administration",
     "navCourses": "Cours",
@@ -90,7 +91,7 @@
     "navPlans": "Plans",
     "navCategories": "Catégories",
     "navUsers": "Utilisateurs",
-    "navIntegrationImport": "Import ecole_nginx",
+    "navIntegrationImport": "Import",
     "navStudentActivation": "Activation étudiants"
   },
 
@@ -133,7 +134,11 @@
       "passwordPlaceholder": "Mot de passe",
       "roleStudent": "Étudiant",
       "roleTeacher": "Professeur",
+      "roleStaff": "Personnel",
       "roleAdmin": "Admin",
+      "roleFilterAll": "Tous les rôles",
+      "searchPlaceholder": "Rechercher par nom ou email…",
+      "noResults": "Aucun utilisateur ne correspond.",
       "colName": "Nom",
       "colEmail": "Email",
       "colRole": "Rôle",
@@ -143,7 +148,7 @@
       "deactivate": "Désactiver"
     },
     "integrationImport": {
-      "title": "Importer les cours depuis ecole_nginx",
+      "title": "Importer les cours depuis la Plateforme principale",
       "subtitle": "Récupère les vrais programmes (matière + professeur + année) déjà saisis dans le système de gestion scolaire.",
       "yearLabel": "Année académique",
       "yearPlaceholder": "Choisir une année…",
@@ -152,10 +157,10 @@
       "resultSummary": "{created} cours créé(s), {updated} mis à jour.",
       "accountsCreatedTitle": "{count} compte(s) professeur créé(s) automatiquement — mot de passe temporaire, à communiquer ; réinitialisation obligatoire à la première connexion :",
       "warningsTitle": "Avertissements (aucun email connu) :",
-      "unreachableError": "Impossible de contacter ecole_nginx",
+      "unreachableError": "Impossible de contacter la Plateforme principale",
       "importError": "Erreur lors de l'import",
       "credentialsSyncTitle": "Synchroniser les identifiants professeurs/personnel",
-      "credentialsSyncSubtitle": "Crée un compte elearning-iusth avec le même email et le même mot de passe qu'ecole_nginx pour chaque professeur/personnel qui n'en a pas encore — un compte déjà existant n'est jamais modifié.",
+      "credentialsSyncSubtitle": "Crée un compte elearning-iusth avec le même email et le même mot de passe que la Plateforme principale pour chaque professeur/personnel qui n'en a pas encore — un compte déjà existant n'est jamais modifié.",
       "syncButton": "Synchroniser",
       "syncing": "Synchronisation en cours…",
       "syncError": "Erreur lors de la synchronisation",
@@ -163,8 +168,8 @@
       "credentialsSkipped": "{count} compte(s) déjà existant(s), ignoré(s)."
     },
     "studentActivation": {
-      "title": "Activation étudiants (ecole_nginx)",
-      "subtitle": "Active un étudiant réel de ecole_nginx dans elearning-iusth et l'inscrit automatiquement aux cours de sa classe/année déjà importés. L'import de cours doit avoir été fait au préalable pour cette année.",
+      "title": "Activation étudiants (Plateforme principale)",
+      "subtitle": "Active un étudiant réel de la Plateforme principale dans elearning-iusth et l'inscrit automatiquement aux cours de sa classe/année déjà importés. L'import de cours doit avoir été fait au préalable pour cette année.",
       "classeLabel": "Classe",
       "classePlaceholder": "Choisir une classe…",
       "emailPlaceholder": "email de connexion",
@@ -252,6 +257,7 @@
       "empty": "Aucun cours pour le moment."
     },
     "courseDetail": {
+      "faculty": "Faculté",
       "gradebook": "📊 Carnet de notes",
       "calendar": "📅 Calendrier",
       "completion": "✓ Achèvement",
@@ -264,6 +270,7 @@
       "enrollError": "Erreur lors de l'inscription",
       "addResource": "+ Ajouter une ressource (page)",
       "addAssignment": "+ Ajouter un devoir",
+      "groupAssignment": "Devoir de groupe",
       "addQuiz": "+ Ajouter un quiz",
       "addForum": "+ Ajouter un forum",
       "addChoice": "+ Ajouter un sondage",
@@ -276,7 +283,7 @@
       "addSection": "+ Ajouter une section",
       "titlePlaceholder": "titre",
       "contentPlaceholder": "contenu",
-      "pointsPlaceholder": "points",
+      "pointsPlaceholder": "points (défaut 100)",
       "quizMinutesPlaceholder": "minutes (vide = illimité)",
       "sectionTitlePlaceholder": "titre de la section",
       "manage": "Gérer →",
@@ -291,7 +298,10 @@
       "gradePlaceholder": "note",
       "feedbackPlaceholder": "commentaire",
       "gradeButton": "Noter",
-      "alreadyGraded": "Déjà noté : {grade}"
+      "alreadyGraded": "Déjà noté : {grade}",
+      "groupLabel": "Groupe : {name}",
+      "groupMembers": "Membres : {members}",
+      "noGroups": "Aucun groupe n'existe encore pour ce cours — créez-en un dans Groupes."
     },
     "quizBuilder": {
       "viewAttempts": "Voir les tentatives / corriger",
@@ -358,6 +368,9 @@
       "addCategory": "+ Ajouter une catégorie de notes",
       "categoryNamePlaceholder": "nom",
       "categoryWeightPlaceholder": "poids %",
+      "phaseNone": "Aucune phase",
+      "phaseIntra": "Intra",
+      "phaseFinale": "Finale",
       "addManualGrade": "+ Ajouter une note manuelle",
       "itemTitlePlaceholder": "titre",
       "maxPointsPlaceholder": "points max"

@@ -12,11 +12,23 @@
         <select v-model="form.system_role" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
           <option value="student">{{ t('admin.users.roleStudent') }}</option>
           <option value="teacher">{{ t('admin.users.roleTeacher') }}</option>
+          <option value="staff">{{ t('admin.users.roleStaff') }}</option>
           <option value="admin">{{ t('admin.users.roleAdmin') }}</option>
         </select>
       </div>
       <button class="bg-gray-900 text-white rounded-lg px-4 py-2 text-sm font-semibold" @click="onCreate">{{ t('common.create') }}</button>
       <p v-if="message" class="text-xs text-red-600 mt-2">{{ message }}</p>
+    </div>
+
+    <div class="flex flex-wrap gap-3 mb-3">
+      <select v-model="roleFilter" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">{{ t('admin.users.roleFilterAll') }}</option>
+        <option value="student">{{ t('admin.users.roleStudent') }}</option>
+        <option value="teacher">{{ t('admin.users.roleTeacher') }}</option>
+        <option value="staff">{{ t('admin.users.roleStaff') }}</option>
+        <option value="admin">{{ t('admin.users.roleAdmin') }}</option>
+      </select>
+      <input v-model="search" :placeholder="t('admin.users.searchPlaceholder')" class="flex-1 min-w-[200px] border border-gray-300 rounded-lg px-3 py-2 text-sm" />
     </div>
 
     <table class="w-full text-sm bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -30,7 +42,10 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="u in users" :key="u.id" class="border-t border-gray-100">
+        <tr v-if="!filteredUsers.length">
+          <td colspan="5" class="px-3 py-4 text-center text-gray-400">{{ t('admin.users.noResults') }}</td>
+        </tr>
+        <tr v-for="u in filteredUsers" :key="u.id" class="border-t border-gray-100">
           <td class="px-3 py-2">{{ u.first_name }} {{ u.last_name }}</td>
           <td class="px-3 py-2">{{ u.email }}</td>
           <td class="px-3 py-2">{{ u.system_role }}</td>
@@ -45,7 +60,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted } from 'vue'
+import { reactive, ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 
@@ -53,6 +68,17 @@ const { t } = useI18n()
 const users = ref([])
 const message = ref('')
 const form = reactive({ first_name: '', last_name: '', email: '', password: '', system_role: 'student' })
+const roleFilter = ref('student')
+const search = ref('')
+
+const filteredUsers = computed(() => {
+  const q = search.value.trim().toLowerCase()
+  return users.value.filter((u) => {
+    if (roleFilter.value && u.system_role !== roleFilter.value) return false
+    if (!q) return true
+    return `${u.first_name} ${u.last_name} ${u.email}`.toLowerCase().includes(q)
+  })
+})
 
 async function load() {
   const { data } = await axios.get('/users')

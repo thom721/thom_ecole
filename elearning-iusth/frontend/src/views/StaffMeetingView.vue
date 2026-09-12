@@ -21,8 +21,12 @@
       <p v-if="meeting.scheduled_end">{{ t('liveSession.scheduledEnd') }} : {{ formatDate(meeting.scheduled_end) }}</p>
     </div>
 
+    <p v-if="!meeting.is_joinable" class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+      {{ meeting.join_error }}
+    </p>
+
     <div class="flex gap-2 mb-4">
-      <button class="bg-gray-900 text-white rounded-lg px-4 py-2 text-sm font-semibold" @click="onJoin">
+      <button v-if="meeting.is_joinable" class="bg-gray-900 text-white rounded-lg px-4 py-2 text-sm font-semibold" @click="onJoin">
         {{ t('liveSession.join') }}
       </button>
       <button v-if="canManage" class="border border-red-300 text-red-600 rounded-lg px-4 py-2 text-sm font-semibold" @click="onDelete">

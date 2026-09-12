@@ -12,6 +12,7 @@ export const useAuthStore = defineStore('auth', {
     isAdmin: (state) => state.user?.system_role === 'admin',
     isTeacher: (state) => state.user?.system_role === 'teacher',
     isStudent: (state) => state.user?.system_role === 'student',
+    isStaff: (state) => state.user?.system_role === 'staff',
   },
 
   actions: {

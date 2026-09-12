@@ -1,4 +1,5 @@
 import secrets
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -27,10 +28,24 @@ def _is_invited_or_creator(db: Session, meeting: StaffMeeting, user: User) -> bo
     )
 
 
+def _is_meeting_joinable(meeting: StaffMeeting, user: User) -> tuple[bool, str | None]:
+    """Le créateur/un admin peut toujours rejoindre (même règle déjà
+    établie pour les sessions en direct, Épic 17) ; un simple invité ne
+    peut plus rejoindre une fois scheduled_end dépassée."""
+    if meeting.created_by == user.id or user.system_role == SystemRole.admin:
+        return True, None
+    if meeting.scheduled_end is not None:
+        now = datetime.now(timezone.utc)
+        window_end = meeting.scheduled_end.replace(tzinfo=timezone.utc)
+        if now > window_end:
+            return False, "La réunion est terminée"
+    return True, None
+
+
 @router.get("/eligible-users", response_model=list[EligibleUserOut],
             dependencies=[Depends(require_permission("start_staff_meetings"))])
 def list_eligible_users(db: Session = Depends(get_db)):
-    users = db.query(User).filter(User.system_role.in_([SystemRole.teacher, SystemRole.admin])).order_by(User.last_name).all()
+    users = db.query(User).filter(User.system_role.in_([SystemRole.teacher, SystemRole.admin, SystemRole.staff])).order_by(User.last_name).all()
     return [
         EligibleUserOut(id=u.id, first_name=u.first_name, last_name=u.last_name, email=u.email, system_role=u.system_role.value)
         for u in users
@@ -54,11 +69,13 @@ def create_staff_meeting(
 
     invitees = db.query(User).filter(User.id.in_(data.invitee_user_ids)).all()
     # Le lien doit être construit par invité : la route frontend est préfixée
-    # par portail (/teacher/staff-meetings/:id, /admin/staff-meetings/:id —
+    # par portail (/teacher/staff-meetings/:id, /admin/..., /staff/... —
     # même convention que la messagerie, aucune route sans préfixe de rôle),
-    # or un même invité peut être teacher ou admin selon son compte réel.
+    # or un même invité peut être teacher, admin ou staff (Épic 23) selon
+    # son compte réel.
+    _PORTAL_BY_ROLE = {SystemRole.admin: "admin", SystemRole.staff: "staff"}
     invitee_contacts = [
-        (u.email, u.first_name, "admin" if u.system_role == SystemRole.admin else "teacher")
+        (u.email, u.first_name, _PORTAL_BY_ROLE.get(u.system_role, "teacher"))
         for u in invitees
     ]
     for invitee in invitees:
@@ -100,11 +117,13 @@ def list_my_staff_meetings(
     seen = {}
     for m in created + invited:
         seen[m.id] = m
-    return [
-        StaffMeetingOut(id=m.id, title=m.title, description=m.description, scheduled_start=m.scheduled_start,
-                         scheduled_end=m.scheduled_end, created_by=m.created_by, is_creator=(m.created_by == current_user.id))
-        for m in seen.values()
-    ]
+    result = []
+    for m in seen.values():
+        is_joinable, join_error = _is_meeting_joinable(m, current_user)
+        result.append(StaffMeetingOut(id=m.id, title=m.title, description=m.description, scheduled_start=m.scheduled_start,
+                         scheduled_end=m.scheduled_end, created_by=m.created_by, is_creator=(m.created_by == current_user.id),
+                         is_joinable=is_joinable, join_error=join_error))
+    return result
 
 
 @router.get("/{meeting_id}", response_model=StaffMeetingOut)
@@ -118,9 +137,11 @@ def get_staff_meeting(
     # l'existence de la réunion (même principe que /messaging/lookup, Épic 11).
     if meeting is None or not _is_invited_or_creator(db, meeting, current_user):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Réunion introuvable")
+    is_joinable, join_error = _is_meeting_joinable(meeting, current_user)
     return StaffMeetingOut(id=meeting.id, title=meeting.title, description=meeting.description,
                             scheduled_start=meeting.scheduled_start, scheduled_end=meeting.scheduled_end,
-                            created_by=meeting.created_by, is_creator=(meeting.created_by == current_user.id))
+                            created_by=meeting.created_by, is_creator=(meeting.created_by == current_user.id),
+                            is_joinable=is_joinable, join_error=join_error)
 
 
 @router.post("/{meeting_id}/join", response_model=StaffMeetingJoinOut)
@@ -132,6 +153,10 @@ def join_staff_meeting(
     meeting = db.query(StaffMeeting).filter(StaffMeeting.id == meeting_id).first()
     if meeting is None or not _is_invited_or_creator(db, meeting, current_user):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Réunion introuvable")
+
+    is_joinable, join_error = _is_meeting_joinable(meeting, current_user)
+    if not is_joinable:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=join_error)
 
     is_moderator = meeting.created_by == current_user.id or current_user.system_role == SystemRole.admin
     jwt_token = build_jitsi_jwt(meeting, current_user, is_moderator=is_moderator)

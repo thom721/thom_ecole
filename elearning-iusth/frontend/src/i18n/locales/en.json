@@ -83,6 +83,7 @@
     "studentBrand": "IUSTH e-learning",
     "teacherBrand": "IUSTH e-learning — Teacher",
     "adminBrand": "IUSTH e-learning — Admin",
+    "staffBrand": "IUSTH e-learning — Staff",
     "menuToggle": "Menu",
     "backToAdmin": "← Back to administration",
     "navCourses": "Courses",
@@ -90,7 +91,7 @@
     "navPlans": "Plans",
     "navCategories": "Categories",
     "navUsers": "Users",
-    "navIntegrationImport": "Import from ecole_nginx",
+    "navIntegrationImport": "Import",
     "navStudentActivation": "Student activation"
   },
 
@@ -133,7 +134,11 @@
       "passwordPlaceholder": "Password",
       "roleStudent": "Student",
       "roleTeacher": "Teacher",
+      "roleStaff": "Staff",
       "roleAdmin": "Admin",
+      "roleFilterAll": "All roles",
+      "searchPlaceholder": "Search by name or email…",
+      "noResults": "No matching user.",
       "colName": "Name",
       "colEmail": "Email",
       "colRole": "Role",
@@ -143,7 +148,7 @@
       "deactivate": "Deactivate"
     },
     "integrationImport": {
-      "title": "Import courses from ecole_nginx",
+      "title": "Import courses from the Main Platform",
       "subtitle": "Fetches the real programs (subject + teacher + year) already entered in the school management system.",
       "yearLabel": "Academic year",
       "yearPlaceholder": "Choose a year…",
@@ -152,10 +157,10 @@
       "resultSummary": "{created} course(s) created, {updated} updated.",
       "accountsCreatedTitle": "{count} teacher account(s) created automatically — temporary password, to be shared; password reset required at first login:",
       "warningsTitle": "Warnings (no known email):",
-      "unreachableError": "Could not reach ecole_nginx",
+      "unreachableError": "Could not reach the Main Platform",
       "importError": "Error during import",
       "credentialsSyncTitle": "Sync teacher/staff credentials",
-      "credentialsSyncSubtitle": "Creates an elearning-iusth account with the same email and same password as ecole_nginx for every teacher/staff member who doesn't have one yet — an existing account is never modified.",
+      "credentialsSyncSubtitle": "Creates an elearning-iusth account with the same email and same password as the Main Platform for every teacher/staff member who doesn't have one yet — an existing account is never modified.",
       "syncButton": "Synchronize",
       "syncing": "Syncing…",
       "syncError": "Error during synchronization",
@@ -163,8 +168,8 @@
       "credentialsSkipped": "{count} account(s) already existed, skipped."
     },
     "studentActivation": {
-      "title": "Student activation (ecole_nginx)",
-      "subtitle": "Activates a real ecole_nginx student in elearning-iusth and automatically enrolls them in the already-imported courses for their class/year. Course import must have been run for that year first.",
+      "title": "Student activation (Main Platform)",
+      "subtitle": "Activates a real student from the Main Platform in elearning-iusth and automatically enrolls them in the already-imported courses for their class/year. Course import must have been run for that year first.",
       "classeLabel": "Class",
       "classePlaceholder": "Choose a class…",
       "emailPlaceholder": "login email",
@@ -252,6 +257,7 @@
       "empty": "No courses yet."
     },
     "courseDetail": {
+      "faculty": "Faculty",
       "gradebook": "📊 Gradebook",
       "calendar": "📅 Calendar",
       "completion": "✓ Completion",
@@ -264,6 +270,7 @@
       "enrollError": "Error while enrolling",
       "addResource": "+ Add a resource (page)",
       "addAssignment": "+ Add an assignment",
+      "groupAssignment": "Group assignment",
       "addQuiz": "+ Add a quiz",
       "addForum": "+ Add a forum",
       "addChoice": "+ Add a poll",
@@ -276,7 +283,7 @@
       "addSection": "+ Add a section",
       "titlePlaceholder": "title",
       "contentPlaceholder": "content",
-      "pointsPlaceholder": "points",
+      "pointsPlaceholder": "points (default 100)",
       "quizMinutesPlaceholder": "minutes (empty = unlimited)",
       "sectionTitlePlaceholder": "section title",
       "manage": "Manage →",
@@ -291,7 +298,10 @@
       "gradePlaceholder": "grade",
       "feedbackPlaceholder": "feedback",
       "gradeButton": "Grade",
-      "alreadyGraded": "Already graded: {grade}"
+      "alreadyGraded": "Already graded: {grade}",
+      "groupLabel": "Group: {name}",
+      "groupMembers": "Members: {members}",
+      "noGroups": "No groups exist yet for this course — create one under Groups."
     },
     "quizBuilder": {
       "viewAttempts": "View attempts / grade",
@@ -358,6 +368,9 @@
       "addCategory": "+ Add a grade category",
       "categoryNamePlaceholder": "name",
       "categoryWeightPlaceholder": "weight %",
+      "phaseNone": "No phase",
+      "phaseIntra": "Midterm",
+      "phaseFinale": "Final",
       "addManualGrade": "+ Add a manual grade",
       "itemTitlePlaceholder": "title",
       "maxPointsPlaceholder": "max points"

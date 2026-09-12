@@ -59,6 +59,7 @@ const StudentInteractiveVideoTakeView = () => import('@/views/student/Interactiv
 
 const StaffMeetingView = () => import('@/views/StaffMeetingView.vue')
 const AdminStaffMeetingsView = () => import('@/views/admin/StaffMeetingsView.vue')
+const StaffLayout = () => import('@/layouts/StaffLayout.vue')
 const AdminRolesView = () => import('@/views/admin/RolesView.vue')
 
 const ForumView = () => import('@/views/ForumView.vue')
@@ -160,6 +161,18 @@ const routes = [
       { path: 'courses/:id/competencies', name: 'teacher-competencies', component: TeacherCourseCompetenciesView },
       { path: 'plans', name: 'teacher-plans', component: PlansView },
       { path: 'dashboard', name: 'teacher-dashboard', component: DashboardView },
+    ],
+  },
+
+  {
+    path: '/staff',
+    component: StaffLayout,
+    meta: { requiresAuth: true, role: 'staff' },
+    children: [
+      { path: '', redirect: '/staff/staff-meetings' },
+      { path: 'messages', name: 'staff-messages', component: MessagingView },
+      { path: 'staff-meetings', name: 'staff-staff-meetings', component: AdminStaffMeetingsView },
+      { path: 'staff-meetings/:id', name: 'staff-staff-meeting', component: StaffMeetingView },
     ],
   },
 

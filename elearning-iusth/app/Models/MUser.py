@@ -10,6 +10,12 @@ class SystemRole(str, enum.Enum):
     student = "student"
     teacher = "teacher"
     admin = "admin"
+    # Personnel non-enseignant synchronisé depuis ecole_nginx (Épic 23) —
+    # jamais un alias de teacher/admin : connexion + réunions du personnel
+    # (Épic 21) + messagerie (Épic 11) uniquement, aucune permission
+    # granulaire (voir Helper/permissions.py::user_has_permission, qui
+    # reste conditionné à system_role==admin, pas étendu à staff).
+    staff = "staff"
 
 
 class MessagePrivacy(str, enum.Enum):

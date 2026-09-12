@@ -26,6 +26,8 @@ class StaffMeetingOut(BaseModel):
     scheduled_end: datetime | None = None
     created_by: str
     is_creator: bool = False
+    is_joinable: bool = True
+    join_error: str | None = None
 
 
 class EligibleUserOut(BaseModel):

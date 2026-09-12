@@ -121,6 +121,7 @@ async function onSubmit() {
     else if (typeof route.query.redirect === 'string') router.push(route.query.redirect)
     else if (auth.isAdmin) router.push('/admin/courses')
     else if (auth.isTeacher) router.push('/teacher/courses')
+    else if (auth.isStaff) router.push('/staff/staff-meetings')
     else router.push('/student/courses')
   } catch (e) {
     error.value = e.response?.data?.detail || t('auth.login.invalidCredentials')
