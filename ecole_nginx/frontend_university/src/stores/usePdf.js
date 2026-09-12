@@ -1,6 +1,7 @@
 // composables/usePdf.js
 import axios from 'axios'
 import { ref } from 'vue'
+import Swal from 'sweetalert2'
 
 export function usePdf() {
   const baseUrl = import.meta.env.VITE_APP_BASE_URL
@@ -58,19 +59,22 @@ const submitPdf = async (endpoint, data, key = 0) => {
       window.open(url, '_blank')
       setTimeout(() => window.URL.revokeObjectURL(url), 100)
     } catch (e) {
-        if (e.response?.data instanceof Blob) {
-        const text = await e.response.data.text()
-        const json = JSON.parse(text)
-
-        if (json.errors) {
-          // Boucle sur les erreurs et affiche chacune
-          const messages = Object.values(json.errors).flat().join("\n")
-          error(messages,false) // ton toast/notification d'erreur
-        } else {
-          error(json.message ?? 'Une erreur est survenue.',false)
+      let message = 'Erreur lors de la génération du document.'
+      if (e.response?.data instanceof Blob) {
+        try {
+          const text = await e.response.data.text()
+          const json = JSON.parse(text)
+          message = json.errors
+            ? Object.values(json.errors).flat().join('\n')
+            : (json.detail ?? json.message ?? message)
+        } catch {
+          // Le blob n'était pas du JSON (ex: PDF partiel) — garde le message par défaut.
         }
+      } else {
+        message = e.response?.data?.detail ?? e.response?.data?.message ?? message
       }
-       error.value[key] = e.response?.data?.message || 'Erreur lors de la génération.'
+      error.value[key] = message
+      Swal.fire({ icon: 'error', text: message })
     } finally {
      loadingMap.value = { ...loadingMap.value, [key]: false }
      //  loadingMap.value[key] = false

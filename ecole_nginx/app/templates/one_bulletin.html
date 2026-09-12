@@ -135,9 +135,16 @@
      {% endif %}
      
      
-     {% if mois == 'all' %}
+     {% if session %}
+     {# Universitaire (bloc) : le titre reflète la session, jamais "annuel"
+        — Intra/Final ne couvrent qu'une partie de l'année et ne se
+        fusionnent jamais (voir calculer_moyenne_session). #}
+     <p style="font-size:22px; text-align:center;margin:0px;padding:0px">
+          Bulletin — {{ session }} Session{% if mois == 'intra' %} — Intra{% elif mois == 'finale' %} — Finale{% endif %}
+     </p>
+     {% elif mois == 'all' %}
      <p style="font-size:22px; text-align:center;margin:0px;padding:0px">Bulletin scolaire annuel</p>
-     {% endif %} 
+     {% endif %}
      {# Informations de l'étudiant #}
 
      <div style="display: flex; justify-content: space-between;justify-items: center;">
@@ -169,14 +176,14 @@
                               </td>
                          </tr>
                          <tr>
-                              <td style="border: none;font-size:17px;width:52%">Bulletin :</td>
+                              <td style="border: none;font-size:17px;width:52%">{{ 'Faculté :' if data_student.niveau_name == 'Universitaire' else 'Bulletin :' }}</td>
                               <td style="border: none;font-size:17px; font-weight:bold">
                                    {% if data_student.niveau_name != 'Universitaire' %}
                                    <span style="font-weight:bold; font-size:17px">{{ 'Annuel' if mois == 'all' else mois
                                         }}</span>
                                    {% else %}
-                                   <span style="margin-left:27px; font-weight:bold; font-size:17px">{{
-                                        data_student.nom_classe or '' }}</span>
+                                   <span style="font-weight:bold; font-size:17px">{{
+                                        data_student.fac_name or '' }}</span>
                                    {% endif %}
                               </td>
                          </tr>
@@ -513,38 +520,59 @@
      </div>
      {% endif %}
 
-     {# SECTION UNIVERSITAIRE #}
+     {# SECTION UNIVERSITAIRE — BLOC (Intra/Final par session) #}
      {% else %}
      <table style="width:100%; margin-top:17px">
           <thead>
                <tr>
-                    <td style="width:40%; font-size:19px;font-weight:bold; text-align:center">Matières</td>
+                    <td style="width:50%; font-size:19px;font-weight:bold; text-align:center">Matières</td>
+                    {% if mois in ('intra', 'all') %}
                     <td style="font-size:19px;font-weight:bold; text-align:center">Intra</td>
-                    <td style="font-size:19px;font-weight:bold; text-align:center">Finales</td>
+                    {% endif %}
+                    {% if mois in ('finale', 'all') %}
+                    <td style="font-size:19px;font-weight:bold; text-align:center">Finale</td>
+                    {% endif %}
                </tr>
           </thead>
           <tbody>
-               {% for matiere, details in dataEtudiant.items() %}
-               {% for cours, detailsCours in details.items() %}
-               {% for Etudiant, CoursEtudiant in detailsCours.items() %}
-               {% if cours == '1ere' %}
+               {% for m in session_matieres %}
                <tr>
-                    <td style="width:40%; font-size:18px; padding-left:10px">{{ Etudiant }}</td>
-                    <td style="font-size:18px; text-align:center">{{ CoursEtudiant.notes.intra if CoursEtudiant.notes
-                         and 'intra' in CoursEtudiant.notes else 'N/A' }}</td>
-                    <td style="font-size:18px; text-align:center">{{ CoursEtudiant.notes.finale if CoursEtudiant.notes
-                         and 'finale' in CoursEtudiant.notes else 'N/A' }}</td>
+                    <td style="width:50%; font-size:18px; padding-left:10px">{{ m.matiere }} <span style="color:#888;font-size:14px">(coef. {{ m.coef }})</span></td>
+                    {% if mois in ('intra', 'all') %}
+                    <td style="font-size:18px; text-align:center">{{ m.note_intra if m.note_intra is not none else '—' }}</td>
+                    {% endif %}
+                    {% if mois in ('finale', 'all') %}
+                    <td style="font-size:18px; text-align:center">{{ m.note_finale if m.note_finale is not none else '—' }}</td>
+                    {% endif %}
+               </tr>
+               {% else %}
+               <tr>
+                    <td colspan="3" style="text-align:center; font-size:17px; padding:10px;">Aucune note disponible pour cette session.</td>
+               </tr>
+               {% endfor %}
+
+               {# Intra et Final ne sont jamais fusionnés en une seule moyenne
+                  (voir RPromus.py) — deux lignes séparées, jamais combinées. #}
+               {% if mois in ('intra', 'all') %}
+               <tr style="font-weight: bold;background-color: rgb(230, 235, 236)">
+                    <td style="font-size:17px">Moyenne Intra</td>
+                    <td style="text-align:center;" colspan="{{ 2 if mois == 'all' else 1 }}">{{ moyenne_intra if moyenne_intra is not none else '—' }}</td>
                </tr>
                {% endif %}
-               {% endfor %}
-               {% endfor %}
-               {% endfor %}
+               {% if mois in ('finale', 'all') %}
+               <tr style="font-weight: bold;background-color: rgb(230, 235, 236)">
+                    <td style="font-size:17px">Moyenne Finale</td>
+                    <td style="text-align:center;" colspan="{{ 2 if mois == 'all' else 1 }}">{{ moyenne_finale if moyenne_finale is not none else '—' }}</td>
+               </tr>
+               {% endif %}
           </tbody>
      </table>
      {% endif %}
 
-     {# CONDUITE / APPLICATION #}
-     {% if data_student.niveau_name not in ['Cycle 3'] and mois != 'all' %}
+     {# CONDUITE / APPLICATION — sans objet pour le bulletin bloc/session
+        (Universitaire, Intra/Final) : dataEtudiant[etudiantId] n'a pas la
+        forme base/orale attendue ici, voir calculer_moyenne_session. #}
+     {% if data_student.niveau_name not in ['Cycle 3'] and mois != 'all' and not session %}
      <p style="text-align:center; font-size:17px; padding:5px; margin-top:15px">CONDUITE / APPLICATION</p>
      <div class="display:flex;">
           <div style="display:inline-flex;width:47%;">

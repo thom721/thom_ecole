@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+     <meta http-equiv="Content-Type" content="text/html" charset="UTF-8"/>
+
+     <style>
+          body {
+               font-family: "Times New Roman", Times;
+               font-size:medium
+          }
+
+          @page {
+               margin: 30px
+          }
+
+          table {
+               width: 100%;
+               border-collapse: collapse;
+          }
+
+          th, td {
+               border: 1px solid #888;
+               padding: 8px;
+               text-align: left;
+          }
+
+          .header-table {
+               width: 100%;
+               border: none;
+               margin-bottom: 10px;
+          }
+
+          .header-table td {
+               border: none;
+               padding: 0;
+               vertical-align: middle;
+          }
+
+          .school_logo {
+               width: 70px;
+               height: 70px;
+               object-fit: contain;
+          }
+
+          .school-info {
+               text-align: center;
+          }
+          .school-info h1 {
+               margin: 0;
+               color: #1a2a6c;
+               font-size: 22px;
+               text-transform: uppercase;
+          }
+
+          .school-info p {
+               margin: 2px 0;
+               font-size: 15px;
+          }
+
+          hr {
+               border: 0;
+               border-top: 1px solid #ccc;
+               margin: 15px 0;
+          }
+
+          .stats-strip {
+               display: flex;
+               justify-content: space-between;
+               margin: 15px 0;
+          }
+          .stat-box {
+               width: 32%;
+               text-align: center;
+               border: 1px solid #888;
+               padding: 10px;
+          }
+          .stat-box .label {
+               font-size: 12px;
+               text-transform: uppercase;
+               color: #555;
+          }
+          .stat-box .value {
+               font-size: 22px;
+               font-weight: bold;
+          }
+     </style>
+</head>
+
+<body>
+     {# En-tête de l'école — même structure que one_bulletin.html #}
+     <table class="header-table">
+          <tr>
+               <td style="width: 15%;">
+                    {% if info and info.logo_image_base64 %}
+                    <img src="{{ info.logo_image_base64 }}" class="school_logo">
+                    {% endif %}
+               </td>
+               <td class="school-info">
+                    <h1>{{ info.nom or 'NOM DE L\'INSTITUTION' }}</h1>
+                    <p><strong>{{ info.adresse or 'Adresse de l\'école' }}</strong></p>
+                    <p>Email: {{ info.email or 'contact@ecole.com' }}</p>
+                    <p>Tél: {{ info.ligne1 }} {{ ' / ' + info.ligne2 if info.ligne2 }}</p>
+               </td>
+          </tr>
+     </table>
+
+     <hr />
+
+     <p style="font-size:20px; text-align:center; font-weight:bold; margin:10px 0;">Relevé de notes — Système à crédits</p>
+
+     <table style="border: none; margin-bottom: 15px;">
+          <tr style="border: none;">
+               <td style="border: none; font-size:16px; width:50%;">Code : <strong>{{ etudiant.identifiant }}</strong></td>
+               <td style="border: none; font-size:16px;">Nom : <strong>{{ etudiant.nom }} {{ etudiant.prenom }}</strong></td>
+          </tr>
+     </table>
+
+     <div class="stats-strip">
+          <div class="stat-box">
+               <div class="label">GPA</div>
+               <div class="value">{{ progres.gpa }}</div>
+          </div>
+          <div class="stat-box">
+               <div class="label">Crédits tentés</div>
+               <div class="value">{{ progres.credits_tentes }}</div>
+          </div>
+          <div class="stat-box">
+               <div class="label">Crédits validés</div>
+               <div class="value">{{ progres.credits_valides }}</div>
+          </div>
+     </div>
+
+     <table>
+          <thead style="background-color: #f0ece0;">
+               <tr>
+                    <th>Cours</th>
+                    <th>Crédits</th>
+                    <th>Intra</th>
+                    <th>Final</th>
+                    <th>Crédits obtenus</th>
+                    <th>Statut</th>
+               </tr>
+          </thead>
+          <tbody>
+               {% for i in progres.inscriptions %}
+               <tr>
+                    <td>{{ i.cours_nom }}</td>
+                    <td style="text-align:center;">{{ i.credits }}</td>
+                    <td style="text-align:center;">{{ i.note_intra if i.note_intra is not none else '—' }}</td>
+                    <td style="text-align:center;">{{ i.note_finale if i.note_finale is not none else '—' }}</td>
+                    <td style="text-align:center;">{{ i.credits_obtenus if i.credits_obtenus is not none else '—' }}</td>
+                    <td style="text-align:center;">{{ i.statut }}</td>
+               </tr>
+               {% else %}
+               <tr>
+                    <td colspan="6" style="text-align:center;">Aucune inscription au système à crédits.</td>
+               </tr>
+               {% endfor %}
+          </tbody>
+     </table>
+
+     <div style="position:absolute; bottom:5%">
+          <p style="margin:0px">_______________________</p>
+          <p style="text-align:center; margin:0px">La direction</p>
+     </div>
+</body>
+</html>

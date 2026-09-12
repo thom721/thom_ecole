@@ -85,9 +85,17 @@ const selections = ref({
 
 // Données statiques pour les évaluations
 const EVAL_OPTIONS = {
+  // value = "<session>::<phase>" — encode les deux dimensions dans un seul
+  // select (le DataTable générique ne garde qu'UNE sélection par ligne, voir
+  // buildBulletinPayload) : phase parmi 'all'/'intra'/'finale', exigé tel
+  // quel par /imprime-bulletin pour ce niveau (voir BulletinPrint.py).
   sessions: [
-    { id: 1, value: '1 ere Session', title: '1ère Session' },
-    { id: 2, value: '2 eme Session', title: '2ème Session' }
+    { id: 1, value: '1ère::all',    title: '1ère Session — Intra + Finale' },
+    { id: 2, value: '1ère::intra',  title: '1ère Session — Intra' },
+    { id: 3, value: '1ère::finale', title: '1ère Session — Finale' },
+    { id: 4, value: '2ème::all',    title: '2ème Session — Intra + Finale' },
+    { id: 5, value: '2ème::intra',  title: '2ème Session — Intra' },
+    { id: 6, value: '2ème::finale', title: '2ème Session — Finale' },
   ],
   controles: [
     { id: 1, value: 'Contr. I', title: 'Contrôle I' },
@@ -103,7 +111,20 @@ const EVAL_OPTIONS = {
 
 };
 
- 
+// Les étudiants Universitaire (système bloc) n'ont pas de ParamExam.evaluation_par
+// (colonne "periode" retombe donc sur EVAL_OPTIONS.sessions, seule option restante,
+// voir action "periode" plus bas) — leur bulletin est routé par session ('1ère'/'2ème'),
+// pas par mois : /imprime-bulletin exige alors `session` + `mois` parmi
+// 'intra'/'finale'/'all' (voir BulletinPrint.py::impression_bulletin), jamais un mois classique.
+const isSessionValue = (val) => EVAL_OPTIONS.sessions.some(s => s.value === val)
+const buildBulletinPayload = (rowId, selection) => {
+  if (isSessionValue(selection)) {
+    const [session, phase] = selection.split('::')
+    return { bulletin: rowId, session, mois: phase }
+  }
+  return { bulletin: rowId, mois: selection }
+}
+
 const searchCoursEtudiant = async (page=1) => {
   dataLoading.value=true
   try {
@@ -284,7 +305,7 @@ const actions = [
     onClick: async (row, selection, index) => {
       console.log(row.id);
       
-      await submitPdf('/imprime-bulletin', { mois: selection, bulletin: row.id }, index)
+      await submitPdf('/imprime-bulletin', buildBulletinPayload(row.id, selection), index)
     },
   },
 ]
@@ -375,7 +396,7 @@ const actions = [
         <template #action-pdf="{row, value,selection }">      
           <button
           
-          @click="submitPdf('/imprime-bulletin', { mois: selection, bulletin: row.id }, row.id)"
+          @click="submitPdf('/imprime-bulletin', buildBulletinPayload(row.id, selection), row.id)"
           :disabled="loadingMap[row.id] == true"
           class="font-mono hover:underline cursor-pointer text-sm">
           

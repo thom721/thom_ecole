@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, joinedload
 import locale
 from babel.dates import format_date
 from app.database import get_db
-from app.Models.MModels import  AnneeAcademique,Niveau,Classe,User,Etudiant,Faculte
+from app.Models.MModels import  AnneeAcademique,Niveau,Classe,User,Etudiant,Faculte,Cours
 from app.Models.MRelations import ClasseEtudiant,CoursEtudiant
 from app.Models.MSystems import Profile
 from app.Helper.pdf_personaliser import PDFGenerator
@@ -104,6 +104,86 @@ def to_float(value, default=0.0):
         return float(value)
     except (ValueError, TypeError):
         return default
+
+
+def calculer_moyenne_session(
+    data_etudiant: Any,
+    identifiant: str,
+    session: str,
+    db: Session,
+) -> Dict[str, Any]:
+    """Équivalent de calculer_moyenne_generale() pour la structure imbriquée
+    par session/controle du niveau Universitaire (bloc), voir RNotes.py
+    CAS 2 : data[identifiant][session][controle][type_matiere][cours].
+    Structurellement différente de la structure 'mois' (pas de 'base'/
+    'orale', clé 'cours' au lieu de 'notes' clées par mois) — calculer_
+    moyenne_generale ne peut pas être réutilisée telle quelle.
+
+    coefficients n'est garanti que sous le nœud 'intra' — 'finale' peut
+    être créé nu ({'notes': {}}, voir RNotes.py ~l.384) sans son propre
+    coefficient, donc toujours lu depuis 'intra' pour un cours donné.
+
+    Intra et Final ne sont jamais fusionnés (confirmé via RPromus.py plus
+    tôt dans cette session) — deux moyennes pondérées séparées, jamais une
+    moyenne combinée."""
+    if isinstance(data_etudiant, str):
+        parse_data = json.loads(data_etudiant)
+    else:
+        parse_data = data_etudiant or {}
+
+    session_data = parse_data.get(identifiant, {}).get(session, {}) if isinstance(parse_data, dict) else {}
+    intra_node = session_data.get('intra', {}) if isinstance(session_data, dict) else {}
+    finale_node = session_data.get('finale', {}) if isinstance(session_data, dict) else {}
+
+    matieres = []
+    notes_intra, coef_intra = [], []
+    notes_finale, coef_finale = [], []
+
+    # La clé "cours" du blob est soit un Cours.id (UUID, voir RNotes.py::
+    # store_note CAS 2) soit déjà le nom du cours — les deux formes existent
+    # en base selon le chemin d'écriture emprunté (voir NoteForm.vue). On
+    # résout via Cours.cours_nom quand c'est un UUID connu, sinon on garde
+    # la clé telle quelle (déjà un nom lisible).
+    cours_nom_cache: Dict[str, str] = {}
+
+    def resoudre_nom_cours(cours_key: str) -> str:
+        if cours_key not in cours_nom_cache:
+            cours_obj = db.query(Cours.cours_nom).filter(Cours.id == cours_key).first()
+            cours_nom_cache[cours_key] = cours_obj[0] if cours_obj else cours_key
+        return cours_nom_cache[cours_key]
+
+    for type_matiere, cours_dict in intra_node.items():
+        if not isinstance(cours_dict, dict):
+            continue
+        for cours, entree in cours_dict.items():
+            if not isinstance(entree, dict):
+                continue
+            coef = to_float(entree.get('coefficients'))
+            note_i = entree.get('notes', {}).get('intra')
+            finale_entree = finale_node.get(type_matiere, {}).get(cours, {}) if isinstance(finale_node.get(type_matiere), dict) else {}
+            note_f = finale_entree.get('notes', {}).get('finale') if isinstance(finale_entree, dict) else None
+
+            matieres.append({
+                'matiere': resoudre_nom_cours(cours),
+                'coef': coef,
+                'note_intra': to_float(note_i, None) if note_i is not None else None,
+                'note_finale': to_float(note_f, None) if note_f is not None else None,
+            })
+            if note_i is not None:
+                notes_intra.append(to_float(note_i))
+                coef_intra.append(coef)
+            if note_f is not None:
+                notes_finale.append(to_float(note_f))
+                coef_finale.append(coef)
+
+    moyenne_intra = round(sum(n * c for n, c in zip(notes_intra, coef_intra)) / sum(coef_intra), 2) if sum(coef_intra) > 0 else None
+    moyenne_finale = round(sum(n * c for n, c in zip(notes_finale, coef_finale)) / sum(coef_finale), 2) if sum(coef_finale) > 0 else None
+
+    return {
+        'matieres': matieres,
+        'moyenne_intra': moyenne_intra,
+        'moyenne_finale': moyenne_finale,
+    }
 
 def moyenne_and_place(
     classes_id: int, 
@@ -312,7 +392,19 @@ def impression_bulletin(
                     status_code=400,
                     detail=f"Données manquantes. {bulletin_id} 00{mois}"
                 )
-        
+        else:
+            # Niveau Universitaire, système bloc (Intra/Final) — voir
+            # calculer_moyenne_session ci-dessus. request.mois est réutilisé
+            # comme sélecteur de phase : 'intra', 'finale', ou 'all' (les
+            # deux, affichées côte à côte, jamais fusionnées).
+            if mois not in ('intra', 'finale', 'all'):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Le paramètre 'mois' doit valoir 'intra', 'finale' ou 'all' pour ce niveau."
+                )
+            request_data = mois
+            all_headers = ['Intra', 'Finale']
+
         # Première requête - Récupérer les données du bulletin
         data_bulletin = db.query(
             CoursEtudiant,
@@ -390,17 +482,29 @@ def impression_bulletin(
         )
 
         
-        # Calculer les moyennes et le classement
-        data = moyenne_and_place(
-            data_bulletin.classe_id,
-            request_data,
-            data_bulletin_student,
-            db
-        )
+        # Calculer les moyennes et le classement — sans objet pour le
+        # niveau bloc/session : data_bulletin_student joint ClasseEtudiant,
+        # où les étudiants Universitaire/Technique ne sont jamais inscrits
+        # (ils utilisent EtudiantFaculte, voir Etudiants.py) — la requête
+        # renverrait toujours une liste vide, donc pas de classement de
+        # classe pour ce niveau (voir calculer_moyenne_session à la place).
+        session_result = None
+        if session:
+            session_result = calculer_moyenne_session(
+                data_bulletin[9], data_bulletin[8], session, db,
+            )
+            data = {'result': [], 'moyenne_classe': 0}
+        else:
+            data = moyenne_and_place(
+                data_bulletin.classe_id,
+                request_data,
+                data_bulletin_student,
+                db
+            )
         print(data_bulletin,data_bulletin.annee_academique)
         # Récupérer le profil
         profile = db.query(Profile).first()
-        
+
         # Préparer la réponse
         result = {
             'data_student': {
@@ -418,6 +522,10 @@ def impression_bulletin(
             },
             'info': profile,
             'mois': request_data,
+            'session': session,
+            'session_matieres': session_result['matieres'] if session_result else [],
+            'moyenne_intra': session_result['moyenne_intra'] if session_result else None,
+            'moyenne_finale': session_result['moyenne_finale'] if session_result else None,
             'allHeaders': all_headers,
             'moyenne_classe': data.get('moyenne_classe', 1),
             'result': data.get('result', [])
