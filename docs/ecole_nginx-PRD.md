@@ -172,6 +172,20 @@ Voir `docs/ecole_nginx.md` §14 pour le détail technique complet.
 - En tant que direction, quand je retire la note d'un mois qu'un étudiant n'a pas pu composer (via "Supprimer notes"), sa moyenne générale sur l'écran Promus reflète désormais le même recalcul que celle affichée sur son bulletin annuel — auparavant, seul le bulletin recalculait correctement ; Promus continuait de le pénaliser comme s'il avait obtenu 0 à ce mois.
 - Compromis assumé (validé explicitement) : cette moyenne n'est plus comparée à un plancher fixe par classe — un élève avec très peu de notes saisies pour une autre raison (jamais pris plusieurs examens) est désormais jugé uniquement sur les notes qu'il a, comme sur le bulletin, plutôt que d'être automatiquement pénalisé par rapport au reste de la classe.
 
+## 7 decies. Mise à jour — système à crédits universitaire, rattrapage et bulletin PDF Universitaire (livré)
+
+Voir `docs/ecole_nginx.md` §15 pour le détail technique complet.
+
+### 4.2 bis Gestion des notes et évaluations (complément — niveau Universitaire)
+- En tant qu'étudiant Universitaire inscrit au système à crédits, je m'inscris à des cours (avec prérequis et plafond de reprises après échec), je consulte mon GPA et mes crédits tentés/validés sur une page dédiée, et j'imprime mon relevé de notes.
+- En tant que professeur/administrateur, je saisis les notes Intra et Final séparément pour un étudiant du système à crédits, pondérées par cours, et je vois à titre indicatif la contribution des devoirs de la plateforme e-learning IUSTH sans qu'elle soit jamais additionnée automatiquement.
+- Un étudiant inscrit à au moins un cours du système à crédits est désormais exclu du système bloc (Intra/Final "classique") pour tous ses cours Universitaire — les deux systèmes ne se mélangent jamais pour un même étudiant.
+- En tant que direction, j'imprime le bulletin d'un étudiant Universitaire du système bloc par session, pour Intra seul, Final seul, ou les deux côte à côte — fonctionnalité absente jusqu'ici pour ce niveau (aucune branche fonctionnelle n'existait côté serveur quand une session était renseignée).
+- Correction de deux bugs préexistants (tous niveaux) découverts en testant ce qui précède : une erreur de validation de note pouvait être silencieusement avalée sans retour d'erreur ni de succès ; et la toute première note jamais saisie pour un étudiant provoquait un crash.
+
+### 4.5 quater Promotions de fin d'année (complément — rattrapage)
+- En tant que direction, je peux envoyer un étudiant en échec (niveau par année/bloc) en session de rattrapage plutôt que de le faire redoubler directement — seules les matières échouées sont à repasser, la décision finale étant différée jusqu'à la clôture de la session.
+
 ## 7. Mise à jour — installation multiplateforme (livré)
 
 Objectif ajouté en cours de projet : rendre `ecole_nginx` installable sur Mac et Linux en plus de Windows, sans modifier le comportement de l'installateur Windows existant.

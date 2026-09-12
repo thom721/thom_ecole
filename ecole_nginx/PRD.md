@@ -236,6 +236,30 @@ Niveau (ex: Secondaire 1)
 - Alertes pour absentéisme excessif
 - Rapports de présence par période
 
+#### F3.5 - Système à crédits (niveau Universitaire)
+**Priorité**: Élevée
+**Description**: Système d'inscription et de notation par crédits, alternatif au système par bloc (Intra/Final), réservé au niveau Universitaire
+
+**Fonctionnalités**:
+- Inscription d'un étudiant à un cours (crédits, prérequis, plafond de reprises après échec)
+- Saisie des notes en deux phases (Intra / Final), pondérées par cours (poids configurable, défaut 50/50)
+- Calcul automatique du GPA, des crédits tentés et des crédits validés
+- Page "Progrès crédits/GPA" consultable par l'étudiant lui-même
+- Contribution des devoirs (plateforme e-learning IUSTH) affichée à titre indicatif lors de la saisie, jamais additionnée automatiquement à la note
+- Relevé de notes PDF (crédits, GPA, statut par cours)
+
+**Règle structurante**: un étudiant inscrit à au moins un cours du système à crédits est exclu du système par bloc pour l'ensemble de ses cours Universitaire — les deux systèmes ne se mélangent jamais pour un même étudiant.
+
+#### F3.6 - Rattrapage (niveau par année/bloc)
+**Priorité**: Moyenne
+**Description**: Alternative au redoublement direct pour un étudiant en échec
+
+**Fonctionnalités**:
+- Depuis l'écran Promus, un étudiant en échec peut être envoyé en session de rattrapage plutôt que redoublé immédiatement
+- Seules les matières où l'étudiant est sous la note de passage sont à repasser (matières identifiées automatiquement)
+- Décision finale (promotion ou redoublement) différée jusqu'à la clôture de la session de rattrapage
+- Non applicable au préscolaire (pas de notes/moyenne à ce niveau)
+
 ---
 
 ### 3.4 Génération de documents
@@ -254,6 +278,8 @@ Niveau (ex: Secondaire 1)
 - Signature numérique de l'établissement
 
 **Format**: PDF professionnel avec logo et mise en page personnalisable
+
+**Niveau Universitaire** : deux formats dédiés, mutuellement exclusifs selon le système de l'étudiant (voir F3.5) — un bulletin par session (Intra seul, Final seul, ou les deux côte à côte, jamais fusionnés) pour le système par bloc, et un relevé de notes (cours, crédits, GPA, statut) pour le système à crédits.
 
 #### F4.2 - Reçus de paiement
 **Priorité**: Critique
@@ -2222,6 +2248,7 @@ C:\Program Files\ecole-serve\
 | 1.0 | 2026-05-15 | Analyse Claude | Création initiale du PRD |
 | 1.1 | 2026-06-28 | Claude (session) | Ajout S5 (autorisation par PIN / double approbation, §4.3) ; journal de bug §8.4 (`PATCH /user/pin` corrigé) |
 | 1.2 | 2026-09-01 | Claude (session) | Portail public IUSTH (`frontend_university/`, non couvert par ce PRD auparavant — voir son propre `CLAUDE.md`) : audit et branchement des tableaux de bord Professeur/Étudiant/Admin (plusieurs pages étaient des maquettes statiques sans appel API) ; ajout d'une section "Procédure d'admission" et d'une section "Mot du Recteur" sur les pages Admission/À propos ; fiche d'inscription envoyée par email au postulant + téléchargeable immédiatement après soumission (nouvelle route publique `/public-recu-inscription/{student_id}`, voir `app/Routes/Etudiants.py` et `app/utils/students_email.py`) ; refonte responsive de la page d'accueil (largeurs de conteneur harmonisées) |
+| 1.3 | 2026-09-12 | Claude (session) | Système à crédits universitaire (F3.5) : inscriptions, notes Intra/Final pondérées, GPA, page Progrès étudiant, relevé PDF, contribution des devoirs (plateforme e-learning IUSTH) affichée en saisie de notes ; exclusion mutuelle bloc/crédits par étudiant. Rattrapage niveau bloc (F3.6). Refonte du bulletin PDF Universitaire (F4.1), inexistant fonctionnellement jusqu'ici pour ce niveau. File d'attente webhook persistante pour l'intégration sortante vers elearning-iusth (§9.2/§6). Voir `docs/ecole_nginx.md` §15 pour le détail technique complet. |
 
 ---
 
