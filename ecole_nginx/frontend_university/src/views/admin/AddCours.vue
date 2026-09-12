@@ -23,7 +23,27 @@ const isEditing = ref(false);
 // Bug corrigé : `niveau_id` (obligatoire — RCours.py:148) et `coefficients`
 // (obligatoire hors niveau Universitaire — RCours.py:158) étaient absents du
 // formulaire ; toute soumission échouait donc avec une 422 "Niveau invalide".
-const emptyCours = () => ({ cours_nom: "", note_de_passage: "", coefficients: "", niveau_id: "", type_matiere: "" });
+const emptyCours = () => ({ cours_nom: "", note_de_passage: "", coefficients: "", niveau_id: "", type_matiere: "", credits: null, reprises_max: null, prerequis_ids: [], poids_intra_percent: 50 });
+
+// Liste complète des cours (avec niveau_id), pour le sélecteur de prérequis
+// (Universitaire uniquement) — schoolStore.cours n'a pas niveau_id, voir
+// Credits.vue::fetchCoursAll qui fait le même choix.
+const coursAll = ref([]);
+const fetchCoursAll = async () => {
+  try {
+    const res = await axios.get(`${url}/cours`);
+    coursAll.value = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
+  } catch (e) {
+    console.error('Erreur chargement des cours:', e);
+  }
+};
+onMounted(fetchCoursAll);
+
+const coursUniversitaireDisponibles = (excludeId) => {
+  const universitaire = niveau.value?.find(n => n.name === 'Universitaire');
+  if (!universitaire) return [];
+  return coursAll.value.filter(c => c.niveau_id === universitaire.id && c.id !== excludeId);
+};
 
 const addCours = () => {
   courses.value.push(emptyCours());
@@ -47,7 +67,9 @@ onMounted(async () => {
       courses.value = [{
         id: c.id, cours_nom: c.cours_nom, niveau_id: c.niveau_id,
         type_matiere: c.type_matiere, note_de_passage: c.note_de_passage,
-        coefficients: c.coefficients,
+        coefficients: c.coefficients, credits: c.credits, reprises_max: c.reprises_max,
+        prerequis_ids: c.prerequis_ids || [],
+        poids_intra_percent: c.poids_intra_percent ?? 50,
       }];
     } catch (e) {
       console.error("Erreur chargement cours:", e);
@@ -192,6 +214,30 @@ const submitCours = async () => {
                 <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" class="w-3 h-3 shrink-0"><path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z"/></svg>
                 {{ errors[`CoursesObject.${index}.coefficients`][0] }}
               </p>
+            </div>
+
+            <!-- Reprises max / Prérequis (système à crédits, Universitaire uniquement) —
+                 pas de champ Crédits ici : Programme.credits (AddProgramme.vue) est la
+                 vraie source utilisée par la saisie de notes (voir RCoursEtudiant.py qui
+                 lit Programme.coefficients/note_de_passage, jamais ceux de Cours), même
+                 principe pour credits. Cours.credits ne sert que de repli si l'offre ne
+                 le précise pas. -->
+            <div v-if="isUniversitaire(cours.niveau_id)" class="md:col-span-4 grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
+              <div class="flex flex-col gap-1.5">
+                <label class="text-[10px] font-semibold uppercase tracking-wider text-[#7c83a0]">Reprises max autorisées</label>
+                <input :id="'reprises_'+index" v-model="cours.reprises_max" type="number" step="1" placeholder="Illimité si vide" class="course-input" />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-[10px] font-semibold uppercase tracking-wider text-[#7c83a0]">Prérequis</label>
+                <select :id="'prerequis_'+index" v-model="cours.prerequis_ids" multiple class="course-select" style="height: 74px;">
+                  <option v-for="c in coursUniversitaireDisponibles(cours.id)" :key="c.id" :value="c.id">{{ c.cours_nom }}</option>
+                </select>
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-[10px] font-semibold uppercase tracking-wider text-[#7c83a0]">Poids Intra (%)</label>
+                <input :id="'poids_intra_'+index" v-model="cours.poids_intra_percent" type="number" min="0" max="100" step="1" placeholder="50" class="course-input" />
+                <p class="text-[10px] text-[#5a6478]">Le Final comptera pour {{ 100 - (Number(cours.poids_intra_percent) || 0) }}%</p>
+              </div>
             </div>
 
             <!-- Supprimer -->

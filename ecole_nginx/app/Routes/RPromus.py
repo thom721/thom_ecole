@@ -9,7 +9,7 @@ import re
 import logging 
 from app.database import get_db
 from app.Models.MModels import Etudiant,User,Niveau,AnneeAcademique,Classe,Faculte
-from app.Models.MRelations import ClasseEtudiant,EtudiantFaculte,Responsable,PieceSoumise,CoursEtudiant
+from app.Models.MRelations import ClasseEtudiant,EtudiantFaculte,Responsable,PieceSoumise,CoursEtudiant,RattrapageSession
 from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role,first_or_update_safe
 from app.Helper.context import UserContext
 from app.Helper.audit_log import log_action
@@ -86,6 +86,17 @@ class StorePromotionRequest(BaseModel):
     # mais s'applique tel quel à n'importe quel étudiant du lot si besoin.
     forcer_redoublant: Optional[List[str]] = Field(
         None, description="Liste d'etudiant_id à faire redoubler malgré tout"
+    )
+    # Optionnel : étudiants en échec à envoyer en rattrapage plutôt qu'en
+    # redoublement direct (voir app/Routes/RRattrapage.py) — une
+    # RattrapageSession est créée pour repasser seulement les matières
+    # ratées, et la décision finale (promotion ou redoublement) est
+    # différée jusqu'à ce que RRattrapage.py::decision_rattrapage tranche.
+    # Ignoré pour un étudiant qui n'est PAS en échec (déjà promu, rien à
+    # rattraper) ou pour le préscolaire (jamais de moyenne, voir
+    # _est_classe_prescolaire).
+    rattrapage_etudiants: Optional[List[str]] = Field(
+        None, description="Liste d'etudiant_id en échec à envoyer en rattrapage plutôt qu'en redoublement direct"
     )
 
     @field_validator('annee_academique_id', 'annee_academique_future')
@@ -209,6 +220,39 @@ def calculer_moyenne_generale(
     moyenne_generale = (total_notes / coeff) * 10
 
     return (f"{moyenne_generale:.2f}", total_notes, coeff)
+
+
+def _matieres_echouees(data_etudiant: Any, identifiant: str) -> list:
+    """Matières dont la somme des notes est sous le note_de_passage
+    snapshotté (voir RNotes.py::store_note, clé 'note_de_passage' stockée
+    aux côtés de 'coefficients' pour chaque matière) — sert à dériver
+    RattrapageSession.matieres_a_repasser (voir app/Routes/RRattrapage.py).
+    Une matière sans note_de_passage snapshotté n'est jamais retenue (pas
+    de seuil connu = pas de décision possible)."""
+    if isinstance(data_etudiant, str):
+        parsed = json.loads(data_etudiant)
+    else:
+        parsed = data_etudiant
+    data = parsed.get(identifiant, {}) if isinstance(parsed, dict) else {}
+
+    echouees = []
+    for type_matiere in ['base', 'orale']:
+        if type_matiere not in data:
+            continue
+        for matiere, details in data[type_matiere].items():
+            note_de_passage = details.get('note_de_passage')
+            if note_de_passage in (None, ''):
+                continue
+            notes = details.get('notes', {})
+            if isinstance(notes, dict):
+                somme_notes = sum(float(n) for n in notes.values())
+            elif isinstance(notes, list):
+                somme_notes = sum(float(n) for n in notes)
+            else:
+                somme_notes = 0.0
+            if somme_notes < float(note_de_passage):
+                echouees.append(matiere)
+    return echouees
 
 
 def validate_annee_proche_fin(annee_id: str, db: Session, min_days: int = 30):
@@ -524,7 +568,9 @@ async def store_promotion(
         
         promus_count = 0
         redoublants_count = 0
+        rattrapage_count = 0
         forced_redoublants = set(request.forcer_redoublant or [])
+        rattrapage_requested = set(request.rattrapage_etudiants or [])
         # Filet de sécurité : un même étudiant ne doit jamais être traité
         # deux fois dans cette boucle (peu importe la cause exacte — jointure
         # qui se dédouble, doublon de données...), sinon deux tentatives de
@@ -580,6 +626,27 @@ async def store_promotion(
                 )
                 promus_count += 1
                 _enrollment_changes.append({"etudiant_id": row.etudiant_id, "classes_id": request.classe_future, "status": True})
+            elif not _est_classe_prescolaire(row.nom_classe) and row.etudiant_id in rattrapage_requested:
+                # Rattrapage (voir app/Routes/RRattrapage.py) : décision
+                # différée, pas de redoublement immédiat — l'étudiant reste
+                # dans sa classe actuelle jusqu'à la décision finale, donc
+                # aucun enrollment_change envoyé maintenant (rien n'a encore
+                # réellement changé). Jamais pour le préscolaire (jamais de
+                # moyenne/matières à comparer, voir _matieres_echouees).
+                exists_session = db.query(RattrapageSession).filter(
+                    RattrapageSession.etudiant_id == row.etudiant_id,
+                    RattrapageSession.annee_academique_id == request.annee_academique_id,
+                ).first()
+                if not exists_session:
+                    db.add(RattrapageSession(
+                        etudiant_id=row.etudiant_id,
+                        annee_academique_id=request.annee_academique_id,
+                        classes_id=request.classes_id,
+                        niveau_id=request.niveau_id,
+                        matieres_a_repasser=_matieres_echouees(row.data_etudiant, row.identifiant),
+                        statut="en_attente",
+                    ))
+                rattrapage_count += 1
             else:
                 # Étudiant redoublant → même classe
                 update_or_create_classes_etudiant(
@@ -632,9 +699,10 @@ async def store_promotion(
             "success": "Opération réussie",
             "statistics": {
                 "aide_financiere_modifiee": aide_financiere_count,
-                "total": promus_count + redoublants_count,
+                "total": promus_count + redoublants_count + rattrapage_count,
                 "promus": promus_count,
-                "redoublants": redoublants_count
+                "redoublants": redoublants_count,
+                "rattrapage": rattrapage_count
             }
         }
     

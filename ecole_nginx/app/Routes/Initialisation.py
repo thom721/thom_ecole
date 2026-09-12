@@ -60,6 +60,7 @@ def fill_roles_and_permissions(db: Session = Depends(get_db)):
             "Ajouter classe", "Modifier classe", "Supprimer classe", "Voir classe",
             "Ajouter cours", "Modifier cours", "Supprimer cours", "Voir cours",
             "Ajouter note", "Modifier note", "Supprimer note", "Voir note",
+            "Ajouter inscription cours", "Voir inscription cours",
             "Ajouter personnel", "Modifier personnel", "Supprimer personnel", "Voir personnel",
             "Ajouter profile", "Modifier profile", "Supprimer profile", "Voir profile",
             "Ajouter professeur", "Modifier professeur", "Supprimer professeur", "Voir professeur",

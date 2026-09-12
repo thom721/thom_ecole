@@ -71,6 +71,10 @@ const props = defineProps({
             icon: `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>`
           },
           {
+            name: 'Crédits', label: 'Système à crédits', to: '/credits', badge: null,
+            icon: `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`
+          },
+          {
             name: 'Paiements', label: 'Paiements', to: '/paiements', badge: null,
             icon: `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" width="18" height="18"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>`
           },
@@ -199,6 +203,7 @@ const NAV_TAB_ID = {
   'Professeurs':    'prof',
   'Notes':          'notes',
   'Cours':          'cours',
+  'Crédits':        'credits',
   'Paiements':      'paiement',
   'Trésorerie':     'vente',
   'Présences':      'presences',
@@ -235,6 +240,14 @@ const shouldShowMenuItem = (itemName) => {
       return authStore.canAccessNotes;
     case 'Cours':
       return authStore.canAccessCours;
+    case 'Crédits':
+      // Gate uniquement sur le niveau "Universitaire" actif, pas sur un rôle :
+      // les 4 permissions du système à crédits (Modifier cours/Ajouter
+      // inscription cours/Ajouter note/Voir inscription cours) ne sont pas
+      // toutes détenues par les mêmes rôles (ex: teacher a "Ajouter note"
+      // mais pas "Modifier cours") — chaque onglet gère sa propre visibilité
+      // de contrôles à l'intérieur de Credits.vue.
+      return niveau.value?.some(n => n.name === 'Universitaire' && n.status === true) ?? false;
     case 'Paiements':
       return authStore.canAccessPaiement;
     case 'Trésorerie':
@@ -295,6 +308,11 @@ onMounted(async () => {
   document.addEventListener('click', onOutsideClick);
   if (!authStore.user) await authStore.initializeAuth();
   authStore.startTabWatcher();
+  // Nécessaire pour que le gating de "Crédits" (niveau Universitaire actif,
+  // voir shouldShowMenuItem) ait des données : `niveau` est déjà destructuré
+  // via storeToRefs plus haut mais n'était jusqu'ici jamais chargé ici
+  // (isLoaded le rend idempotent si une autre page l'a déjà fait).
+  await schoolStore.fetchAllDependencies();
 });
 onUnmounted(() => {
   window.removeEventListener('resize', checkMobile);

@@ -63,7 +63,16 @@ class EtudiantNoteData(BaseModel):
     niveau_id: str
     facName: Optional[str] = None
     facId: Optional[str] = None
-    
+    email: Optional[str] = None
+    # Contribution des devoirs gérés côté elearning-iusth, en pourcentage
+    # (voir Helper/elearning_grades_client.py) — None si l'intégration
+    # n'est pas active ou si l'étudiant n'a pas d'email de corrélation.
+    # Intra et Final sont deux notes cumulatives distinctes (RNotes.py,
+    # CAS 2) : deux totaux séparés, jamais un seul mélangé, pour éviter
+    # qu'ils soient additionnés deux fois à la même note.
+    note_devoirs_intra: Optional[float] = None
+    note_devoirs_finale: Optional[float] = None
+
     class Config:
         from_attributes = True
 
@@ -124,6 +133,12 @@ class EditNoteRequest(BaseModel):
     examen: Optional[str] = Field(None, description="Type d'examen")
     type_matiere: str = Field(..., description="Type de matière")
     notes: List[NoteItem] = Field(..., min_items=1, description="Liste des notes à éditer")
+    # Présents uniquement pour le niveau Universitaire (session non nulle) :
+    # bascule la recherche de note déjà enregistrée sur la structure
+    # imbriquée par session/controle (RNotes.py, CAS 2) au lieu de la
+    # structure par examen (CAS 1).
+    session: Optional[str] = None
+    controle: Optional[str] = None
     
     @field_validator('cours', 'annee_academique', 'type_matiere')
     @classmethod

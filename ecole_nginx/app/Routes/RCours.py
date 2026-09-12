@@ -4,6 +4,7 @@ from sqlalchemy import asc, desc, or_
 from typing import Optional, List,Union
 from app.Models.MModels import Niveau,User,Cours
 from app.Models.MRelations import Programme
+from app.Models.MCredits import CoursPrerequis
 import math
 from sqlalchemy import func
 from datetime import datetime
@@ -16,6 +17,23 @@ from app.Schemas.cours_schema import (
 )
 from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role
 router = APIRouter(prefix="/api/v1", tags=["cours"])
+
+
+def _reconcile_prerequis(db: Session, cours_id: str, prerequis_ids):
+    """Aligne les CoursPrerequis d'un cours sur `prerequis_ids` (retire ceux
+    absents de la liste, ajoute les nouveaux) — voir
+    CourseItem.prerequis_ids (cours_schema.py). None = ne rien changer."""
+    if prerequis_ids is None:
+        return
+    existants = db.query(CoursPrerequis).filter(CoursPrerequis.cours_id == cours_id).all()
+    existants_ids = {p.prerequis_cours_id for p in existants}
+    voulus_ids = set(prerequis_ids) - {cours_id}  # un cours ne peut pas être son propre prérequis
+
+    for p in existants:
+        if p.prerequis_cours_id not in voulus_ids:
+            db.delete(p)
+    for prerequis_cours_id in voulus_ids - existants_ids:
+        db.add(CoursPrerequis(cours_id=cours_id, prerequis_cours_id=prerequis_cours_id))
  
 # GET avec pagination optionnelle et recherche
 @router.get("/cours", response_model=Union[List[CoursResponse], PaginatedCoursResponse])
@@ -119,7 +137,12 @@ def get_cours_by_id(cours_id: str, db: Session = Depends(get_db)):
     
     if not cours:
         raise HTTPException(status_code=404, detail="Cours non trouvé")
-    
+
+    prerequis_ids = [
+        p.prerequis_cours_id
+        for p in db.query(CoursPrerequis).filter(CoursPrerequis.cours_id == cours.id).all()
+    ]
+
     return CoursResponseSchemaOne(data={
         "id":cours.id,
         "cours_nom":cours.cours_nom,
@@ -127,6 +150,10 @@ def get_cours_by_id(cours_id: str, db: Session = Depends(get_db)):
         "date":cours.created_at,
         "note_de_passage":cours.note_de_passage,
         "coefficients":cours.coefficients,
+        "credits":cours.credits,
+        "reprises_max":cours.reprises_max,
+        "poids_intra_percent":cours.poids_intra_percent,
+        "prerequis_ids":prerequis_ids,
         "niveau_id":cours.niveau_id,
         "created_at":cours.created_at,
         "updated_at":cours.updated_at
@@ -249,10 +276,14 @@ def store_cours(
                     "niveau_id": item.niveau_id,
                     "note_de_passage": item.note_de_passage,
                     "coefficients": item.coefficients,
+                    "credits": item.credits,
+                    "reprises_max": item.reprises_max,
+                    "poids_intra_percent": item.poids_intra_percent if item.poids_intra_percent is not None else 50,
                     "type_matiere": item.type_matiere or "",
                 })
+                _reconcile_prerequis(db, item.id, item.prerequis_ids)
 
-            else: 
+            else:
                 if not user_has_permission(current_user, "Ajouter cours", db):
                     raise HTTPException(
                         status_code=400,
@@ -286,9 +317,14 @@ def store_cours(
                         niveau_id=item.niveau_id,
                         note_de_passage=item.note_de_passage,
                         coefficients=item.coefficients,
+                        credits=item.credits,
+                        reprises_max=item.reprises_max,
+                        poids_intra_percent=item.poids_intra_percent if item.poids_intra_percent is not None else 50,
                         type_matiere=item.type_matiere or "",
                     )
                     db.add(cours)
+                    db.flush()
+                    _reconcile_prerequis(db, cours.id, item.prerequis_ids)
             db.commit()
         return {"success": "Cours ajoutés avec succès."}
 

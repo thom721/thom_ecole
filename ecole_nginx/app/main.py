@@ -2,9 +2,9 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from app.config.Config import settings
 from time import time
-from app.Routes import Etudiants, RAcademic,RCours,RProgramme,dashboard,RCoursEtudiant,RParamExam,RAnneAcademique,RClasses,RInscription,RPaiement,RPaiementParam,RClientInfos,RProfile,RAuth,RRolePermission,RVente,RLog,RNotes,RSavePaiement,Initialisation,Returns,RTransaction,RPromus,REvents,RNews,RVideo,RContact,RCategory,RPresences,RFormations,RPageSections,RProduit,RCategorieProduit,RPayroll,RParametrePayroll,RPointage,RAnnulationArriere,RIntegrationExport
+from app.Routes import Etudiants, RAcademic,RCours,RProgramme,dashboard,RCoursEtudiant,RParamExam,RAnneAcademique,RClasses,RInscription,RPaiement,RPaiementParam,RClientInfos,RProfile,RAuth,RRolePermission,RVente,RLog,RNotes,RSavePaiement,Initialisation,Returns,RTransaction,RPromus,REvents,RNews,RVideo,RContact,RCategory,RPresences,RFormations,RPageSections,RProduit,RCategorieProduit,RPayroll,RParametrePayroll,RPointage,RAnnulationArriere,RIntegrationExport,RCredits,RRattrapage
 
-from app.Routes.pdf import BulletinPrint, paiement_recu,GlobalRepport,PaymentRepport,Register_report,VenteRecu,RegisterRepport,PedagogicRepport,MasBulletinPrint,PedaRepport,RPRepport,RExcelExport,RHoraireReport,PayrollReport,SalaireHistoriqueReport
+from app.Routes.pdf import BulletinPrint, paiement_recu,GlobalRepport,PaymentRepport,Register_report,VenteRecu,RegisterRepport,PedagogicRepport,MasBulletinPrint,PedaRepport,RPRepport,RExcelExport,RHoraireReport,PayrollReport,SalaireHistoriqueReport,ReleveCredits
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles 
@@ -414,6 +414,30 @@ def _license_refresh_loop() -> None:
             print(f"Erreur dans la boucle de revérification périodique de licence : {e}")
 
 
+# 5 minutes par défaut (configurable via WEBHOOK_QUEUE_DRAIN_INTERVAL_SECONDS) :
+# beaucoup plus court que le rafraîchissement de licence (12h) — un webhook
+# vers elearning-iusth resté en file d'attente (voir Helper/elearning_webhook.py)
+# doit être rattrapé rapidement une fois elearning-iusth de nouveau joignable,
+# pas seulement deux fois par jour.
+_WEBHOOK_QUEUE_DRAIN_INTERVAL_SECONDS = int(os.getenv("WEBHOOK_QUEUE_DRAIN_INTERVAL_SECONDS", "300"))
+
+
+def _webhook_queue_drain_loop() -> None:
+    """Boucle du thread d'arrière-plan démarré par startup_event() ci-dessous.
+    Thread daemon : ne retarde jamais l'arrêt du process. Même pattern que
+    _license_refresh_loop ci-dessus. drain_webhook_queue() gère déjà ses
+    propres erreurs ; ce try/except est une seconde ceinture."""
+    from app.Helper.elearning_webhook import drain_webhook_queue
+
+    stop_wait = threading.Event()
+    while True:
+        stop_wait.wait(_WEBHOOK_QUEUE_DRAIN_INTERVAL_SECONDS)
+        try:
+            drain_webhook_queue()
+        except Exception as e:
+            print(f"Erreur dans la boucle de reprise de la file d'attente webhook : {e}")
+
+
 @app.on_event("startup")
 def startup_event():
     # Démarré ici, PAS dans _run_startup_tasks() : indépendant du verrou
@@ -425,6 +449,12 @@ def startup_event():
     # y échouerait à chaque fois sans rapport avec l'abonnement réel.
     if not settings.DISABLE_LICENSE_CHECK:
         threading.Thread(target=_license_refresh_loop, daemon=True).start()
+
+    # Indépendant de DISABLE_LICENSE_CHECK : la file d'attente webhook n'a
+    # aucun rapport avec la licence, doit tourner sur les deux déploiements.
+    # drain_webhook_queue() est déjà un no-op silencieux si ELEARNING_WEBHOOK_URL/
+    # KEY ne sont pas configurées pour cette école (voir Config.py).
+    threading.Thread(target=_webhook_queue_drain_loop, daemon=True).start()
 
     lock_file = _acquire_startup_lock()
     try:
@@ -605,6 +635,8 @@ app.include_router(RPRepport.router)
 app.include_router(RExcelExport.router)
 app.include_router(RTransaction.router_transac)
 app.include_router(RPromus.router)
+app.include_router(RCredits.router)
+app.include_router(RRattrapage.router)
 
 app.include_router(REvents.router)
 app.include_router(RIntegrationExport.router)
@@ -631,6 +663,7 @@ app.include_router(RegisterRepport.router)
 app.include_router(PedagogicRepport.router)
 app.include_router(BulletinPrint.router)
 app.include_router(MasBulletinPrint.router)
+app.include_router(ReleveCredits.router)
 app.include_router(PedaRepport.router)
 
 

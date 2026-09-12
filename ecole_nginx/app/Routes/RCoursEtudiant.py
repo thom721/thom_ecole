@@ -10,8 +10,10 @@ from app.database import get_db
 from app.Models.MModels import Etudiant,Niveau,Classe,Faculte,Professeur,User,Cours,AnneeAcademique
 from app.Models.MFinancials import ParametrePaiement,ParamExam
 from app.Models.MRelations import ClasseEtudiant,CoursEtudiant,Programme,EtudiantFaculte
+from app.Models.MCredits import CoursInscription
 from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role
 from app.Helper.calcule import *
+from app.Helper.elearning_grades_client import fetch_devoirs_grades
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 import json
@@ -350,6 +352,7 @@ async def add_note(
                     Etudiant.nom,
                     Etudiant.prenom,
                     Etudiant.identifiant,
+                    Etudiant.email,
                     AnneeAcademique.annee_academique,
                     Niveau.id.label('niveauId'),
                     Classe.nom_classe,
@@ -391,6 +394,7 @@ async def add_note(
                     Etudiant.nom,
                     Etudiant.prenom,
                     Etudiant.identifiant,
+                    Etudiant.email,
                     AnneeAcademique.annee_academique,
                     Niveau.id.label('niveauId'),
                     Classe.nom_classe,
@@ -436,15 +440,34 @@ async def add_note(
                 classes_id=row.classes_id,
                 niveau_id=row.niveau_id,
                 facName=getattr(row, 'facName', None),
-                facId=getattr(row, 'facId', None)
+                facId=getattr(row, 'facId', None),
+                email=getattr(row, 'email', None)
             )
             for row in results
         ]
-        
+
+        # Un étudiant Universitaire inscrit au système à crédits (au moins
+        # une CoursInscription) ne doit jamais recevoir de note via le
+        # système bloc — les deux systèmes ne coexistent pas pour un même
+        # étudiant (décision explicite : granularité par étudiant, pas par
+        # cours — un étudiant "crédits" l'est pour tous ses cours
+        # Universitaire, jamais seulement pour certains).
+        nb_etudiants_credits_exclus = 0
+        if niveau.name == "Universitaire" and result:
+            etudiants_credits_ids = {
+                row[0] for row in db.query(CoursInscription.etudiant_id)
+                .filter(CoursInscription.etudiant_id.in_([r.id for r in result]))
+                .distinct().all()
+            }
+            if etudiants_credits_ids:
+                nb_etudiants_credits_exclus = len(etudiants_credits_ids)
+                result = [r for r in result if r.id not in etudiants_credits_ids]
+
         # Récupérer les informations du cours
         query_cours = (
             select(
                 Cours.cours_nom,
+                Programme.id.label('programme_id'),
                 Programme.session,
                 Programme.note_de_passage,
                 Classe.nom_classe,
@@ -491,17 +514,39 @@ async def add_note(
 
         if len(result) > 0 and cours:
             pass
+        elif nb_etudiants_credits_exclus > 0:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"{nb_etudiants_credits_exclus} étudiant(s) correspondant(s) sont gérés par le "
+                    "système à crédits (pas par le système bloc) — utilisez l'écran Système à crédits."
+                )
+            )
         else:
             raise HTTPException(
                 status_code=422,
                 detail="Aucune donnée trouvée pour les paramètres fournis ou vous n'êtes pas autorisé."
             )
-        
+
+        # Contribution des devoirs gérés côté elearning-iusth (voir plan
+        # Épic 24) — best-effort, ne doit jamais faire échouer la saisie
+        # de notes si l'intégration est absente/injoignable. Intra et
+        # Final sont deux notes cumulatives distinctes (RNotes.py, CAS 2) :
+        # on garde les deux totaux séparés, jamais un seul mélangé, pour
+        # que le frontend ajoute la bonne contribution à la bonne note.
+        devoirs_map = fetch_devoirs_grades(getattr(cours_result, 'programme_id', None))
+        if devoirs_map:
+            for item in result:
+                if item.email and item.email in devoirs_map:
+                    item.note_devoirs_intra = devoirs_map[item.email].get("note_devoirs_intra")
+                    item.note_devoirs_finale = devoirs_map[item.email].get("note_devoirs_finale")
+
         # Récupérer la liste de tous les cours
         query_list_cours = (
             select(
                 Cours.id,
                 Cours.cours_nom,
+                Programme.id.label('programme_id'),
                 Classe.nom_classe,
                 Programme.note_de_passage,
                 Programme.coefficients,
@@ -516,17 +561,18 @@ async def add_note(
             .where(Programme.class_ == request.class_)
             .where(Programme.annee_academique == request.annee_academique)
         )
-        
+
         if niveau.name == "Universitaire":
-            query_list_cours = query_list_cours.where(Programme.faculte_id.isnot(None)).where(
+            query_list_cours = query_list_cours.where(Programme.Faculte_id.isnot(None)).where(
                 Programme.session == request.session
             )
-        
+
         list_cours_results = db.execute(query_list_cours).fetchall()
         list_cours = [
             {
                 "id": row.id,
                 "cours_nom": row.cours_nom,
+                "programme_id": row.programme_id,
                 "nom_classe": row.nom_classe,
                 "note_de_passage": row.note_de_passage,
                 "coefficients": row.coefficients,
@@ -574,7 +620,8 @@ async def add_note(
                     "examEcheance": exam_echeance.dict() if exam_echeance else None,
                     "month": month,
                     "list_cours": list_cours,
-                    "annee": annee_data.annee_academique
+                    "annee": annee_data.annee_academique,
+                    "etudiants_systeme_credits_exclus": nb_etudiants_credits_exclus
                 }
             )
         else:
@@ -594,23 +641,44 @@ async def add_note(
         raise HTTPException(status_code=500, detail={"errors": str(e)})
 # POST créer
 
+
+@router.get("/cours-devoirs-grades")
+def cours_devoirs_grades(
+    programme_id: str,
+    user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Recharge la contribution des devoirs (voir plan Épic 24) pour un
+    seul Programme — utilisé quand le professeur change de matière via le
+    sélecteur "Changer de matière" de l'écran de saisie de notes sans
+    refaire une recherche complète : la colonne Devoirs doit alors suivre
+    le cours réellement affiché, pas rester sur celui de la recherche
+    initiale."""
+    if not user_has_permission(user, "Ajouter note", db):
+        raise HTTPException(status_code=422, detail="Non autorisé !")
+    return fetch_devoirs_grades(programme_id)
+
 # ============================================================================
 # FONCTIONS UTILITAIRES
 # ============================================================================
 
 def parse_etudiant_data(data_etudiant: Any) -> Dict[str, Any]:
-    """Parse les données JSON de l'étudiant de manière sécurisée"""
+    """Parse les données JSON de l'étudiant de manière sécurisée.
+
+    data_etudiant est stocké tantôt comme dict (cas normal), tantôt comme
+    liste JSON vide "[]" pour un étudiant sans aucun cours/note enregistré
+    (voir RPromus.py::_sans_donnees_de_cours, même convention) — cette
+    fonction doit donc normaliser toute valeur non-dict (liste vide
+    incluse) en {} avant de la renvoyer."""
     try:
         if isinstance(data_etudiant, str):
             if not data_etudiant or data_etudiant.strip() == "":
                 return {}
-            return json.loads(data_etudiant)
+            parsed = json.loads(data_etudiant)
+            return parsed if isinstance(parsed, dict) else {}
         elif isinstance(data_etudiant, dict):
             return data_etudiant
-        elif data_etudiant is None:
-            return {}
         else:
-            logger.warning(f"Type de données inattendu: {type(data_etudiant)}")
             return {}
     except (json.JSONDecodeError, TypeError) as e:
         logger.error(f"Erreur de parsing JSON: {str(e)}")
@@ -655,11 +723,43 @@ def get_note_from_data(
                         return 0.0
         
         return 0.0
-        
+
     except (KeyError, TypeError, ValueError) as e:
         logger.warning(f"Erreur récupération note: {str(e)}")
         return 0.0
 
+
+def get_note_from_session_data(
+    data: Dict[str, Any],
+    identifiant: str,
+    session: str,
+    controle: str,
+    cours_type: str,
+    cours: str,
+) -> float:
+    """Équivalent de get_note_from_data() pour la structure imbriquée par
+    session/controle du niveau Universitaire (voir RNotes.py::store_note,
+    CAS 2 : data[identifiant][session][controle][type_matiere][cours]
+    ['notes'][controle]) — Intra et Final vivent à des chemins distincts,
+    jamais confondus."""
+    try:
+        controle = controle.lower()
+        node = data.get(identifiant, {}).get(session, {}).get(controle, {}).get(cours_type, {}).get(cours, {})
+        notes = node.get('notes', {}) if isinstance(node, dict) else {}
+        note_value = notes.get(controle)
+        if note_value is None:
+            return 0.0
+        if isinstance(note_value, (int, float)):
+            return float(note_value)
+        if isinstance(note_value, str):
+            try:
+                return float(note_value)
+            except ValueError:
+                logger.warning(f"Valeur de note invalide: {note_value}")
+        return 0.0
+    except (KeyError, TypeError, ValueError, AttributeError) as e:
+        logger.warning(f"Erreur récupération note (session/controle): {str(e)}")
+        return 0.0
 
 
 @router.post("/cours-etudiant-edit-note", response_model=EditNoteResponse)
@@ -720,14 +820,26 @@ async def edit_note(
                 # Parser les données de l'étudiant
                 data = parse_etudiant_data(etudiant.data_etudiant)
                 
-                # Récupérer la note
-                note = get_note_from_data(
-                    data=data,
-                    identifiant=item.identifiant,
-                    cours_type=cours_type,
-                    cours=cours,
-                    evaluation_examen=evaluation_examen
-                )
+                # Récupérer la note — structure par session/controle pour le
+                # niveau Universitaire (RNotes.py, CAS 2), sinon structure
+                # historique par examen (CAS 1).
+                if request.session and request.controle:
+                    note = get_note_from_session_data(
+                        data=data,
+                        identifiant=item.identifiant,
+                        session=request.session,
+                        controle=request.controle,
+                        cours_type=cours_type,
+                        cours=cours,
+                    )
+                else:
+                    note = get_note_from_data(
+                        data=data,
+                        identifiant=item.identifiant,
+                        cours_type=cours_type,
+                        cours=cours,
+                        evaluation_examen=evaluation_examen
+                    )
                 
                 # Log si la note est 0
                 if note == 0.0:

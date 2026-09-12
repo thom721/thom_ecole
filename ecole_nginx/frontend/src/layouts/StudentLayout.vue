@@ -2,9 +2,10 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { RouterLink, useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'   // adapter selon votre store
+import axios from 'axios'
 
-import { storeToRefs } from 'pinia'; 
-import { useSchoolStore,useSchoolStoreInfo } from '../stores/schoolStore';  
+import { storeToRefs } from 'pinia';
+import { useSchoolStore,useSchoolStoreInfo } from '../stores/schoolStore';
 const authStore = useAuthStore(); 
 const useSchoolInfo = useSchoolStoreInfo() 
 const { user, isAdmin, isTeacher, roleNames } = storeToRefs(authStore);
@@ -72,6 +73,11 @@ const logout = async () => {
   router.push({ name: 'login' })
 }
 
+// Niveau de CET étudiant (pas le niveau global) — seule source pour savoir
+// si l'onglet "Crédits" (système à crédits, Universitaire uniquement) doit
+// lui être montré. Résolu une fois au montage, voir onMounted ci-dessous.
+const monNiveau = ref(null)
+
 onMounted( async () => {
   if (!authStore.user) await authStore.initializeAuth();
   window.addEventListener('resize', handleResize)
@@ -84,7 +90,24 @@ onMounted( async () => {
     localStorage.setItem('auth-token', token)
     sessionStorage.setItem('auth-token', token)
   }
+
+  // Bug corrigé : niveau/annee/etc. n'étaient jamais chargés (même trou
+  // que AdminLayout.vue avant son propre correctif) — sans ça, le gating
+  // de l'onglet "Crédits" ci-dessous ne fonctionnerait jamais.
+  await schoolStore.fetchAllDependencies()
+
+  try {
+    const { data } = await axios.get(`/etudiant/${authStore.user.user.userable_id}`)
+    monNiveau.value = data.data?.etudiant_facultes?.at(-1)?.niveaux?.name || null
+  } catch (e) {
+    monNiveau.value = null
+  }
 })
+
+const afficherOngletCredits = computed(() =>
+  monNiveau.value === 'Universitaire' &&
+  (niveau.value?.some(n => n.name === 'Universitaire' && n.status === true) ?? false)
+)
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
@@ -152,6 +175,17 @@ const cartCount  = computed(() => auth.cartCount ?? 0)
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
               </svg>
               Notes
+            </RouterLink>
+          </li>
+
+          <li v-if="afficherOngletCredits">
+            <RouterLink :to="{ name: 'etudiant.credits' }" @click="handleResize"
+              class="flex items-center gap-3 px-4 py-3 rounded-xl text-green-100 text-sm font-medium transition-all duration-200 hover:bg-white/10 hover:text-white"
+              :class="{ 'bg-white/15 text-white font-semibold shadow-inner': isActive('etudiant.credits') }">
+              <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2a4 4 0 014-4h4m0 0l-3-3m3 3l-3 3M3 7h18M3 7a2 2 0 002 2h14a2 2 0 002-2M3 7a2 2 0 012-2h14a2 2 0 012 2"/>
+              </svg>
+              Crédits
             </RouterLink>
           </li>
 

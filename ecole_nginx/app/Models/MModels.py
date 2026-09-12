@@ -181,6 +181,8 @@ class Etudiant(Base, ObservableMixin):
     responsable = relationship("Responsable", back_populates="etudiant", uselist=False)
     ventes = relationship("Vente", back_populates="etudiant")
     paiement_statuts = relationship("PaiementStatut", back_populates="etudiant")
+    cours_inscriptions = relationship("CoursInscription", back_populates="etudiant")
+    rattrapage_sessions = relationship("RattrapageSession", back_populates="etudiant")
 
 class Cours(Base, ObservableMixin):
     __tablename__ = "cours"
@@ -196,9 +198,23 @@ class Cours(Base, ObservableMixin):
     coefficients = Column(String(255))
     niveau_id = Column(CHAR(36), ForeignKey("niveaux.id"))
     type_matiere = Column(String(255), nullable=False, default="base")
+    # Système à crédits (niveau "Universitaire" uniquement, voir
+    # app/Models/MCredits.py) — nullable et sans effet pour les autres
+    # niveaux, même convention que note_de_passage/coefficients ci-dessus.
+    credits = Column(Numeric(4, 1), nullable=True)
+    # Nombre de reprises (tentatives après un premier échec) autorisées
+    # avant blocage automatique d'une nouvelle inscription à CE cours (voir
+    # RCredits.py::creer_inscription) — structurel comme credits, pas une
+    # config par offre (Programme). NULL = aucune limite.
+    reprises_max = Column(Integer, nullable=True)
+    # Poids de la phase Intra dans la note globale du cours (système à
+    # crédits, niveau Universitaire) — le Final compte pour (100 - ce
+    # poids). Voir RCredits.py::saisir_note_credits. Structurel comme
+    # credits/reprises_max ci-dessus, pas une config par offre.
+    poids_intra_percent = Column(Numeric(5, 2), nullable=False, default=50)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Relations
     niveau = relationship("Niveau", back_populates="cours")
     notes = relationship("Note", back_populates="cours")

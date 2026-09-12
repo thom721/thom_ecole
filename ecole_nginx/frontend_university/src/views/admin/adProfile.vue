@@ -173,6 +173,7 @@ const ALL_NAV = [
   { id: 'promus',    label: 'Promus',         subs: [] },
   { id: 'prof',      label: 'Professeur',     subs: [] },
   { id: 'cours',     label: 'Cours',          subs: [] },
+  { id: 'credits',   label: 'Système à crédits', subs: [] },
   { id: 'notes',     label: 'Notes',          subs: [] },
   { id: 'presences', label: 'Présences',      subs: [] },
   { id: 'paiement',  label: 'Paiement',       subs: [] },

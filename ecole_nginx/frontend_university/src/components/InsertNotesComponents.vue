@@ -212,8 +212,8 @@ const submitNote = async () => {
             :class="{ 'border-red-500/60 ring-2 ring-red-500/20': errors.session }"
           >
             <option value="" disabled>Choisir une Session</option>
-            <option value="1ere">1ère</option>
-            <option value="2eme">2ème</option>
+            <option value="1ère">1ère</option>
+            <option value="2ème">2ème</option>
           </select>
           <i class="ri-arrow-down-s-line absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none text-base" />
         </div>

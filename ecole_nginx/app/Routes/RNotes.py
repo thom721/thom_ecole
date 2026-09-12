@@ -8,6 +8,7 @@ from app.Schemas.SNotes import *
 from app.database import get_db
 from app.Models.MRelations import CoursEtudiant
 from app.Models.MModels import Professeur,User,Niveau,Classe
+from app.Models.MCredits import CoursInscription
 from app.Models.MSystems import Log
 from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role,first_or_update_safe,require_role
 
@@ -18,16 +19,23 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 def parse_etudiant_data(data_etudiant: Any) -> Dict[str, Any]:
-    """Parse les données JSON de l'étudiant de manière sécurisée"""
+    """Parse les données JSON de l'étudiant de manière sécurisée.
+
+    data_etudiant est stocké tantôt comme dict (cas normal), tantôt comme
+    liste JSON vide "[]" pour un étudiant sans aucun cours/note enregistré
+    (voir RPromus.py::_sans_donnees_de_cours, même convention) — cette
+    fonction doit donc normaliser toute valeur non-dict (liste vide
+    incluse) en {} avant de la renvoyer, sinon les branches "Création" de
+    store_note plantent en tentant d'indexer une liste par une clé
+    identifiant (TypeError)."""
     try:
         if isinstance(data_etudiant, str):
             if not data_etudiant or data_etudiant.strip() == "":
                 return {}
-            return json.loads(data_etudiant)
+            parsed = json.loads(data_etudiant)
+            return parsed if isinstance(parsed, dict) else {}
         elif isinstance(data_etudiant, dict):
             return data_etudiant
-        elif data_etudiant is None:
-            return {}
         else:
             return {}
     except (json.JSONDecodeError, TypeError) as e:
@@ -269,7 +277,7 @@ async def store_note(
                     detail={"errors": "Vous devez choisir entre Intra ou Final"}
                 )
             
-            if note_de_passage in None:
+            if note_de_passage is None:
                 raise HTTPException(
                     status_code=422,
                     detail={"errors": "Notes de passage null"}
@@ -293,7 +301,16 @@ async def store_note(
                     if not etudiant:
                         errors.append(f"Étudiant non trouvé : {item.id}")
                         continue
-                    
+
+                    # Un étudiant inscrit au système à crédits (au moins une
+                    # CoursInscription) ne doit jamais recevoir de note via
+                    # le système bloc — les deux systèmes ne coexistent pas
+                    # pour un même étudiant (garde-fou défensif ; le filtre
+                    # principal est côté add_note/InsertNotesComponents).
+                    if db.query(CoursInscription).filter(CoursInscription.etudiant_id == item.id).first():
+                        errors.append(f"Étudiant {item.identifiant} : géré par le système à crédits, non par le système bloc.")
+                        continue
+
                     data_etudiant = parse_etudiant_data(etudiant.data_etudiant)
                     note_controle = item.note
                     
@@ -517,10 +534,8 @@ async def store_note(
                 detail={"errors": "Contacter l'administration pour des ajouts supplémentaires"}
             )
     
-    except HTTPException as e:
-        pass
-        # import traceback
-        # traceback.print_exc()
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Erreur globale: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail={"errors": str(e)})

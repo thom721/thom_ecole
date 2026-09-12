@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import axios from "axios";
 import Swal from "sweetalert2";
 import InsertNotesComponents from "@/components/InsertNotesComponents.vue";
@@ -58,6 +58,45 @@ const handleDataFetched = (data) => {
   isdata.value = true;
 };
 
+// Intra et Final sont deux notes cumulatives distinctes (voir RNotes.py,
+// CAS 2) : la contribution des devoirs doit suivre la phase sélectionnée,
+// jamais être additionnée aux deux (voir plan Épic 24).
+const currentDevoirs = (student) => {
+  if (saveFormNote.value.controle === 'intra') return student.note_devoirs_intra;
+  if (saveFormNote.value.controle === 'finale') return student.note_devoirs_finale;
+  return null;
+};
+
+// note_devoirs_intra/_finale sont des POURCENTAGES (0-100, voir
+// _build_report côté elearning-iusth) — l'Intra/Final ecole_nginx n'est
+// pas forcément sur 100 (ex: Coeff. 40), donc il faut convertir le
+// pourcentage en points réels selon ce barème avant de l'additionner à la
+// note manuelle. Ex: deux devoirs à 10% chacun = 20% ; sur un Intra/40,
+// ça fait 20% × 40 = 8 points, pas 20.
+const devoirsPoints = (student) => {
+  const pct = parseFloat(currentDevoirs(student));
+  const coeff = parseFloat(saveFormNote.value.coefficients);
+  if (isNaN(pct) || isNaN(coeff)) return null;
+  return Math.round((pct / 100) * coeff * 100) / 100;
+};
+
+// Un cours peut avoir des devoirs (note_devoirs_intra/_finale non nuls)
+// sans Coefficient défini (Programme.coefficients vide) — sans ce
+// garde-fou, devoirsPoints() renvoie null et la contribution des devoirs
+// disparaît silencieusement à l'enregistrement, sans que le professeur
+// s'en rende compte. On affiche un avertissement explicite plutôt que de
+// deviner un barème.
+const coeffManquant = computed(() => isNaN(parseFloat(saveFormNote.value.coefficients)));
+
+// Total envoyé = note manuelle + contribution des devoirs (convertie en
+// points, voir devoirsPoints) — "prêt à être additionné", pas juste affiché.
+const totalNote = (student) => {
+  const manuel = parseFloat(student.note);
+  const devoirs = devoirsPoints(student);
+  if (isNaN(manuel) && devoirs == null) return '';
+  return (isNaN(manuel) ? 0 : manuel) + (devoirs == null ? 0 : devoirs);
+};
+
 const showSwal = (text, icon = 'info') =>
   Swal.fire({ position: 'top-end', text, icon, showConfirmButton: false, timer: 2000 });
 
@@ -80,7 +119,29 @@ const evaluationChange = async (e) => {
   }
 };
 
-const coursChange = (e) => {
+// Bascule Intra/Final (niveau Universitaire) : recharge la note déjà
+// enregistrée pour la phase choisie — Intra et Final sont deux notes
+// distinctes (RNotes.py, CAS 2), rien n'est préchargé par défaut.
+const controleChange = async () => {
+  students.value.forEach(s => { s.note = ''; });
+  const payload = {
+    ...saveFormNote.value,
+    session: data_students.value.session,
+    notes: students.value.map(s => ({ id: s.id, identifiant: s.identifiant })),
+  };
+  try {
+    const res = await axios.post(`${url}/cours-etudiant-edit-note`, payload);
+    if (res.status === 200 && res.data.success)
+      res.data.success.forEach(item => {
+        const s = students.value.find(s => s.id === item.etudiant_id);
+        if (s) s.note = item.note;
+      });
+  } catch (err) {
+    // best-effort : la saisie doit rester possible même si le rechargement échoue.
+  }
+};
+
+const coursChange = async (e) => {
   const cours = list_cours.value.find(c => c.id == e.target.value);
   if (cours) {
     Object.assign(saveFormNote.value, {
@@ -88,7 +149,22 @@ const coursChange = (e) => {
       note_de_passage: cours.note_de_passage, type_matiere: cours.type_matiere,
       professeur_id: cours.professeur_id,
     });
-    students.value.forEach(s => s.note = '');
+    students.value.forEach(s => { s.note = ''; s.note_devoirs_intra = null; s.note_devoirs_finale = null; });
+
+    // La colonne Devoirs doit suivre le cours réellement affiché, pas
+    // rester sur celui de la recherche initiale (voir plan Épic 24).
+    if (cours.programme_id) {
+      try {
+        const res = await axios.get(`${url}/cours-devoirs-grades`, { params: { programme_id: cours.programme_id } });
+        students.value.forEach(s => {
+          const devoirs = s.email ? res.data[s.email] : null;
+          s.note_devoirs_intra = devoirs?.note_devoirs_intra ?? null;
+          s.note_devoirs_finale = devoirs?.note_devoirs_finale ?? null;
+        });
+      } catch (e) {
+        // best-effort : la saisie de notes doit fonctionner même si cet appel échoue.
+      }
+    }
   }
 };
 
@@ -97,7 +173,7 @@ const submitNotes = async () => {
   errors.value = {};
   const payload = {
     ...saveFormNote.value,
-    notes: students.value.map(s => ({ id: s.id, identifiant: s.identifiant, note: s.note })),
+    notes: students.value.map(s => ({ id: s.id, identifiant: s.identifiant, note: totalNote(s) })),
   };
   try {
     const res = await axios.post(`${url}/coursEtudiant`, payload);
@@ -210,7 +286,7 @@ const month = ["Septembre", "Octobre", "Novembre", "Décembre", "Janvier", "Fév
                 :key="opt.value"
                 class="flex items-center gap-2 cursor-pointer group"
               >
-                <input type="radio" v-model="saveFormNote.controle" :value="opt.value" class="hidden" />
+                <input type="radio" v-model="saveFormNote.controle" :value="opt.value" @change="controleChange" class="hidden" />
                 <span
                   class="w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors"
                   :class="saveFormNote.controle === opt.value
@@ -265,6 +341,7 @@ const month = ["Septembre", "Octobre", "Novembre", "Décembre", "Janvier", "Fév
                 <th class="px-4 py-3 text-[10px] uppercase tracking-widest text-slate-500 font-semibold text-center w-12">#</th>
                 <th class="px-4 py-3 text-[10px] uppercase tracking-widest text-slate-500 font-semibold text-left">Identifiant</th>
                 <th class="px-4 py-3 text-[10px] uppercase tracking-widest text-slate-500 font-semibold text-left">Nom &amp; Prénom</th>
+                <th v-if="data_students.session" class="px-4 py-3 text-[10px] uppercase tracking-widest text-slate-500 font-semibold text-center w-24">Devoirs</th>
                 <th class="px-4 py-3 text-[10px] uppercase tracking-widest text-slate-500 font-semibold text-center w-28">
                   {{ saveFormNote.controle || evaluation || 'Note' }}
                 </th>
@@ -290,6 +367,17 @@ const month = ["Septembre", "Octobre", "Novembre", "Décembre", "Janvier", "Fév
                   {{ student.nom }} {{ student.prenom }}
                 </td>
 
+                <td v-if="data_students.session" class="px-4 py-2.5 text-center text-xs text-slate-400 tabular-nums">
+                  <template v-if="currentDevoirs(student) != null">
+                    {{ currentDevoirs(student) }}%
+                    <span v-if="devoirsPoints(student) != null" class="text-slate-600">({{ devoirsPoints(student) }} pts)</span>
+                    <span v-else-if="coeffManquant" class="block text-[10px] text-amber-400 mt-0.5">
+                      ⚠ Coefficient non défini — devoirs ignorés
+                    </span>
+                  </template>
+                  <template v-else>—</template>
+                </td>
+
                 <td class="px-4 py-2.5 text-center">
                   <div class="inline-flex flex-col items-center gap-1">
                     <input
@@ -301,6 +389,12 @@ const month = ["Septembre", "Octobre", "Novembre", "Décembre", "Janvier", "Fév
                         ? 'border-red-500/60 ring-2 ring-red-500/20'
                         : 'border-white/[0.1] focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'"
                     />
+                    <p v-if="devoirsPoints(student) != null" class="text-[10px] text-blue-400">
+                      Total : {{ totalNote(student) }}
+                    </p>
+                    <p v-else-if="currentDevoirs(student) != null && coeffManquant" class="text-[10px] text-amber-400">
+                      Devoirs non ajoutés (Coeff. manquant)
+                    </p>
                     <p v-if="errors[`notes.${index}.note`]" class="text-[10px] text-red-400">
                       {{ errors[`notes.${index}.note`][0] }}
                     </p>

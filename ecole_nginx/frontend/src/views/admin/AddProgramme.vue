@@ -39,7 +39,7 @@ onMounted(async () => {
         professeur_id: p.profId, faculte_id: p.faculte_id,
         annee_academique: p.annee_academique_id, coefficients: p.coefficients,
         jours: p.jours, heure: p.heure, class: p.class_, session: p.session,
-        note_de_passage: p.note_de_passage,
+        note_de_passage: p.note_de_passage, credits: p.credits, obligatoire: p.obligatoire ?? true,
       }];
     } catch (e) { console.error("Erreur chargement programme:", e); }
   } else {
@@ -51,7 +51,7 @@ const addEmptyRow = () => {
   programmeCours.value.push({
     id: "", cours_id: "", niveau_id: "", professeur_id: "", faculte_id: "",
     annee_academique: "", coefficients: "", jours: "", heure: "", class: "", session: "",
-    note_de_passage: "",
+    note_de_passage: "", credits: null, obligatoire: true,
   });
 };
 
@@ -182,8 +182,10 @@ const jours = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
                 </select>
               </div>
 
-              <!-- Coefficients -->
-              <div class="flex flex-col gap-1.5">
+              <!-- Coefficients — pas pour Universitaire (RProgramme.py:332,
+                   obligatoire seulement pour Préscolaire/Primaire/Cycle/
+                   Secondaire ; le système à crédits utilise credits à la place). -->
+              <div v-if="choseNiveau.name !== 'Universitaire'" class="flex flex-col gap-1.5">
                 <label class="prog-label">Coefficients</label>
                 <input v-model="programme.coefficients" type="number" placeholder="1" class="prog-input" />
               </div>
@@ -221,6 +223,19 @@ const jours = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
                 <p v-if="errors[`programmeCoursObject.${index}.note_de_passage`]" class="prog-error">
                   {{ errors[`programmeCoursObject.${index}.note_de_passage`][0] }}
                 </p>
+              </div>
+
+              <!-- Crédits / Obligatoire (système à crédits, Universitaire uniquement) -->
+              <div v-if="choseNiveau.name === 'Universitaire'" class="flex flex-col gap-1.5">
+                <label class="prog-label">Crédits</label>
+                <input v-model="programme.credits" type="number" step="0.5" placeholder="Ex: 3" class="prog-input" />
+              </div>
+              <div v-if="choseNiveau.name === 'Universitaire'" class="flex flex-col gap-1.5">
+                <label class="prog-label">Statut du cours</label>
+                <select v-model="programme.obligatoire" class="prog-select">
+                  <option :value="true">Obligatoire</option>
+                  <option :value="false">Optionnel</option>
+                </select>
               </div>
 
               <!-- Classe -->

@@ -18,6 +18,21 @@ class CourseItem(BaseModel):
     note_de_passage: Optional[str] = None
     coefficients: Optional[str] = None
     type_matiere: Optional[str] = None
+    # Système à crédits (niveau "Universitaire" uniquement, voir
+    # app/Models/MCredits.py) — nullable pour les autres niveaux.
+    credits: Optional[float] = None
+    # Nombre de reprises autorisées avant blocage automatique d'une nouvelle
+    # inscription à ce cours (voir RCredits.py::creer_inscription). NULL =
+    # aucune limite.
+    reprises_max: Optional[int] = None
+    # Prérequis de ce cours (liste d'id Cours) — None = ne pas toucher aux
+    # prérequis existants (ex: mise à jour d'autre chose sans y penser),
+    # [] = retirer tous les prérequis, sinon reconcilié tel quel (voir
+    # RCours.py::store_cours).
+    prerequis_ids: Optional[List[str]] = None
+    # Poids de la phase Intra dans la note globale (système à crédits,
+    # Universitaire uniquement) — voir RCredits.py::saisir_note_credits.
+    poids_intra_percent: Optional[float] = None
 
 class CoursesRequest(BaseModel):
     CoursesObject: list[CourseItem]
@@ -45,6 +60,10 @@ class CoursResponse(BaseModel):
     # date: Optional[datetime] = Field(None, alias="created_at")
     note_de_passage: Optional[str] = None
     coefficients: Optional[str] = None
+    credits: Optional[float] = None
+    reprises_max: Optional[int] = None
+    prerequis_ids: Optional[List[str]] = None
+    poids_intra_percent: Optional[float] = None
     niveau_id: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

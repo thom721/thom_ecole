@@ -124,6 +124,43 @@ class Note(Base):
     etudiant = relationship("Etudiant", back_populates="notes")
     cours = relationship("Cours", back_populates="notes")
 
+class RattrapageSession(Base):
+    """Session de rattrapage pour un étudiant en échec sur une année du
+    système par bloc (voir RPromus.py::store_promotion, champ
+    rattrapage_etudiants) — distincte d'un redoublement direct : seules les
+    matières ratées (matieres_a_repasser, dérivé de CoursEtudiant.data_etudiant
+    comparé à note_de_passage) sont repassées, la décision finale de
+    passage/redoublement n'est prise qu'après la session (voir
+    app/Routes/RRattrapage.py)."""
+    __tablename__ = "rattrapage_sessions"
+    __table_args__ = (
+        UniqueConstraint('etudiant_id', 'annee_academique_id', name='uq_rattrapage_session'),
+        {
+            'mysql_collate': 'utf8mb4_unicode_ci',
+            'mysql_charset': 'utf8mb4',
+            'mysql_engine': 'InnoDB'
+        }
+    )
+    id = Column(CHAR(36), primary_key=True, default=generate_uuid)
+    etudiant_id = Column(CHAR(36), ForeignKey("etudiants.id"), nullable=False)
+    annee_academique_id = Column(CHAR(36), ForeignKey("annee_academiques.id"), nullable=False)
+    classes_id = Column(CHAR(36), ForeignKey("classes.id"), nullable=False)
+    niveau_id = Column(CHAR(36), ForeignKey("niveaux.id"), nullable=False)
+    matieres_a_repasser = Column(JSON, nullable=False)
+    date_limite = Column(Date, nullable=True)
+    notes_rattrapage = Column(JSON, nullable=True)
+    moyenne_recalculee = Column(Numeric(5, 2), nullable=True)
+    # en_attente / termine_succes / termine_echec
+    statut = Column(String(20), nullable=False, default="en_attente")
+    # 'Succès' / 'Échec' — mêmes valeurs que RPromus.py, pour rester cohérent
+    # avec le vocabulaire de décision déjà utilisé là-bas.
+    decision_finale = Column(String(20), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relations
+    etudiant = relationship("Etudiant", back_populates="rattrapage_sessions")
+
 class Presence(Base):
     __tablename__ = "presences"
     __table_args__ = {
@@ -190,9 +227,18 @@ class Programme(Base):
     jours = Column(String(255))
     coefficients = Column(String(255))
     note_de_passage = Column(String(255))
+    # Système à crédits (voir Cours.credits, app/Models/MModels.py) —
+    # surcharge par offre, même principe que coefficients/note_de_passage
+    # ci-dessus. Résolution : Programme.credits or Cours.credits.
+    credits = Column(Numeric(4, 1), nullable=True)
+    # Obligatoire vs optionnel — décidé par OFFRE (Programme), pas par Cours :
+    # le même Cours peut être obligatoire une année/classe et optionnel une
+    # autre. Nullable, défaut True (harmless pour les niveaux hors
+    # Universitaire, jamais lu là).
+    obligatoire = Column(Boolean, nullable=True, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Relations
     professeur = relationship("Professeur", back_populates="programmes")
     cours = relationship("Cours", back_populates="programmes")

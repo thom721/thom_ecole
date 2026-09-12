@@ -17,7 +17,7 @@ from app.Models.MModels import (
 )
 from collections import defaultdict
 # from typing import List
-from app.Models.MRelations import ClasseEtudiant, Programme
+from app.Models.MRelations import ClasseEtudiant, Programme, EtudiantFaculte
 from app.Models.MFinancials import Paiement
 from app.Schemas.Dashboard import DashboardResponse, ClasseDetailResponse
 from pydantic import BaseModel,Field
@@ -267,13 +267,15 @@ def fetch_live_student(
     # Extraire la valeur selon le format
     if isinstance(val, dict):
         search_val = val.get("val", "")
+        niveau_filter = val.get("niveau")
     else:
         search_val = val
-    
+        niveau_filter = None
+
     if not search_val:
         raise HTTPException(status_code=400, detail="Le paramètre 'val' est requis")
-    
-    data = db.query(Etudiant)\
+
+    query = db.query(Etudiant)\
         .filter(
             or_(
                 Etudiant.identifiant.ilike(f"%{search_val}%"),
@@ -281,10 +283,19 @@ def fetch_live_student(
                 Etudiant.prenom.ilike(f"%{search_val}%"),
                 Etudiant.code.ilike(f"%{search_val}%")
             )
-        )\
-        .limit(10)\
-        .all()
-    
+        )
+
+    # Filtre optionnel par niveau (voir plan Épic 24 : le sélecteur
+    # d'étudiant du système à crédits ne doit proposer que des étudiants
+    # Universitaire, pas n'importe quel étudiant de l'école) — absent par
+    # défaut, ne change rien pour les écrans existants qui appellent cet
+    # endpoint sans ce paramètre (ex: Paiements.vue).
+    if niveau_filter:
+        query = query.join(EtudiantFaculte, EtudiantFaculte.etudiant_id == Etudiant.id)\
+            .filter(EtudiantFaculte.niveau_id == niveau_filter)
+
+    data = query.limit(10).all()
+
     return {"data": data}
     return SearchStudent(data= data)
  

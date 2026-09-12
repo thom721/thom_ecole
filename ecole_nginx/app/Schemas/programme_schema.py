@@ -91,6 +91,12 @@ class ProgrammeCoursItem(BaseModel):
     heure: Optional[str] = None
     session: Optional[str] = None
     note_de_passage: Optional[float] = None
+    # Système à crédits (voir app/Models/MModels.py::Cours.credits) —
+    # surcharge par offre, résolution Programme.credits or Cours.credits.
+    credits: Optional[float] = None
+    # Obligatoire vs optionnel, décidé par offre (voir
+    # app/Models/MRelations.py::Programme.obligatoire) — défaut True.
+    obligatoire: Optional[bool] = True
 
 class ProgrammeCoursRequest(BaseModel):
     programmeCoursObject: list[ProgrammeCoursItem]
