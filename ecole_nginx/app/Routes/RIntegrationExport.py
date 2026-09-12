@@ -13,7 +13,7 @@ from datetime import date
 
 from app.database import get_db
 from app.Models.MModels import AnneeAcademique, Cours, Faculte, Niveau, Professeur, User, Classe, Etudiant
-from app.Models.MSystems import Personnel
+from app.Models.MSystems import Personnel, Role, ModelHasRole
 from app.Models.MRelations import Programme, ClasseEtudiant
 from app.dependencies.integration_auth import require_integration_key
 from app.config.Config import settings
@@ -137,6 +137,56 @@ def list_programmes(
     return result
 
 
+def get_programme_export(db: Session, programme_id: str) -> ProgrammeExportOut | None:
+    """Même requête/mêmes champs que list_programmes, mais pour un seul
+    programme — utilisé par Helper/elearning_webhook.py::notify_programme_changed
+    pour pousser la fiche complète en temps réel (voir plan), sans dupliquer
+    la résolution des jointures cours/faculté/niveau/classe/professeur."""
+    CoursAlias = aliased(Cours)
+    FaculteAlias = aliased(Faculte)
+    ProfesseurAlias = aliased(Professeur)
+    NiveauAlias = aliased(Niveau)
+    ClasseAlias = aliased(Classe)
+
+    row = (
+        db.query(Programme, CoursAlias, FaculteAlias, NiveauAlias, ClasseAlias, ProfesseurAlias)
+        .outerjoin(CoursAlias, Programme.Cours_id == CoursAlias.id)
+        .outerjoin(FaculteAlias, Programme.Faculte_id == FaculteAlias.id)
+        .outerjoin(NiveauAlias, Programme.niveau_id == NiveauAlias.id)
+        .outerjoin(ClasseAlias, Programme.class_ == ClasseAlias.id)
+        .outerjoin(ProfesseurAlias, Programme.professeur_id == ProfesseurAlias.id)
+        .filter(Programme.id == programme_id)
+        .first()
+    )
+    if row is None:
+        return None
+
+    programme, cours, faculte, niveau, classe, professeur = row
+    annee = db.query(AnneeAcademique).filter(AnneeAcademique.id == programme.annee_academique).first()
+
+    return ProgrammeExportOut(
+        id=programme.id,
+        cours_nom=cours.cours_nom if cours else None,
+        faculte_nom=faculte.nom if faculte else None,
+        niveau_name=niveau.name if niveau else None,
+        classe_nom=classe.nom_classe if classe else None,
+        classe_id=programme.class_,
+        session=programme.session,
+        heure=programme.heure,
+        jours=programme.jours,
+        coefficients=programme.coefficients,
+        note_de_passage=programme.note_de_passage,
+        professeur_nom=professeur.nom if professeur else None,
+        professeur_prenom=professeur.prenom if professeur else None,
+        professeur_email=professeur.email if professeur else None,
+        professeur_login_email=resolve_professeur_login_email(db, professeur),
+        annee_academique_id=programme.annee_academique,
+        annee_academique_label=annee.annee_academique if annee else None,
+        annee_date_debut=annee.date_debut if annee else None,
+        annee_date_fin=annee.date_fin if annee else None,
+    )
+
+
 class ClasseExportOut(BaseModel):
     id: str
     nom_classe: str
@@ -220,6 +270,20 @@ class StaffCredentialOut(BaseModel):
     last_name: str
     login_email: str
     password_hash: str
+    role_names: list[str] = []
+
+
+def _resolve_role_names(db: Session, user_id: str) -> list[str]:
+    """Vrais rôles RBAC de ce compte (voir plan Épic 23) — même requête que
+    user_has_role() (Dependencie.py:137-147), réutilisée telle quelle plutôt
+    que dupliquée."""
+    rows = (
+        db.query(Role.name)
+        .join(ModelHasRole, ModelHasRole.role_id == Role.id)
+        .filter(ModelHasRole.model_id == user_id, ModelHasRole.model_type == "App\\Models\\User")
+        .all()
+    )
+    return [r.name for r in rows]
 
 
 @router.get("/staff-credentials", response_model=list[StaffCredentialOut])
@@ -243,7 +307,7 @@ def list_staff_credentials(db: Session = Depends(get_db)):
     for user, prof in prof_rows:
         result.append(StaffCredentialOut(
             source_type="professeur", source_id=prof.id, first_name=prof.prenom or "", last_name=prof.nom or "",
-            login_email=user.email, password_hash=user.password,
+            login_email=user.email, password_hash=user.password, role_names=_resolve_role_names(db, user.id),
         ))
 
     personnel_rows = (
@@ -254,7 +318,7 @@ def list_staff_credentials(db: Session = Depends(get_db)):
     for user, personnel in personnel_rows:
         result.append(StaffCredentialOut(
             source_type="personnel", source_id=personnel.id, first_name=personnel.prenom or "", last_name=personnel.nom or "",
-            login_email=user.email, password_hash=user.password,
+            login_email=user.email, password_hash=user.password, role_names=_resolve_role_names(db, user.id),
         ))
 
     return result

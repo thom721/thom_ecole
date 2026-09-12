@@ -194,6 +194,31 @@ class HeartAuto(Base):
     # Relations
     user = relationship("User", back_populates="heart_autos")
 
+class WebhookQueue(Base):
+    """File d'attente persistante pour les webhooks sortants vers
+    elearning-iusth (voir app/Helper/elearning_webhook.py) — un appel qui a
+    épuisé ses tentatives immédiates (retries en mémoire, voir _post) est
+    déposé ici plutôt que perdu, et repris par le drain périodique
+    (app/main.py::_drain_webhook_queue_loop). Générique (path + payload
+    JSON), pas spécifique à "programme" : sert aussi enrollment-changed."""
+    __tablename__ = "webhook_queue"
+    __table_args__ = {
+        'mysql_collate': 'utf8mb4_unicode_ci',
+        'mysql_charset': 'utf8mb4',
+         'mysql_engine':'InnoDB'
+    }
+    id = Column(CHAR(36), primary_key=True, default=generate_uuid)
+    path = Column(String(255), nullable=False)
+    payload = Column(JSON, nullable=False)
+    # pending = en attente/à retenter ; sent = livré (ligne conservée pour
+    # audit plutôt que supprimée, purge manuelle si besoin) ; failed =
+    # abandonné après MAX_QUEUE_ATTEMPTS (voir elearning_webhook.py).
+    status = Column(String(20), nullable=False, default="pending")
+    attempts = Column(Integer, nullable=False, default=0)
+    last_error = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_attempt_at = Column(DateTime, nullable=True)
+
 class DirectConfig(Base):
     __tablename__ = "direct_configs"
     

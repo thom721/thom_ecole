@@ -16,6 +16,7 @@ from app.Schemas.SIntegration import (
     SyncCredentialsOut, EcoleNginxStaffCredentialOut,
 )
 from app.dependencies.auth import require_role, hash_password
+from app.Helper.role_mapping import resolve_system_role
 
 router = APIRouter(prefix="/integration/ecole-nginx", tags=["integration"],
                     dependencies=[Depends(require_role([SystemRole.admin]))])
@@ -46,6 +47,132 @@ def list_ecole_nginx_annees():
     return response.json()
 
 
+def _upsert_course_from_programme(
+    db: Session,
+    programme: EcoleNginxProgrammeOut,
+    category_cache: dict[str, str],
+    teacher_cache: dict[str, "User | None"],
+    unmatched_courses_by_label: dict[str, list[str]],
+) -> tuple[Course, bool, str | None]:
+    """Crée ou met à jour le Course correspondant à `programme` (upsert par
+    external_source/external_ref_id) + rapproche l'enseignant par email.
+    Factorisé depuis import_from_ecole_nginx pour être réutilisé tel quel
+    par RWebhooks.py::programme_changed (voir plan Épic 20) — même logique
+    dans les deux cas (import complet ET push temps réel), pour ne jamais
+    diverger entre les deux chemins.
+
+    Renvoie (course, is_new, account_created_label) — account_created_label
+    n'est pas None seulement si un compte professeur vient d'être
+    auto-provisionné (voir settings.ECOLE_NGINX_AUTO_PROVISION_TEACHERS)."""
+    account_created_label: str | None = None
+
+    # Catégorie = faculté (créée si absente, recherchée par nom).
+    category_id = None
+    if programme.faculte_nom:
+        if programme.faculte_nom in category_cache:
+            category_id = category_cache[programme.faculte_nom]
+        else:
+            category = db.query(CourseCategory).filter(CourseCategory.name == programme.faculte_nom).first()
+            if category is None:
+                category = CourseCategory(
+                    name=programme.faculte_nom,
+                    slug=_slugify(programme.faculte_nom),
+                )
+                db.add(category)
+                db.flush()
+            category_id = category.id
+            category_cache[programme.faculte_nom] = category_id
+
+    full_name_parts = [programme.cours_nom or "Cours", programme.classe_nom, programme.annee_academique_label]
+    full_name = " — ".join(p for p in full_name_parts if p)
+
+    summary_lines = []
+    if programme.professeur_nom or programme.professeur_prenom:
+        summary_lines.append(f"Professeur : {programme.professeur_prenom or ''} {programme.professeur_nom or ''}".strip())
+    if programme.niveau_name:
+        summary_lines.append(f"Niveau : {programme.niveau_name}")
+    if programme.jours or programme.heure:
+        summary_lines.append(f"Horaire : {programme.jours or ''} {programme.heure or ''}".strip())
+    summary = "\n".join(summary_lines) or None
+
+    course = (
+        db.query(Course)
+        .filter(Course.external_source == "ecole_nginx", Course.external_ref_id == programme.id)
+        .first()
+    )
+    is_new = course is None
+    if course is None:
+        short_name = _slugify(programme.cours_nom, programme.annee_academique_label, programme.classe_nom)
+        # Évite une collision avec un cours déjà existant portant le même code.
+        base_short_name, suffix = short_name, 1
+        while db.query(Course).filter(Course.short_name == short_name).first() is not None:
+            suffix += 1
+            short_name = f"{base_short_name}-{suffix}"
+        course = Course(
+            external_source="ecole_nginx", external_ref_id=programme.id,
+            short_name=short_name,
+        )
+        db.add(course)
+    else:
+        # Un programme réimporté/repoussé après suppression redevient visible
+        # (voir RWebhooks.py::programme_deleted, qui met is_visible=False
+        # plutôt que de supprimer le Course).
+        course.is_visible = True
+
+    course.full_name = full_name
+    course.summary = summary
+    course.category_id = category_id
+    course.start_date = programme.annee_date_debut
+    course.end_date = programme.annee_date_fin
+    db.flush()
+
+    # Rapprochement enseignant — dédoublonné par email sur tout l'appelant
+    # (voir teacher_cache). Auto-création du compte SEULEMENT si
+    # settings.ECOLE_NGINX_AUTO_PROVISION_TEACHERS est activé (voir
+    # Config.py — désactivé par défaut, à activer explicitement par
+    # établissement).
+    teacher_email = programme.professeur_login_email or programme.professeur_email
+    teacher_label = f"{programme.professeur_prenom or ''} {programme.professeur_nom or ''}".strip() or "professeur inconnu"
+
+    if not teacher_email:
+        unmatched_courses_by_label.setdefault(f"{teacher_label} (email inconnu)", []).append(full_name)
+        return course, is_new, account_created_label
+
+    if teacher_email in teacher_cache:
+        teacher = teacher_cache[teacher_email]
+    else:
+        teacher = db.query(User).filter(User.email == teacher_email).first()
+        if teacher is None and settings.ECOLE_NGINX_AUTO_PROVISION_TEACHERS:
+            random_password = secrets.token_urlsafe(16)
+            teacher = User(
+                email=teacher_email,
+                password_hash=hash_password(random_password),
+                first_name=programme.professeur_prenom or "Professeur",
+                last_name=programme.professeur_nom or "",
+                system_role=SystemRole.teacher,
+                must_change_password=True,
+            )
+            db.add(teacher)
+            db.flush()
+            account_created_label = f"{teacher_label} ({teacher_email})"
+        teacher_cache[teacher_email] = teacher  # None mis en cache aussi : évite de re-requêter pour rien
+
+    if teacher is None:
+        unmatched_courses_by_label.setdefault(f"{teacher_label} ({teacher_email})", []).append(full_name)
+        return course, is_new, account_created_label
+
+    existing_enrollment = (
+        db.query(Enrollment)
+        .filter(Enrollment.course_id == course.id, Enrollment.user_id == teacher.id)
+        .first()
+    )
+    if existing_enrollment is None:
+        db.add(Enrollment(course_id=course.id, user_id=teacher.id,
+                           role_in_course=CourseRole.teacher, status=EnrollmentStatus.active))
+
+    return course, is_new, account_created_label
+
+
 @router.post("/import", response_model=ImportResultOut)
 def import_from_ecole_nginx(annee_academique_id: str, db: Session = Depends(get_db)):
     try:
@@ -70,109 +197,15 @@ def import_from_ecole_nginx(annee_academique_id: str, db: Session = Depends(get_
     unmatched_courses_by_label: dict[str, list[str]] = {}
 
     for programme in programmes:
-        # Catégorie = faculté (créée si absente, recherchée par nom).
-        category_id = None
-        if programme.faculte_nom:
-            if programme.faculte_nom in category_cache:
-                category_id = category_cache[programme.faculte_nom]
-            else:
-                category = db.query(CourseCategory).filter(CourseCategory.name == programme.faculte_nom).first()
-                if category is None:
-                    category = CourseCategory(
-                        name=programme.faculte_nom,
-                        slug=_slugify(programme.faculte_nom),
-                    )
-                    db.add(category)
-                    db.flush()
-                category_id = category.id
-                category_cache[programme.faculte_nom] = category_id
-
-        full_name_parts = [programme.cours_nom or "Cours", programme.classe_nom, programme.annee_academique_label]
-        full_name = " — ".join(p for p in full_name_parts if p)
-
-        summary_lines = []
-        if programme.professeur_nom or programme.professeur_prenom:
-            summary_lines.append(f"Professeur : {programme.professeur_prenom or ''} {programme.professeur_nom or ''}".strip())
-        if programme.niveau_name:
-            summary_lines.append(f"Niveau : {programme.niveau_name}")
-        if programme.jours or programme.heure:
-            summary_lines.append(f"Horaire : {programme.jours or ''} {programme.heure or ''}".strip())
-        summary = "\n".join(summary_lines) or None
-
-        course = (
-            db.query(Course)
-            .filter(Course.external_source == "ecole_nginx", Course.external_ref_id == programme.id)
-            .first()
+        _course, is_new, account_created_label = _upsert_course_from_programme(
+            db, programme, category_cache, teacher_cache, unmatched_courses_by_label
         )
-        is_new = course is None
-        if course is None:
-            short_name = _slugify(programme.cours_nom, programme.annee_academique_label, programme.classe_nom)
-            # Évite une collision avec un cours déjà existant portant le même code.
-            base_short_name, suffix = short_name, 1
-            while db.query(Course).filter(Course.short_name == short_name).first() is not None:
-                suffix += 1
-                short_name = f"{base_short_name}-{suffix}"
-            course = Course(
-                external_source="ecole_nginx", external_ref_id=programme.id,
-                short_name=short_name,
-            )
-            db.add(course)
-
-        course.full_name = full_name
-        course.summary = summary
-        course.category_id = category_id
-        course.start_date = programme.annee_date_debut
-        course.end_date = programme.annee_date_fin
-        db.flush()
-
         if is_new:
             imported_count += 1
         else:
             updated_count += 1
-
-        # Rapprochement enseignant — dédoublonné par email sur tout
-        # l'import (voir teacher_cache). Auto-création du compte SEULEMENT
-        # si settings.ECOLE_NGINX_AUTO_PROVISION_TEACHERS est activé (voir
-        # Config.py — désactivé par défaut, à activer explicitement par
-        # établissement).
-        teacher_email = programme.professeur_login_email or programme.professeur_email
-        teacher_label = f"{programme.professeur_prenom or ''} {programme.professeur_nom or ''}".strip() or "professeur inconnu"
-
-        if not teacher_email:
-            unmatched_courses_by_label.setdefault(f"{teacher_label} (email inconnu)", []).append(full_name)
-            continue
-
-        if teacher_email in teacher_cache:
-            teacher = teacher_cache[teacher_email]
-        else:
-            teacher = db.query(User).filter(User.email == teacher_email).first()
-            if teacher is None and settings.ECOLE_NGINX_AUTO_PROVISION_TEACHERS:
-                random_password = secrets.token_urlsafe(16)
-                teacher = User(
-                    email=teacher_email,
-                    password_hash=hash_password(random_password),
-                    first_name=programme.professeur_prenom or "Professeur",
-                    last_name=programme.professeur_nom or "",
-                    system_role=SystemRole.teacher,
-                    must_change_password=True,
-                )
-                db.add(teacher)
-                db.flush()
-                accounts_created.append(f"{teacher_label} ({teacher_email})")
-            teacher_cache[teacher_email] = teacher  # None mis en cache aussi : évite de re-requêter pour rien
-
-        if teacher is None:
-            unmatched_courses_by_label.setdefault(f"{teacher_label} ({teacher_email})", []).append(full_name)
-            continue
-
-        existing_enrollment = (
-            db.query(Enrollment)
-            .filter(Enrollment.course_id == course.id, Enrollment.user_id == teacher.id)
-            .first()
-        )
-        if existing_enrollment is None:
-            db.add(Enrollment(course_id=course.id, user_id=teacher.id,
-                               role_in_course=CourseRole.teacher, status=EnrollmentStatus.active))
+        if account_created_label:
+            accounts_created.append(account_created_label)
 
     warnings = [
         f"{label} : aucun compte elearning-iusth rapproché — cours concernés : " + ", ".join(courses)
@@ -305,7 +338,7 @@ def sync_staff_credentials(db: Session = Depends(get_db)):
         db.add(User(
             email=entry.login_email, password_hash=entry.password_hash,
             first_name=entry.first_name or entry.source_type, last_name=entry.last_name or "",
-            system_role=SystemRole.teacher, must_change_password=False,
+            system_role=resolve_system_role(entry.source_type, entry.role_names), must_change_password=False,
         ))
         accounts_created.append(entry.login_email)
 

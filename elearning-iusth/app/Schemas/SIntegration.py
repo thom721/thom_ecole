@@ -84,3 +84,4 @@ class EcoleNginxStaffCredentialOut(BaseModel):
     last_name: str
     login_email: str
     password_hash: str
+    role_names: list[str] = []
