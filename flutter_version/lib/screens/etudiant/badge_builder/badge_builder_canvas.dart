@@ -514,6 +514,7 @@ class BadgeBuilderCanvas extends StatelessWidget {
               child: _cutoutClip(
                 _ElementPreview(
                   element: sorted[i],
+                  scale: scale,
                   previewValues: previewValues,
                   previewPhotoBytes: previewPhotoBytes,
                   previewQrData: previewQrData,
@@ -567,12 +568,14 @@ class BadgeBuilderCanvas extends StatelessWidget {
 class _ElementPreview extends StatelessWidget {
   const _ElementPreview({
     required this.element,
+    required this.scale,
     this.previewValues = const {},
     this.previewPhotoBytes,
     this.previewQrData,
   });
 
   final BadgeElement element;
+  final double scale;
   final Map<String, String> previewValues;
   final Uint8List? previewPhotoBytes;
   final String? previewQrData;
@@ -581,7 +584,11 @@ class _ElementPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (element.type) {
       case BadgeElementType.text:
-        return _TextPreview(element: element, previewValues: previewValues);
+        return _TextPreview(
+          element: element,
+          scale: scale,
+          previewValues: previewValues,
+        );
       case BadgeElementType.shape:
         return CustomPaint(
           painter: _ShapePreviewPainter(element),
@@ -910,9 +917,14 @@ class _PhotoPreviewPainter extends CustomPainter {
 }
 
 class _TextPreview extends StatelessWidget {
-  const _TextPreview({required this.element, this.previewValues = const {}});
+  const _TextPreview({
+    required this.element,
+    required this.scale,
+    this.previewValues = const {},
+  });
 
   final BadgeElement element;
+  final double scale;
   final Map<String, String> previewValues;
 
   @override
@@ -938,7 +950,15 @@ class _TextPreview extends StatelessWidget {
           BadgeTextAlign.right => TextAlign.right,
         },
         style: TextStyle(
-          fontSize: el.fontSize ?? 16,
+          // Chaque autre dimension de cet éditeur (position, taille de
+          // boîte, grille) est mise à l'échelle par `scale` — la taille de
+          // police devait l'être aussi, sinon le texte se dessine à sa
+          // taille pleine résolution modèle dans une boîte réduite à
+          // l'écran, débordant/se recentrant différemment de l'export réel
+          // (badge_layout_renderer.dart::_drawText, qui dessine bien
+          // `el.fontSize` dans `el.width` à pleine résolution, sans mise à
+          // l'échelle — c'est la référence correcte).
+          fontSize: (el.fontSize ?? 16) * scale,
           fontWeight: el.bold ? FontWeight.bold : FontWeight.normal,
           fontStyle: el.italic ? FontStyle.italic : FontStyle.normal,
           color: el.color != null ? Color(el.color!) : Colors.black,
