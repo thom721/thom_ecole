@@ -912,6 +912,68 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
     }
   }
 
+  /// Écrit le gabarit courant tel quel (même `toJsonString()` que
+  /// [BadgeLayoutStore.save], voir `models/badge_layout.dart`) dans un
+  /// fichier choisi par l'utilisateur — permet de le partager/sauvegarder
+  /// hors de ce poste, contrairement à "Enregistrer" qui ne fait que
+  /// l'ajouter au stockage local de l'app (jamais visible ailleurs).
+  Future<void> _exportLayoutJson() async {
+    final layout = _layout!;
+    final bytes = Uint8List.fromList(utf8.encode(layout.toJsonString()));
+    final safeName = layout.name.trim().isEmpty ? 'gabarit' : layout.name.trim();
+    final path = await FilePicker.platform.saveFile(
+      dialogTitle: 'Exporter le gabarit',
+      fileName: '$safeName.json',
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+      bytes: bytes,
+    );
+    if (!mounted || path == null) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Gabarit exporté : $path')));
+  }
+
+  /// Symétrique de [_exportLayoutJson] : lit un fichier `.json` externe
+  /// (exporté depuis ce même écran, sur ce poste ou un autre) et l'ajoute
+  /// au stockage local comme un NOUVEAU gabarit — un `id` neuf lui est
+  /// attribué plutôt que de réutiliser celui du fichier, pour ne jamais
+  /// écraser silencieusement un gabarit existant qui porterait par hasard
+  /// le même identifiant (ex. le même fichier importé deux fois).
+  Future<void> _importLayoutJson() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+      withData: true,
+    );
+    final bytes = result?.files.single.bytes;
+    if (bytes == null || !mounted) return;
+
+    final BadgeLayoutTemplate imported;
+    try {
+      imported = BadgeLayoutTemplate.fromJsonString(utf8.decode(bytes));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Fichier invalide : pas un gabarit JSON reconnu.')),
+      );
+      return;
+    }
+
+    imported.id = BadgeLayoutStore.instance.newId();
+    _migrateLegacySubtractFlags(imported);
+    await BadgeLayoutStore.instance.save(imported);
+    if (!mounted) return;
+    setState(() {
+      _layout = imported;
+      _isVerso = false;
+      _selectedId = null;
+    });
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Gabarit "${imported.name}" importé.')));
+  }
+
   void _toggleOrientation() {
     final layout = _layout!;
     final oldW = layout.canvasWidth;
@@ -1352,6 +1414,18 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
           colorKey: 'emerald',
           icon: Icons.save_outlined,
           onPressed: _saving ? null : _save,
+        ),
+        PillButton(
+          label: 'Exporter le gabarit',
+          colorKey: 'violet',
+          icon: Icons.upload_file_outlined,
+          onPressed: _exportLayoutJson,
+        ),
+        PillButton(
+          label: 'Importer un gabarit',
+          colorKey: 'violet',
+          icon: Icons.download_outlined,
+          onPressed: _importLayoutJson,
         ),
         PillButton(
           label: 'Exporter PNG',
