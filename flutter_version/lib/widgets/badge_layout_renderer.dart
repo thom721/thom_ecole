@@ -146,11 +146,23 @@ String _substitutePlaceholders(String text, Map<String, String> values) {
   return result;
 }
 
-/// Dessine dans un repère déjà translaté à (0,0)=coin de l'élément — le
-/// texte est centré verticalement dans `el.height`, alignement horizontal
-/// piloté par `el.textAlign` (comme `_drawCenteredText` de
-/// `badge_renderer.dart`, généralisé aux 3 alignements).
-void _drawText(ui.Canvas canvas, BadgeElement el, Map<String, String> values) {
+/// Construit le `ui.Paragraph` d'un élément texte — **seule et unique**
+/// définition de cette mise en page, partagée par l'export
+/// ([_drawText] ci-dessous, `scale: 1.0`) ET l'aperçu de l'éditeur
+/// (`badge_builder_canvas.dart::_TextPreview`, `scale: scale`). Avant
+/// cette extraction, l'éditeur redessinait ce texte avec les widgets
+/// Flutter (`Text`+`Align`) — un moteur de mise en page DIFFÉRENT du
+/// `ui.Paragraph` utilisé ici, avec sa propre logique de retour à la
+/// ligne/débordement : à taille de police égale, les deux pouvaient
+/// déjà diverger dès qu'un texte débordait sa boîte. Utiliser ici la
+/// même fonction des deux côtés élimine structurellement ce risque,
+/// plutôt que de re-synchroniser deux implémentations à la main (déjà
+/// la cause du tout premier bug de décalage éditeur/export).
+ui.Paragraph buildBadgeTextParagraph(
+  BadgeElement el,
+  Map<String, String> values, {
+  double scale = 1.0,
+}) {
   final resolved = _substitutePlaceholders(el.text ?? '', values);
   final align = switch (el.textAlign) {
     BadgeTextAlign.left => ui.TextAlign.left,
@@ -159,7 +171,7 @@ void _drawText(ui.Canvas canvas, BadgeElement el, Map<String, String> values) {
   };
   final fontWeight = el.bold ? ui.FontWeight.bold : ui.FontWeight.normal;
   final fontStyle = el.italic ? ui.FontStyle.italic : ui.FontStyle.normal;
-  final fontSize = el.fontSize ?? 16;
+  final fontSize = (el.fontSize ?? 16) * scale;
 
   final builder =
       ui.ParagraphBuilder(
@@ -180,8 +192,16 @@ void _drawText(ui.Canvas canvas, BadgeElement el, Map<String, String> values) {
           ),
         )
         ..addText(resolved);
-  final paragraph = builder.build()
-    ..layout(ui.ParagraphConstraints(width: el.width));
+  return builder.build()
+    ..layout(ui.ParagraphConstraints(width: el.width * scale));
+}
+
+/// Dessine dans un repère déjà translaté à (0,0)=coin de l'élément — le
+/// texte est centré verticalement dans `el.height`, alignement horizontal
+/// piloté par `el.textAlign` (comme `_drawCenteredText` de
+/// `badge_renderer.dart`, généralisé aux 3 alignements).
+void _drawText(ui.Canvas canvas, BadgeElement el, Map<String, String> values) {
+  final paragraph = buildBadgeTextParagraph(el, values);
   canvas.drawParagraph(
     paragraph,
     ui.Offset(0, (el.height - paragraph.height) / 2),

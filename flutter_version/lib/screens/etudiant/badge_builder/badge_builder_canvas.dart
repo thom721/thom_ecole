@@ -11,6 +11,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../../models/badge_layout.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/badge_canvas_element.dart';
+import '../../../widgets/badge_layout_renderer.dart' show buildBadgeTextParagraph;
 import '../../../widgets/badge_photo_effects.dart';
 
 /// Zone d'édition visuelle d'une face du gabarit — fond (image choisie ou
@@ -916,6 +917,18 @@ class _PhotoPreviewPainter extends CustomPainter {
   bool shouldRepaint(covariant _PhotoPreviewPainter oldDelegate) => true;
 }
 
+/// Aperçu du texte dans l'éditeur — dessine avec **exactement** la même
+/// fonction (`buildBadgeTextParagraph`) que l'export
+/// (`badge_layout_renderer.dart::_drawText`), au lieu des widgets Flutter
+/// `Text`+`Align` utilisés auparavant. Deux moteurs de mise en page
+/// différents (widgets Flutter vs `ui.Paragraph` brut) ont chacun leur
+/// propre logique de retour à la ligne/débordement/centrage vertical —
+/// même avec une taille de police identique, ils divergent dès qu'un
+/// texte est trop grand pour sa boîte (overflow), ce qui déplace son
+/// ancrage visuel apparent. Utiliser la même fonction des deux côtés
+/// élimine structurellement ce risque plutôt que de re-synchroniser deux
+/// implémentations à la main — déjà la cause du tout premier bug de
+/// décalage éditeur/export (position ET taille de police).
 class _TextPreview extends StatelessWidget {
   const _TextPreview({
     required this.element,
@@ -929,44 +942,74 @@ class _TextPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final el = element;
-    var resolved = el.text ?? '';
-    previewValues.forEach(
-      (token, value) => resolved = resolved.replaceAll(token, value),
-    );
-    return Align(
-      alignment: switch (el.textAlign) {
-        BadgeTextAlign.left => Alignment.centerLeft,
-        BadgeTextAlign.center => Alignment.center,
-        BadgeTextAlign.right => Alignment.centerRight,
-      },
-      child: Text(
-        resolved.isEmpty ? '(texte)' : resolved,
-        overflow: TextOverflow.clip,
-        softWrap: true,
-        textAlign: switch (el.textAlign) {
-          BadgeTextAlign.left => TextAlign.left,
-          BadgeTextAlign.center => TextAlign.center,
-          BadgeTextAlign.right => TextAlign.right,
-        },
-        style: TextStyle(
-          // Chaque autre dimension de cet éditeur (position, taille de
-          // boîte, grille) est mise à l'échelle par `scale` — la taille de
-          // police devait l'être aussi, sinon le texte se dessine à sa
-          // taille pleine résolution modèle dans une boîte réduite à
-          // l'écran, débordant/se recentrant différemment de l'export réel
-          // (badge_layout_renderer.dart::_drawText, qui dessine bien
-          // `el.fontSize` dans `el.width` à pleine résolution, sans mise à
-          // l'échelle — c'est la référence correcte).
-          fontSize: (el.fontSize ?? 16) * scale,
-          fontWeight: el.bold ? FontWeight.bold : FontWeight.normal,
-          fontStyle: el.italic ? FontStyle.italic : FontStyle.normal,
-          color: el.color != null ? Color(el.color!) : Colors.black,
-          fontFamily: el.fontFamily,
-        ),
+    final hasText = (element.text ?? '').isNotEmpty;
+    return CustomPaint(
+      painter: _TextPreviewPainter(
+        element: element,
+        scale: scale,
+        // "(texte)" est un simple repère visuel pour une boîte pas encore
+        // remplie — jamais envoyé à l'export (un texte vide y reste vide),
+        // donc jamais fait passer par `buildBadgeTextParagraph` avec le
+        // vrai `element` : un `BadgeElement` temporaire, sinon identique,
+        // suffit et ne risque pas de laisser fuiter ce texte de repère
+        // ailleurs.
+        previewValues: hasText ? previewValues : const {},
+        placeholderText: hasText ? null : '(texte)',
       ),
+      size: Size(element.width * scale, element.height * scale),
     );
   }
+}
+
+class _TextPreviewPainter extends CustomPainter {
+  _TextPreviewPainter({
+    required this.element,
+    required this.scale,
+    required this.previewValues,
+    this.placeholderText,
+  });
+
+  final BadgeElement element;
+  final double scale;
+  final Map<String, String> previewValues;
+  final String? placeholderText;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // `buildBadgeTextParagraph` ne lit que text/textAlign/bold/italic/
+    // fontFamily/color/width — les seuls champs qui comptent ici ; les
+    // autres champs obligatoires du constructeur (id/type/x/y/height)
+    // n'ont aucune incidence sur ce texte de repère jetable.
+    final el = placeholderText == null
+        ? element
+        : BadgeElement(
+            id: element.id,
+            type: element.type,
+            x: element.x,
+            y: element.y,
+            width: element.width,
+            height: element.height,
+            text: placeholderText,
+            textAlign: element.textAlign,
+            bold: element.bold,
+            italic: element.italic,
+            fontFamily: element.fontFamily,
+            fontSize: element.fontSize,
+            color: element.color,
+          );
+    final paragraph = buildBadgeTextParagraph(el, previewValues, scale: scale);
+    canvas.drawParagraph(
+      paragraph,
+      Offset(0, (size.height - paragraph.height) / 2),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _TextPreviewPainter oldDelegate) =>
+      oldDelegate.element != element ||
+      oldDelegate.scale != scale ||
+      oldDelegate.previewValues != previewValues ||
+      oldDelegate.placeholderText != placeholderText;
 }
 
 /// Grille légère tous les 50 pixels modèle (mise à l'échelle par [spacing])
