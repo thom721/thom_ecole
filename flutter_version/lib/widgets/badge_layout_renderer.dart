@@ -477,10 +477,13 @@ void _drawQr(ui.Canvas canvas, BadgeElement el, String? qrData) {
     canvas.drawRect(frame, ui.Paint()..color = const ui.Color(0xFFE0E0E0));
     return;
   }
+  final qrColor = el.color != null ? ui.Color(el.color!) : const ui.Color(0xFF000000);
   QrPainter(
     data: resolved,
     version: QrVersions.auto,
     errorCorrectionLevel: QrErrorCorrectLevel.L,
+    eyeStyle: QrEyeStyle(color: qrColor),
+    dataModuleStyle: QrDataModuleStyle(color: qrColor),
   ).paint(canvas, ui.Size(el.width, el.height));
 }
 

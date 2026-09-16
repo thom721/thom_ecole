@@ -925,6 +925,12 @@ class BadgeBuilderPropertyPanel extends StatelessWidget {
             },
           ),
         ],
+        const SizedBox(height: 14),
+        _label('Couleur du QR code'),
+        _colorSwatchGrid(el.color, (c) {
+          el.color = c;
+          _emit(el);
+        }, allowNone: false),
       ],
     );
   }

@@ -656,11 +656,19 @@ class _QrPreview extends StatelessWidget {
         ),
       );
     }
+    final qrColor = element.color != null
+        ? Color(element.color!)
+        : Colors.black;
     return ColoredBox(
       color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(4),
-        child: QrImageView(data: resolved, padding: EdgeInsets.zero),
+        child: QrImageView(
+          data: resolved,
+          padding: EdgeInsets.zero,
+          eyeStyle: QrEyeStyle(color: qrColor),
+          dataModuleStyle: QrDataModuleStyle(color: qrColor),
+        ),
       ),
     );
   }
