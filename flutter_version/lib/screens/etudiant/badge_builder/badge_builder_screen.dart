@@ -926,9 +926,16 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
       fileName: '$safeName.json',
       type: FileType.custom,
       allowedExtensions: ['json'],
+      // `bytes` n'est utilisé que sur le web (téléchargement déclenché par
+      // le navigateur) — sur desktop (voir le plugin macOS de file_picker),
+      // saveFile() ouvre SEULEMENT le panneau natif et renvoie le chemin
+      // choisi, sans jamais rien écrire lui-même. Écrire le fichier
+      // nous-mêmes ici est donc nécessaire, pas redondant.
       bytes: bytes,
     );
     if (!mounted || path == null) return;
+    await File(path).writeAsBytes(bytes);
+    if (!mounted) return;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text('Gabarit exporté : $path')));
