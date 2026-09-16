@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:provider/provider.dart';
 
@@ -118,6 +120,115 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
   int _expYear = DateTime.now().year;
   String _salle = 'A';
 
+  // Annuler/Rétablir (Ctrl+Z / Cmd+Z) — pile de snapshots JSON complets du
+  // gabarit (réutilise `toJsonString()`/`fromJsonString()`, déjà éprouvés
+  // par l'export/import). Un changement CONTINU (glisser/redimensionner/
+  // pivoter un élément, glisser un repère) appelle son callback de mutation
+  // à chaque frame — capturer un snapshot à chaque appel produirait une
+  // pile inutilisable (des centaines d'étapes pour un seul geste). À la
+  // place, `_recordUndoSnapshot()` (sans `immediate`) capture l'état
+  // D'AVANT le geste une seule fois (`_undoBaseline`) et ne l'empile
+  // qu'après une courte accalmie (`_undoCommitTimer`) — un geste entier
+  // devient une seule étape d'annulation. Les mutations ponctuelles
+  // (ajouter/dupliquer/supprimer un élément...) empilent immédiatement via
+  // `immediate: true`.
+  final List<String> _undoStack = [];
+  final List<String> _redoStack = [];
+  static const _maxUndoHistory = 50;
+  String? _undoBaseline;
+  Timer? _undoCommitTimer;
+  bool _restoringHistory = false;
+
+  bool get _canUndo => _undoStack.isNotEmpty || _undoBaseline != null;
+  bool get _canRedo => _redoStack.isNotEmpty;
+
+  void _commitPendingUndo() {
+    _undoCommitTimer?.cancel();
+    _undoCommitTimer = null;
+    final baseline = _undoBaseline;
+    _undoBaseline = null;
+    if (baseline == null) return;
+    // Ce commit peut survenir seul (le minuteur se déclenche en dehors de
+    // tout `setState` déjà en cours) — `setState` garantit que le bouton
+    // "Annuler" reflète bien la nouvelle pile sans attendre une autre
+    // interaction.
+    setState(() {
+      _undoStack.add(baseline);
+      if (_undoStack.length > _maxUndoHistory) _undoStack.removeAt(0);
+    });
+  }
+
+  void _recordUndoSnapshot({bool immediate = false}) {
+    if (_restoringHistory) return;
+    final layout = _layout;
+    if (layout == null) return;
+    _redoStack.clear();
+    if (immediate) {
+      // Termine d'abord tout geste continu déjà en attente, pour que
+      // l'ordre chronologique des étapes empilées reste correct.
+      _commitPendingUndo();
+      _undoStack.add(layout.toJsonString());
+      if (_undoStack.length > _maxUndoHistory) _undoStack.removeAt(0);
+      return;
+    }
+    _undoBaseline ??= layout.toJsonString();
+    _undoCommitTimer?.cancel();
+    _undoCommitTimer = Timer(
+      const Duration(milliseconds: 500),
+      _commitPendingUndo,
+    );
+  }
+
+  void _undo() {
+    _commitPendingUndo();
+    if (_undoStack.isEmpty || _layout == null) return;
+    final current = _layout!.toJsonString();
+    final previous = _undoStack.removeLast();
+    _redoStack.add(current);
+    _restoringHistory = true;
+    setState(() {
+      _layout = BadgeLayoutTemplate.fromJsonString(previous);
+      _selectedId = null;
+    });
+    _restoringHistory = false;
+  }
+
+  void _redo() {
+    if (_redoStack.isEmpty || _layout == null) return;
+    final current = _layout!.toJsonString();
+    final next = _redoStack.removeLast();
+    _undoStack.add(current);
+    _restoringHistory = true;
+    setState(() {
+      _layout = BadgeLayoutTemplate.fromJsonString(next);
+      _selectedId = null;
+    });
+    _restoringHistory = false;
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    if (event.logicalKey != LogicalKeyboardKey.keyZ) {
+      return KeyEventResult.ignored;
+    }
+    final isCmdOrCtrl =
+        HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed;
+    if (!isCmdOrCtrl) return KeyEventResult.ignored;
+    if (HardwareKeyboard.instance.isShiftPressed) {
+      _redo();
+    } else {
+      _undo();
+    }
+    return KeyEventResult.handled;
+  }
+
+  @override
+  void dispose() {
+    _undoCommitTimer?.cancel();
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -125,6 +236,10 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
   }
 
   void _newLayout() {
+    _undoCommitTimer?.cancel();
+    _undoBaseline = null;
+    _undoStack.clear();
+    _redoStack.clear();
     setState(() {
       _layout = BadgeLayoutTemplate(
         id: BadgeLayoutStore.instance.newId(),
@@ -151,6 +266,7 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
   }
 
   void _addElement(BadgeElement Function(String id) build) {
+    _recordUndoSnapshot(immediate: true);
     final id = BadgeLayoutStore.instance.newId();
     setState(() {
       _currentSide.elements.add(build(id));
@@ -167,19 +283,22 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
   /// (bouton "Soustraire du fond"), donc le seul endroit qui voit à la
   /// fois l'élément modifié ET la liste complète de ses voisins
   /// (`_currentSide.elements`, nécessaire à [bakeSubtraction]).
-  void _onElementChanged(BadgeElement el) => setState(() {
-    if (el.subtractBackground) {
-      // [bakeSubtraction] suppose une liste déjà triée par `zIndex` (ordre
-      // de peinture réel, voir badge_builder_canvas.dart::_buildLayeredContent)
-      // — `_currentSide.elements` suit l'ordre BRUT d'insertion, pas
-      // forcément l'ordre de peinture (exactement la confusion liste/zIndex
-      // à l'origine de tout le fil de bugs précédent sur cette fonctionnalité).
-      final sorted = [..._currentSide.elements]
-        ..sort((a, b) => a.zIndex.compareTo(b.zIndex));
-      bakeSubtraction(el, sorted);
-      el.subtractBackground = false;
-    }
-  });
+  void _onElementChanged(BadgeElement el) {
+    _recordUndoSnapshot();
+    setState(() {
+      if (el.subtractBackground) {
+        // [bakeSubtraction] suppose une liste déjà triée par `zIndex` (ordre
+        // de peinture réel, voir badge_builder_canvas.dart::_buildLayeredContent)
+        // — `_currentSide.elements` suit l'ordre BRUT d'insertion, pas
+        // forcément l'ordre de peinture (exactement la confusion liste/zIndex
+        // à l'origine de tout le fil de bugs précédent sur cette fonctionnalité).
+        final sorted = [..._currentSide.elements]
+          ..sort((a, b) => a.zIndex.compareTo(b.zIndex));
+        bakeSubtraction(el, sorted);
+        el.subtractBackground = false;
+      }
+    });
+  }
 
   /// Un glissement commencé sur une règle (voir badge_builder_canvas.dart::
   /// onGuideCreateStart) ajoute un NOUVEAU repère à la liste concernée
@@ -188,6 +307,7 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
   /// glissement" pour que les mouvements suivants ([_onGuideDragUpdate])
   /// l'ajustent.
   void _onGuideCreateStart(bool vertical, double initialModelValue) {
+    _recordUndoSnapshot();
     setState(() {
       final list = vertical ? _currentSide.guidesX : _currentSide.guidesY;
       list.add(initialModelValue);
@@ -214,6 +334,7 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
   void _onGuideDragUpdate(double modelDelta) {
     final index = _draggingGuideIndex;
     if (index == null) return;
+    _recordUndoSnapshot();
     setState(() {
       final list = _draggingGuideVertical
           ? _currentSide.guidesX
@@ -238,6 +359,9 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
         list.removeAt(index);
       }
     });
+    // Le relâchement marque la fin réelle du geste — termine cette étape
+    // d'annulation plutôt que d'attendre l'accalmie de `_undoCommitTimer`.
+    _commitPendingUndo();
   }
 
   /// Grave tout déclencheur `subtractBackground` laissé à `true` dans un
@@ -353,6 +477,7 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
       elementId: id,
     );
     if (path == null || !mounted) return;
+    _recordUndoSnapshot(immediate: true);
     setState(() {
       _currentSide.elements.add(
         BadgeElement(
@@ -382,6 +507,7 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
       elementId: el.id,
     );
     if (path == null || !mounted) return;
+    _recordUndoSnapshot(immediate: true);
     setState(() => el.imagePath = path);
   }
 
@@ -392,6 +518,7 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
       ..id = BadgeLayoutStore.instance.newId()
       ..x += 16
       ..y += 16;
+    _recordUndoSnapshot(immediate: true);
     setState(() {
       _currentSide.elements.add(clone);
       _selectedId = clone.id;
@@ -401,6 +528,7 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
   void _deleteSelected() {
     final id = _selectedId;
     if (id == null) return;
+    _recordUndoSnapshot(immediate: true);
     setState(() {
       _currentSide.elements.removeWhere((e) => e.id == id);
       _selectedId = null;
@@ -521,6 +649,7 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
         .toList();
 
     final id = BadgeLayoutStore.instance.newId();
+    _recordUndoSnapshot(immediate: true);
     setState(() {
       _currentSide.elements.add(
         BadgeElement(
@@ -548,6 +677,7 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
     if (el == null) return;
     final elements = _currentSide.elements;
     final zs = elements.map((e) => e.zIndex);
+    _recordUndoSnapshot(immediate: true);
     setState(() {
       el.zIndex = toFront
           ? zs.fold(0, (a, b) => a > b ? a : b) + 1
@@ -920,7 +1050,9 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
   Future<void> _exportLayoutJson() async {
     final layout = _layout!;
     final bytes = Uint8List.fromList(utf8.encode(layout.toJsonString()));
-    final safeName = layout.name.trim().isEmpty ? 'gabarit' : layout.name.trim();
+    final safeName = layout.name.trim().isEmpty
+        ? 'gabarit'
+        : layout.name.trim();
     final path = await FilePicker.platform.saveFile(
       dialogTitle: 'Exporter le gabarit',
       fileName: '$safeName.json',
@@ -962,7 +1094,9 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Fichier invalide : pas un gabarit JSON reconnu.')),
+        const SnackBar(
+          content: Text('Fichier invalide : pas un gabarit JSON reconnu.'),
+        ),
       );
       return;
     }
@@ -971,20 +1105,28 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
     _migrateLegacySubtractFlags(imported);
     await BadgeLayoutStore.instance.save(imported);
     if (!mounted) return;
+    // Un import remplace le gabarit entier — l'historique d'annulation du
+    // gabarit précédent n'a plus de sens (il pointerait vers un document
+    // différent), donc on le vide plutôt que d'empiler un snapshot.
+    _undoCommitTimer?.cancel();
+    _undoBaseline = null;
+    _undoStack.clear();
+    _redoStack.clear();
     setState(() {
       _layout = imported;
       _isVerso = false;
       _selectedId = null;
     });
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Gabarit "${imported.name}" importé.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Gabarit "${imported.name}" importé.')),
+    );
   }
 
   void _toggleOrientation() {
     final layout = _layout!;
     final oldW = layout.canvasWidth;
     final oldH = layout.canvasHeight;
+    _recordUndoSnapshot(immediate: true);
     setState(() {
       layout.isLandscape = !layout.isLandscape;
       final sx = layout.canvasWidth / oldW;
@@ -1015,7 +1157,10 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
     return '${layout.canvasWidth.toInt()} × ${layout.canvasHeight.toInt()} px  ($wCm × $hCm cm)';
   }
 
-  void _addVerso() => setState(() => _layout!.verso = BadgeSide());
+  void _addVerso() {
+    _recordUndoSnapshot(immediate: true);
+    setState(() => _layout!.verso = BadgeSide());
+  }
 
   /// Écrit [bytes] puis l'ouvre avec l'application par défaut du système
   /// (pas de dépendance sur un dialogue "Enregistrer sous" natif, jamais
@@ -1154,101 +1299,105 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
     final previewPhotoBytes = _previewPhotoBytes(previewDetail);
     final previewQrData = _previewQrData(previewDetail);
 
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              if (widget.onBack != null)
-                Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: IconButton(
-                    onPressed: widget.onBack,
-                    icon: const Icon(Icons.arrow_back, size: 18),
-                    tooltip: 'Retour à la liste',
-                    visualDensity: VisualDensity.compact,
+    return Focus(
+      autofocus: true,
+      onKeyEvent: _handleKeyEvent,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                if (widget.onBack != null)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: IconButton(
+                      onPressed: widget.onBack,
+                      icon: const Icon(Icons.arrow_back, size: 18),
+                      tooltip: 'Retour à la liste',
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                const Expanded(
+                  child: SectionHeader(
+                    title: 'Construire la badge',
+                    subtitle:
+                        'Éditeur visuel de gabarit — recto-verso, positionnement libre',
+                    icon: Icons.dashboard_customize_outlined,
+                    colorKey: 'violet',
                   ),
                 ),
-              const Expanded(
-                child: SectionHeader(
-                  title: 'Construire la badge',
-                  subtitle:
-                      'Éditeur visuel de gabarit — recto-verso, positionnement libre',
-                  icon: Icons.dashboard_customize_outlined,
-                  colorKey: 'violet',
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _buildTopBar(layout),
-          const SizedBox(height: 10),
-          _buildPreviewBar(previewDetail),
-          if (_penActive) ...[const SizedBox(height: 10), _buildPenBar()],
-          const SizedBox(height: 12),
-          Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                BadgeBuilderToolbar(
-                  onAddText: _addText,
-                  onAddField: _addField,
-                  onAddShape: _addShape,
-                  onAddPhotoPlaceholder: _addPhotoPlaceholder,
-                  onAddQrPlaceholder: _addQrPlaceholder,
-                  onAddImage: _addStaticImage,
-                  onPickBackground: _pickBackground,
-                  hasSelection: _selectedElement != null,
-                  onDuplicate: _duplicateSelected,
-                  onDelete: _deleteSelected,
-                  onBringToFront: () => _reorderSelected(toFront: true),
-                  onSendToBack: () => _reorderSelected(toFront: false),
-                  penActive: _penActive,
-                  onTogglePen: _togglePenTool,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 880),
-                      child: BadgeBuilderCanvas(
-                        layout: layout,
-                        side: _currentSide,
-                        selectedId: _selectedId,
-                        onSelect: (id) => setState(() => _selectedId = id),
-                        onElementChanged: _onElementChanged,
-                        penActive: _penActive,
-                        penDraft: _penDraft,
-                        onPenPointerDown: _onPenPointerDown,
-                        onPenDrag: _onPenDrag,
-                        previewValues: previewValues,
-                        previewPhotoBytes: previewPhotoBytes,
-                        previewQrData: previewQrData,
-                        onGuideCreateStart: _onGuideCreateStart,
-                        onGuideMoveStart: _onGuideMoveStart,
-                        onGuideDragUpdate: _onGuideDragUpdate,
-                        onGuideDragEnd: _onGuideDragEnd,
-                        // Ne s'applique que si l'élément en édition de
-                        // points EST TOUJOURS celui sélectionné — sinon
-                        // des poignées orphelines resteraient affichées
-                        // pour un élément qu'on ne regarde plus (voir la
-                        // doc de _editingPathElementId).
-                        editingPathElementId:
-                            _editingPathElementId == _selectedId
-                            ? _editingPathElementId
-                            : null,
+              ],
+            ),
+            const SizedBox(height: 14),
+            _buildTopBar(layout),
+            const SizedBox(height: 10),
+            _buildPreviewBar(previewDetail),
+            if (_penActive) ...[const SizedBox(height: 10), _buildPenBar()],
+            const SizedBox(height: 12),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  BadgeBuilderToolbar(
+                    onAddText: _addText,
+                    onAddField: _addField,
+                    onAddShape: _addShape,
+                    onAddPhotoPlaceholder: _addPhotoPlaceholder,
+                    onAddQrPlaceholder: _addQrPlaceholder,
+                    onAddImage: _addStaticImage,
+                    onPickBackground: _pickBackground,
+                    hasSelection: _selectedElement != null,
+                    onDuplicate: _duplicateSelected,
+                    onDelete: _deleteSelected,
+                    onBringToFront: () => _reorderSelected(toFront: true),
+                    onSendToBack: () => _reorderSelected(toFront: false),
+                    penActive: _penActive,
+                    onTogglePen: _togglePenTool,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 880),
+                        child: BadgeBuilderCanvas(
+                          layout: layout,
+                          side: _currentSide,
+                          selectedId: _selectedId,
+                          onSelect: (id) => setState(() => _selectedId = id),
+                          onElementChanged: _onElementChanged,
+                          penActive: _penActive,
+                          penDraft: _penDraft,
+                          onPenPointerDown: _onPenPointerDown,
+                          onPenDrag: _onPenDrag,
+                          previewValues: previewValues,
+                          previewPhotoBytes: previewPhotoBytes,
+                          previewQrData: previewQrData,
+                          onGuideCreateStart: _onGuideCreateStart,
+                          onGuideMoveStart: _onGuideMoveStart,
+                          onGuideDragUpdate: _onGuideDragUpdate,
+                          onGuideDragEnd: _onGuideDragEnd,
+                          // Ne s'applique que si l'élément en édition de
+                          // points EST TOUJOURS celui sélectionné — sinon
+                          // des poignées orphelines resteraient affichées
+                          // pour un élément qu'on ne regarde plus (voir la
+                          // doc de _editingPathElementId).
+                          editingPathElementId:
+                              _editingPathElementId == _selectedId
+                              ? _editingPathElementId
+                              : null,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                _buildInspectorColumn(),
-              ],
+                  const SizedBox(width: 12),
+                  _buildInspectorColumn(),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1403,6 +1552,18 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
           colorKey: 'sky',
           icon: Icons.add,
           onPressed: _newLayout,
+        ),
+        PillButton(
+          label: 'Annuler',
+          colorKey: 'sky',
+          icon: Icons.undo,
+          onPressed: _canUndo ? _undo : null,
+        ),
+        PillButton(
+          label: 'Rétablir',
+          colorKey: 'sky',
+          icon: Icons.redo,
+          onPressed: _canRedo ? _redo : null,
         ),
         PillButton(
           label: 'Charger',
