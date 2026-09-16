@@ -171,7 +171,10 @@ ui.Paragraph buildBadgeTextParagraph(
   };
   final fontWeight = el.bold ? ui.FontWeight.bold : ui.FontWeight.normal;
   final fontStyle = el.italic ? ui.FontStyle.italic : ui.FontStyle.normal;
-  final fontSize = (el.fontSize ?? 16) * scale;
+  // `el.fontSize` est en points (voir kBadgeFontPtToPx) — converti ici en
+  // pixels réels de ce canevas à 300dpi, seul endroit où cette conversion
+  // a lieu (partagé éditeur/export via cette même fonction).
+  final fontSize = (el.fontSize ?? 16) * kBadgeFontPtToPx * scale;
 
   final builder =
       ui.ParagraphBuilder(

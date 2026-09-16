@@ -292,7 +292,7 @@ class BadgeBuilderPropertyPanel extends StatelessWidget {
           },
         ),
         const SizedBox(height: 10),
-        _numberField('Taille', el.fontSize ?? 16, (v) {
+        _numberField('Taille (pt)', el.fontSize ?? 16, (v) {
           el.fontSize = v;
           _emit(el);
         }),

@@ -52,11 +52,16 @@ class BadgeLayoutStore {
     final marker = File('${(await _dir()).path}/.badge_layouts_seeded');
     if (!marker.existsSync()) {
       for (final layout in buildSeedBadgeTemplates()) {
+        // Les générateurs de gabarits de démarrage définissent encore des
+        // fontSize pensées pour l'ancienne interprétation (pixels bruts) —
+        // voir _migrateFontSizesToPoints.
+        _migrateFontSizesToPoints(layout);
         await save(layout);
       }
       marker.writeAsStringSync('');
     }
     await _ensureProSeedTemplates();
+    await _ensureFontSizeMigration();
   }
 
   /// Second lot de gabarits de démarrage (badge_layout_seed_templates_pro.dart)
@@ -70,7 +75,51 @@ class BadgeLayoutStore {
     final marker = File('${(await _dir()).path}/.badge_layouts_seeded_pro');
     if (marker.existsSync()) return;
     for (final layout in buildProSeedBadgeTemplates()) {
+      _migrateFontSizesToPoints(layout);
       await save(layout);
+    }
+    marker.writeAsStringSync('');
+  }
+
+  /// Divise `fontSize` (points désormais, voir `kBadgeFontPtToPx`) par ce
+  /// même facteur — annule l'ancienne interprétation en pixels bruts des
+  /// générateurs de gabarits de démarrage ET des gabarits déjà enregistrés
+  /// par un utilisateur, pour que le rendu visuel reste identique à avant
+  /// cette bascule. Idempotent uniquement grâce aux marqueurs qui
+  /// l'entourent (_ensureSeedTemplates/_ensureFontSizeMigration) — appeler
+  /// deux fois sur le même gabarit re-diviserait à tort.
+  void _migrateFontSizesToPoints(BadgeLayoutTemplate layout) {
+    for (final side in [layout.recto, if (layout.verso != null) layout.verso!]) {
+      for (final el in side.elements) {
+        if (el.fontSize != null) {
+          el.fontSize = el.fontSize! / kBadgeFontPtToPx;
+        }
+      }
+    }
+  }
+
+  /// Migration ponctuelle (une seule fois par installation, voir le
+  /// marqueur) : les gabarits déjà enregistrés sur disque — qu'ils soient
+  /// venus des lots de démarrage ou construits par un utilisateur — ont
+  /// été sauvegardés avant l'introduction de `kBadgeFontPtToPx`, avec des
+  /// `fontSize` pensées comme des pixels bruts. Sans cette passe, ils
+  /// deviendraient ~4,17× trop grands dès que le rendu (éditeur ET export)
+  /// applique la nouvelle conversion points→pixels.
+  Future<void> _ensureFontSizeMigration() async {
+    final dir = await _dir();
+    final marker = File('${dir.path}/.badge_layouts_font_pt_migrated');
+    if (marker.existsSync()) return;
+    for (final entity in dir.listSync()) {
+      if (entity is! File || !entity.path.endsWith('.json')) continue;
+      try {
+        final layout = BadgeLayoutTemplate.fromJsonString(
+          await entity.readAsString(),
+        );
+        _migrateFontSizesToPoints(layout);
+        await entity.writeAsString(layout.toJsonString());
+      } catch (_) {
+        continue;
+      }
     }
     marker.writeAsStringSync('');
   }

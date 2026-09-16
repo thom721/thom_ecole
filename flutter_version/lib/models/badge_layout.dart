@@ -17,6 +17,18 @@ const double kBadgeLandscapeHeight = 638;
 /// (badge_builder_canvas.dart) pour convertir l'échelle d'affichage en cm.
 const double kBadgePxPerCm = 300 / 2.54;
 
+/// `BadgeElement.fontSize` est exprimé en **points** (1pt = 1/72 pouce,
+/// l'unité professionnelle standard — voir plan) — jamais en pixels bruts
+/// de ce canevas à 300dpi. `kBadgeFontPtToPx` convertit une valeur saisie
+/// en points vers la taille de police réelle à passer à `ui.TextStyle`/
+/// `TextStyle` (widgets/badge_layout_renderer.dart::buildBadgeTextParagraph,
+/// seul endroit qui doit appliquer cette conversion). Avant cette
+/// constante, un "22" saisi dans le panneau produisait un texte ~4,2×
+/// trop petit par rapport à un vrai 22pt professionnel — les gabarits
+/// déjà enregistrés ont été migrés une fois pour compenser (voir
+/// services/badge_layout_store.dart).
+const double kBadgeFontPtToPx = 300 / 72;
+
 /// Jetons de substitution reconnus dans le texte d'un `BadgeElement` —
 /// source unique partagée par le panneau de propriétés (aperçu) et le
 /// renderer (substitution réelle), pour éviter deux listes divergentes.
