@@ -61,7 +61,14 @@ const submitNote = async () => {
   } catch (error) {
     emit('search-error');
     if (error.response?.data?.detail?.errors) {
-      Swal.fire('Erreur', error.response.data.detail.errors.warning, 'error');
+      // RCoursEtudiant.py renvoie `detail.errors` sous deux formes selon le
+      // cas (chaîne brute la plupart du temps, objet {warning: "..."} pour
+      // 2 validations précises) — sans ce test, un message en chaîne simple
+      // (ex. "Les paramètres des évaluations ne sont pas encore configurés")
+      // affichait une popup "Erreur" vide (`.warning` sur une chaîne = undefined).
+      const errs = error.response.data.detail.errors;
+      const message = typeof errs === 'string' ? errs : errs.warning;
+      Swal.fire('Erreur', message, 'error');
     } else if (error.response?.data?.detail) {
       Swal.fire('Erreur', error.response.data.detail, 'error');
     } else if (error.response?.status === 422) {
