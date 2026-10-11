@@ -248,6 +248,8 @@ class _NoteEntryScreenState extends State<NoteEntryScreen> {
       setState(() {
         _error = null;
         _dataRevision++;
+        _evaluationValue = null;
+        _evaluationControle = null;
         for (final s in _result!.students) {
           s.note = null;
         }
@@ -539,8 +541,13 @@ class _NoteEntryScreenState extends State<NoteEntryScreen> {
       // cette Key liée à _currentCoursId/normalized, la remise à null de
       // _evaluationValue dans _onCoursChange ne se reflète pas visuellement,
       // et changer de cours vers une config d'évaluation différente ne
-      // réinitialiserait pas la liste affichée.
-      key: ValueKey('evaluation-$normalized-$_currentCoursId'),
+      // réinitialiserait pas la liste affichée. _dataRevision (incrémenté
+      // après un enregistrement réussi, voir _submitNotes) force le même
+      // rafraîchissement après une sauvegarde, pour que le select revienne
+      // sur "Choisir l'évaluation" plutôt que de garder affichée la valeur
+      // déjà enregistrée — une 2e soumission accidentelle sans resélection
+      // est alors bloquée par la validation déjà en place dans _submitNotes.
+      key: ValueKey('evaluation-$normalized-$_currentCoursId-$_dataRevision'),
       initialValue: _evaluationValue,
       decoration: const InputDecoration(labelText: 'Évaluation', isDense: true),
       items: items,

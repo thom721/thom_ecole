@@ -18,10 +18,14 @@ class AnnulationArriereState extends ChangeNotifier {
 
   /// Équivalent de GET v1/annulation-arriere?paiement_id= — le solde
   /// restant dû pour cette ligne (affiché avant même de choisir le
-  /// montant) et la dérogation active pour ce paiement, s'il y en a une.
-  Future<({double? soldeRestant, String? devise, AnnulationArriere? existing})> fetchContext(
-    String paiementId,
-  ) async {
+  /// montant), la dérogation active pour ce paiement s'il y en a une, et
+  /// l'historique complet (actives et révoquées, le plus récent en
+  /// premier — déjà renvoyé tel quel par le backend, RAnnulationArriere.py
+  /// ::lister_annulations_arriere) pour que l'écran puisse aussi montrer
+  /// qu'une dérogation a été révoquée, pas seulement qu'il n'y en a plus
+  /// d'active.
+  Future<({double? soldeRestant, String? devise, AnnulationArriere? existing, List<AnnulationArriere> history})>
+  fetchContext(String paiementId) async {
     isLoading = true;
     notifyListeners();
     try {
@@ -31,9 +35,11 @@ class AnnulationArriereState extends ChangeNotifier {
       );
       final data = response.data as Map<String, dynamic>;
       final derogations = (data['derogations'] as List?) ?? const [];
+      final history = derogations
+          .map((item) => AnnulationArriere.fromJson(item as Map<String, dynamic>))
+          .toList();
       AnnulationArriere? existing;
-      for (final item in derogations) {
-        final a = AnnulationArriere.fromJson(item as Map<String, dynamic>);
+      for (final a in history) {
         if (a.estActive) {
           existing = a;
           break;
@@ -43,9 +49,10 @@ class AnnulationArriereState extends ChangeNotifier {
         soldeRestant: (data['solde_restant'] as num?)?.toDouble(),
         devise: data['devise']?.toString(),
         existing: existing,
+        history: history,
       );
     } catch (_) {
-      return (soldeRestant: null, devise: null, existing: null);
+      return (soldeRestant: null, devise: null, existing: null, history: <AnnulationArriere>[]);
     } finally {
       isLoading = false;
       notifyListeners();

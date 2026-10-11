@@ -37,6 +37,7 @@ class _DerogationArriereDialog extends StatefulWidget {
 class _DerogationArriereDialogState extends State<_DerogationArriereDialog> {
   bool _isLoading = true;
   AnnulationArriere? _existing;
+  List<AnnulationArriere> _history = [];
   double? _soldeRestant;
   String? _devise;
 
@@ -70,9 +71,11 @@ class _DerogationArriereDialogState extends State<_DerogationArriereDialog> {
     ];
     final results = await Future.wait(futures);
     if (!mounted) return;
-    final ctx = results.first as ({double? soldeRestant, String? devise, AnnulationArriere? existing});
+    final ctx = results.first
+        as ({double? soldeRestant, String? devise, AnnulationArriere? existing, List<AnnulationArriere> history});
     setState(() {
       _existing = ctx.existing;
+      _history = ctx.history;
       _soldeRestant = ctx.soldeRestant;
       _devise = ctx.devise;
       _isLoading = false;
@@ -179,9 +182,76 @@ class _DerogationArriereDialogState extends State<_DerogationArriereDialog> {
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Center(child: CircularProgressIndicator()),
             )
-          : _existing != null
-              ? _buildExisting(annulationState)
-              : _buildForm(annulationState, executantName),
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _existing != null
+                    ? _buildExisting(annulationState)
+                    : _buildForm(annulationState, executantName),
+                _buildHistorique(),
+              ],
+            ),
+    );
+  }
+
+  /// Dérogations passées pour cet étudiant/année — exclut celle déjà
+  /// affichée en haut par _buildExisting si une est active, pour ne pas la
+  /// montrer deux fois. _history vient directement de
+  /// RAnnulationArriere.py::lister_annulations_arriere, qui renvoie déjà
+  /// actives ET révoquées, le plus récent en premier — rien à retrier ici.
+  Widget _buildHistorique() {
+    final passees = _history.where((d) => d.id != _existing?.id).toList();
+    if (passees.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Historique (${passees.length})',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textMuted),
+          ),
+          const SizedBox(height: 6),
+          ...passees.map(
+            (d) => Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.cardBg,
+                border: Border.all(color: AppColors.borderSubtle),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${d.montantAnnule} GDES (${d.typeAnnulation}) — ${d.estActive ? "Active" : "Révoquée"}'
+                    '${d.createdAt != null ? ", créée le ${d.createdAt}" : ""}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: d.estActive ? AppColors.textPrimary : AppColors.danger,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Ordonné par : ${d.ordonnePar} (${d.ordonneParFonction})\nMotif : ${d.raison}',
+                    style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
+                  ),
+                  if (!d.estActive) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      'Révoquée le ${d.annuleLe ?? "?"}'
+                      '${d.annuleRaison != null ? " : ${d.annuleRaison}" : ""}',
+                      style: TextStyle(fontSize: 11.5, color: AppColors.danger),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -319,11 +389,19 @@ class _DerogationArriereDialogState extends State<_DerogationArriereDialog> {
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         initialValue: _ordonneParFonction,
+                        // Sans isExpanded, le nom du rôle sélectionné garde sa
+                        // largeur intrinsèque (ex. "Responsable des ressources
+                        // humaines") au lieu d'être contraint à l'espace
+                        // disponible — RenderFlex overflow (voir capture).
+                        isExpanded: true,
                         decoration: const InputDecoration(labelText: 'Fonction'),
                         items: context
                             .watch<RolePermissionState>()
                             .roles
-                            .map((r) => DropdownMenuItem(value: r.name, child: Text(r.name)))
+                            .map((r) => DropdownMenuItem(
+                                  value: r.name,
+                                  child: Text(r.name, overflow: TextOverflow.ellipsis),
+                                ))
                             .toList(),
                         onChanged: (v) => setState(() => _ordonneParFonction = v),
                       ),
