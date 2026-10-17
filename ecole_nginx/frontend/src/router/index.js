@@ -370,8 +370,12 @@ function homeRoute(authStore) {
     return { name: 'Dashboard' }
   }
 
-  // Rôle inconnu → logout
-  localStorage.removeItem('auth-token')
+  // Rôle inconnu (ex : compte sans aucun rôle) → logout. Vider aussi
+  // authStore.user, pas seulement le token : sinon la garde "déjà connecté →
+  // pas besoin du login" renvoie aussitôt ici, qui renvoie au login… →
+  // "Infinite redirect in navigation guard".
+  authStore.setToken(null)
+  authStore.setUser(null)
   return { name: 'login' }
 }
 
