@@ -60,7 +60,7 @@ jobs:
           python3 -m nuitka app_gui.py
           --standalone
           --enable-plugin=pyside6
-          --include-package=jinja2 --include-package=uvicorn
+          --include-package=jinja2 --include-package=uvicorn --include-package=websockets
           --include-data-dir=app/templates=app/templates
           --include-data-file=Controllers/education.png=Controllers/education.png
           --include-data-file=app/Controller/education.png=app/Controller/education.png
@@ -119,7 +119,7 @@ jobs:
           python -m nuitka app_gui.py
           --standalone
           --enable-plugin=pyside6
-          --include-package=jinja2 --include-package=uvicorn
+          --include-package=jinja2 --include-package=uvicorn --include-package=websockets
           --include-data-dir=app/templates=app/templates
           --include-data-file=Controllers/education.png=Controllers/education.png
           --include-data-file=app/Controller/education.png=app/Controller/education.png

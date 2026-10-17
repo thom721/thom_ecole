@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from app.config.Config import settings
 from time import time
-from app.Routes import Etudiants, RAcademic,RCours,RProgramme,dashboard,RCoursEtudiant,RParamExam,RAnneAcademique,RClasses,RInscription,RPaiement,RPaiementParam,RClientInfos,RProfile,RAuth,RRolePermission,RVente,RLog,RNotes,RSavePaiement,Initialisation,Returns,RTransaction,RPromus,REvents,RNews,RVideo,RContact,RCategory,RPresences,RFormations,RPageSections,RProduit,RCategorieProduit,RPayroll,RParametrePayroll,RPointage,RAnnulationArriere,RIntegrationExport,RCredits,RRattrapage
+from app.Routes import Etudiants, RAcademic,RCours,RProgramme,dashboard,RCoursEtudiant,RParamExam,RAnneAcademique,RClasses,RInscription,RPaiement,RPaiementParam,RClientInfos,RProfile,RAuth,RRolePermission,RVente,RLog,RNotes,RSavePaiement,Initialisation,Returns,RTransaction,RPromus,REvents,RNews,RVideo,RContact,RCategory,RPresences,RFormations,RPageSections,RProduit,RCategorieProduit,RPayroll,RParametrePayroll,RPointage,RAnnulationArriere,RIntegrationExport,RCredits,RRattrapage,RMessages
 
 from app.Routes.pdf import BulletinPrint, paiement_recu,GlobalRepport,PaymentRepport,Register_report,VenteRecu,RegisterRepport,PedagogicRepport,MasBulletinPrint,PedaRepport,RPRepport,RExcelExport,RHoraireReport,PayrollReport,SalaireHistoriqueReport,ReleveCredits
 from fastapi.responses import JSONResponse
@@ -681,6 +681,8 @@ app.include_router(BulletinPrint.router)
 app.include_router(MasBulletinPrint.router)
 app.include_router(ReleveCredits.router)
 app.include_router(PedaRepport.router)
+app.include_router(RMessages.router)
+app.include_router(RMessages.ws_router)
 
 
 

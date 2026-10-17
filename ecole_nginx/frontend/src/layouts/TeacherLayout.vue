@@ -62,7 +62,7 @@
 
         <!-- NAV -->
         <nav class="flex-1 overflow-y-auto py-4 px-2 space-y-0.5">
-          <template v-for="section in navSections" :key="section.label">
+          <template v-for="section in sections" :key="section.label">
             <!-- Section label -->
             <p
               v-if="!sidebarCollapsed && section.label"
@@ -360,6 +360,8 @@ import { useAuthStore } from '../stores/auth';
 import { storeToRefs } from 'pinia'; 
 import { useSchoolStore,useSchoolStoreInfo } from '../stores/schoolStore';  
 import axios from 'axios';
+import { useTeacherData } from '@/composables/useTeacherData'
+import { useMessages, startMessaging, stopMessaging } from '@/composables/useMessages'
 const authStore = useAuthStore(); 
 const useSchoolInfo = useSchoolStoreInfo() 
 const schoolStore = useSchoolStore();
@@ -387,13 +389,13 @@ const props = defineProps({
         items: [
           { name: 'teacher.dashboard',  label: 'Tableau de Bord',   to: '/professeur-dashboard',              badge: null,
             icon: `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" width="18" height="18"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>` },
-          { name: 'teacher.classes',    label: 'Mes Classes',        to: 'professeur-classes',       badge: '6',
+          { name: 'teacher.classes',    label: 'Mes Classes',        to: 'professeur-classes',       badge: null,
             icon: `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>` },
           { name: 'teacher.notes',      label: 'Devoirs & Notes',    to: 'professeur-notes',         badge: null,
             icon: `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>` },
           { name: 'teacher.cours',      label: 'Cours & Ressources', to: 'professeur-cours',         badge: null,
             icon: `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>` },
-          { name: 'teacher.messages',   label: 'Messages',           to: 'professeur-messages',      badge: '3',
+          { name: 'teacher.messages',   label: 'Messages',           to: 'professeur-messages',      badge: null,
             icon: `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>` },
         ]
       },
@@ -419,6 +421,23 @@ const isMobile         = ref(false)
 const showColorPanel   = ref(false)
 const accentColor      = ref(props.defaultAccent)
 const colorPanelRef    = ref(null)
+
+// Badges réels : nombre de classes (année active) et messages non lus.
+// La connexion temps réel vit le temps de l'espace enseignant.
+const { stats: teacherStats } = useTeacherData()
+const { unreadTotal } = useMessages()
+onMounted(startMessaging)
+onUnmounted(stopMessaging)
+const sections = computed(() => props.navSections.map(section => ({
+  ...section,
+  items: section.items.map(item => {
+    if (item.name === 'teacher.classes' && teacherStats.value?.classes?.length)
+      return { ...item, badge: String(teacherStats.value.classes.length) }
+    if (item.name === 'teacher.messages' && unreadTotal.value)
+      return { ...item, badge: String(unreadTotal.value) }
+    return item
+  }),
+})))
 
 // ── Router ─────────────────────────────────────────────────────────────────
 const route = useRoute()
@@ -502,7 +521,7 @@ const logout = async () => {
   router.push({ name: 'login' })
 }
 const schoolName = computed(() => useSchoolInfo.school_info?.nom || props.appName);
-const userInitial = computed(() => authStore.user?.user?.username?.charAt(0)?.toUpperCase() ?? '?');
-const userName = computed(() => authStore.user?.user?.username ?? 'Utilisateur');
+const userName = computed(() => authStore.user?.user?.username || authStore.user?.user?.name || 'Utilisateur');
+const userInitial = computed(() => userName.value !== 'Utilisateur' ? userName.value.charAt(0).toUpperCase() : '?');
 const userEmail = computed(() => authStore.user?.user?.email ?? '');
 </script>
