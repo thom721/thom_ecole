@@ -43,6 +43,11 @@ services:
       # lue dans un conteneur, uuid.getnode() renverrait l'adresse MAC virtuelle du
       # conteneur, pas celle de la machine, ce qui rendrait la licence instable.
       HOST_MAC_ADDRESS: ${HOST_MAC_ADDRESS:-}
+      # Dev local uniquement : "DISABLE_LICENSE_CHECK=true docker compose up -d
+      # --build app" pour ne pas laisser la vérification de licence réécrire
+      # users.client_infos/heart_autos.descript (au démarrage + boucle
+      # périodique) quand la MAC vue ici ne correspond pas à celle de la clé.
+      DISABLE_LICENSE_CHECK: ${DISABLE_LICENSE_CHECK:-false}
       LICENSE_FILE: /data/license.json
       # Sans ça, Path.home() (voir app/Helper/persistent_storage.py) résoudrait
       # vers le HOME du conteneur, qui n'est PAS dans un volume monté : tout

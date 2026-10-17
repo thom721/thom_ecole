@@ -522,7 +522,23 @@ def _run_startup_tasks():
                 print(" Vérification des migrations Alembic en attente...")
                 command.upgrade(alembic_cfg, "head")
             except Exception as mig_err:
-                print(f"Erreur lors de l'application des migrations Alembic: {mig_err}")
+                # Bruyant volontairement : un échec ici laisse le schéma en
+                # retard sur les modèles, et l'API démarre quand même — les
+                # routes touchées tombent ensuite en 500 "Unknown column"
+                # (vu en pratique : une table déjà créée par une exécution
+                # précédente interrompue bloquait toute la suite de la chaîne,
+                # cours.credits manquant). logging plutôt que print seul :
+                # stdout est bufferisé sous Docker, le print n'apparaissait pas.
+                logging.getLogger(__name__).error(
+                    "\n" + "!" * 70 +
+                    "\n MIGRATIONS ALEMBIC NON APPLIQUÉES — schéma en retard sur le code."
+                    "\n Les routes qui utilisent les colonnes/tables manquantes renverront 500."
+                    f"\n Erreur : {mig_err}"
+                    "\n Si une table/colonne 'already exists' : vérifier qu'elle correspond à la"
+                    "\n migration, puis 'alembic -c app/alembic1.ini stamp <revision>' et relancer."
+                    "\n" + "!" * 70,
+                    exc_info=True,
+                )
 
     except Exception as e:
         print(f'An exception occurred  on running base  {e}')
