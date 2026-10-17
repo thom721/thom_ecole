@@ -4,12 +4,12 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-3xl font-bold text-[#e8eaf0] mb-1" style="font-family:'Playfair Display',serif">Calendrier</h1>
-        <p class="text-[#7c83a0] text-sm">Février 2026</p>
+        <p class="text-[#7c83a0] text-sm">{{ MOIS[month] }} {{ year }}</p>
       </div>
       <div class="flex gap-2">
-        <button class="px-4 py-2 bg-[#1e2335] text-[#e8eaf0] rounded-xl text-sm font-medium hover:bg-[#262d44] transition-colors cursor-pointer border-0">◀ Janvier</button>
-        <button class="px-4 py-2 bg-[#1e2335] text-[#e8eaf0] rounded-xl text-sm font-medium hover:bg-[#262d44] transition-colors cursor-pointer border-0">Mars ▶</button>
-        <button class="px-4 py-2 text-white rounded-xl text-sm font-medium hover:brightness-110 transition-all cursor-pointer border-0" :style="{ background: 'var(--accent,#4f8ef7)' }">+ Événement</button>
+        <button @click="shift(-1)" class="px-4 py-2 bg-[#1e2335] text-[#e8eaf0] rounded-xl text-sm font-medium hover:bg-[#262d44] transition-colors cursor-pointer border-0">◀ {{ MOIS[(month + 11) % 12] }}</button>
+        <button @click="goToday" class="px-4 py-2 text-white rounded-xl text-sm font-medium hover:brightness-110 transition-all cursor-pointer border-0" :style="{ background: 'var(--accent,#4f8ef7)' }">Aujourd'hui</button>
+        <button @click="shift(1)" class="px-4 py-2 bg-[#1e2335] text-[#e8eaf0] rounded-xl text-sm font-medium hover:bg-[#262d44] transition-colors cursor-pointer border-0">{{ MOIS[(month + 1) % 12] }} ▶</button>
       </div>
     </div>
 
@@ -25,15 +25,15 @@
           class="min-h-[72px] rounded-xl p-2 flex flex-col gap-1 transition-colors"
           :class="[
             !cell.day ? 'opacity-0 pointer-events-none' : 'cursor-pointer hover:bg-white/[0.04]',
-            cell.day === 20 ? 'outline outline-1' : 'bg-[#1e2335]'
+            cell.isToday ? 'outline outline-1' : 'bg-[#1e2335]'
           ]"
-          :style="cell.day === 20 ? { outlineColor: 'var(--accent,#4f8ef7)', background: 'color-mix(in srgb, var(--accent,#4f8ef7) 10%, #1e2335)' } : {}"
+          :style="cell.isToday ? { outlineColor: 'var(--accent,#4f8ef7)', background: 'color-mix(in srgb, var(--accent,#4f8ef7) 10%, #1e2335)' } : {}"
         >
           <span class="text-[13px] font-semibold leading-none"
-            :class="cell.day === 20 ? 'text-[var(--accent)]' : 'text-[#e8eaf0]'"
-            :style="cell.day === 20 ? { color: 'var(--accent,#4f8ef7)' } : {}"
+            :class="cell.isToday ? 'text-[var(--accent)]' : 'text-[#e8eaf0]'"
+            :style="cell.isToday ? { color: 'var(--accent,#4f8ef7)' } : {}"
           >{{ cell.day }}</span>
-          <span v-for="ev in cell.events" :key="ev.title"
+          <span v-for="ev in cell.events" :key="ev.id" :title="ev.title"
             class="text-[9px] px-1.5 py-0.5 rounded font-medium truncate"
             :style="{ background: ev.color+'22', color: ev.color }"
           >{{ ev.title }}</span>
@@ -44,8 +44,9 @@
     <!-- Upcoming list -->
     <div class="bg-[#171b26] border border-white/[0.07] rounded-2xl p-6">
       <p class="text-base font-semibold text-[#e8eaf0] mb-4" style="font-family:'Playfair Display',serif">Prochains événements</p>
+      <p v-if="!upcomingList.length" class="text-sm text-[#7c83a0]">Aucun événement à venir.</p>
       <div class="flex flex-col gap-2.5">
-        <div v-for="ev in upcoming" :key="ev.title" class="flex items-center gap-4 p-3.5 bg-[#1e2335] rounded-xl hover:bg-white/[0.05] transition-colors cursor-pointer">
+        <div v-for="ev in upcomingList" :key="ev.id" class="flex items-center gap-4 p-3.5 bg-[#1e2335] rounded-xl hover:bg-white/[0.05] transition-colors cursor-pointer">
           <div class="w-11 h-11 rounded-xl flex flex-col items-center justify-center flex-shrink-0" :style="{ background: ev.color+'22' }">
             <span class="text-[17px] font-bold leading-none" :style="{ color: ev.color }">{{ ev.day }}</span>
             <span class="text-[9px] uppercase" :style="{ color: ev.color }">{{ ev.month }}</span>
@@ -68,22 +69,49 @@
 </template>
 
 <script setup>
-const evMap = {
-  3:[{title:'Réunion pédago',color:'#f59e0b'}], 7:[{title:'DS Tle S2',color:'#4f8ef7'}],
-  10:[{title:'CC 1re S1',color:'#6ee7b7'}], 14:[{title:'Vacances',color:'#a78bfa'}],
-  20:[{title:'Bulletins',color:'#f87171'}], 24:[{title:'Contrôle S1',color:'#4f8ef7'}],
-  26:[{title:'Remise bulletins',color:'#f59e0b'}],
+import { computed, ref } from 'vue'
+import { useTeacherData, MOIS } from '@/composables/useTeacherData'
+
+const { events, upcoming } = useTeacherData()
+
+const now = new Date()
+const year = ref(now.getFullYear())
+const month = ref(now.getMonth())
+
+function shift(delta) {
+  const d = new Date(year.value, month.value + delta, 1)
+  year.value = d.getFullYear()
+  month.value = d.getMonth()
 }
-const calCells = (() => {
+function goToday() {
+  year.value = now.getFullYear()
+  month.value = now.getMonth()
+}
+
+// Grille lundi → dimanche ; un événement sur plusieurs jours apparaît
+// sur chacun de ses jours
+const calCells = computed(() => {
+  const first = new Date(year.value, month.value, 1)
+  const offset = (first.getDay() + 6) % 7
+  const nbDays = new Date(year.value, month.value + 1, 0).getDate()
   const cells = []
-  for(let i=0;i<6;i++) cells.push({key:'e'+i,day:null,events:[]})
-  for(let d=1;d<=28;d++) cells.push({key:'d'+d,day:d,events:evMap[d]||[]})
+  for (let i = 0; i < offset; i++) cells.push({ key: 'e' + i, day: null, events: [] })
+  for (let d = 1; d <= nbDays; d++) {
+    const dayStart = new Date(year.value, month.value, d)
+    const dayEnd = new Date(year.value, month.value, d + 1)
+    cells.push({
+      key: 'd' + d,
+      day: d,
+      isToday: dayStart.toDateString() === now.toDateString(),
+      events: events.value.filter(ev => {
+        const start = ev.date
+        const end = ev.end_date ? new Date(ev.end_date) : start
+        return start < dayEnd && end >= dayStart
+      }),
+    })
+  }
   return cells
-})()
-const upcoming = [
-  {day:'24',month:'Fév', title:'Contrôle Intégration',sub:'Terminale S1 · 14h00',  color:'#4f8ef7',tag:'blue', tagLabel:'Examen' },
-  {day:'26',month:'Fév', title:'Remise des bulletins', sub:'Toutes classes · 10h00',color:'#f59e0b',tag:'amber',tagLabel:'Admin'  },
-  {day:'03',month:'Mars',title:'Conseil de classe',    sub:'Salle A12 · 16h30',     color:'#6ee7b7',tag:'green',tagLabel:'Réunion'},
-  {day:'07',month:'Mars',title:'DS Probabilités',      sub:'Terminale S2 · 08h00',  color:'#4f8ef7',tag:'blue', tagLabel:'Examen' },
-]
+})
+
+const upcomingList = computed(() => upcoming(6))
 </script>

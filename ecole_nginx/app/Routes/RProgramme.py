@@ -1051,3 +1051,203 @@ def get_classes_etudiants(
         "studentCount": fullcount,
         "classes": result
     }
+
+def _parse_data_etudiant(raw):
+    """data_etudiant est une colonne JSON qui contient parfois une chaîne
+    JSON (double encodage), parfois un dict, parfois "[]" — même
+    normalisation que RNotes.parse_etudiant_data."""
+    import json
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw) if raw.strip() else {}
+        except (ValueError, TypeError):
+            return {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def _to_float(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+@router.get("/mes-statistiques-prof")
+def get_statistiques_prof(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Agrégats de l'espace enseignant (Mes Classes, Statistiques, Tableau de
+    bord) pour l'année active, limités aux matières du prof connecté.
+
+    Les notes vivent dans cours_etudiants.data_etudiant (la table notes est
+    vide) : {identifiant: {type_matiere: {matiere: {professeur_id,
+    coefficients, notes: {examen: valeur}}}}}. Moyenne sur 10, même formule
+    que les bulletins (BulletinPrint.py) : somme(notes) / somme(coefficients)
+    * 10."""
+    from datetime import datetime, timedelta
+    from app.Models.MRelations import CoursEtudiant, Presence
+
+    prof_id = resolve_professeur_id(current_user, db)
+    if not prof_id:
+        raise HTTPException(status_code=404, detail="Aucune fiche professeur associée à ce compte")
+
+    annee_active = db.query(AnneeAcademique).filter(AnneeAcademique.status == 1).first()
+    if not annee_active:
+        raise HTTPException(status_code=404, detail="Aucune année active")
+
+    programmes = (
+        db.query(Programme)
+        .filter(
+            Programme.professeur_id == prof_id,
+            Programme.annee_academique == annee_active.id
+        )
+        .all()
+    )
+
+    # Matières enseignées par classe (repli quand professeur_id manque dans
+    # le JSON des notes saisies avant l'ajout de ce champ)
+    matieres_par_classe = {}
+    for p in programmes:
+        if p.class_ and p.cours:
+            matieres_par_classe.setdefault(p.class_, set()).add(p.cours.cours_nom)
+
+    classe_ids = list(matieres_par_classe.keys())
+    classes_db = {c.id: c for c in db.query(Classe).filter(Classe.id.in_(classe_ids)).all()} if classe_ids else {}
+    niveaux = {n.id: n.name for n in db.query(Niveau).all()}
+
+    # Effectifs
+    inscrits = (
+        db.query(ClasseEtudiant.classes_id, Etudiant.id, Etudiant.nom, Etudiant.prenom)
+        .join(Etudiant, Etudiant.id == ClasseEtudiant.etudiant_id)
+        .filter(
+            ClasseEtudiant.classes_id.in_(classe_ids),
+            ClasseEtudiant.annee_academique_id == annee_active.id
+        )
+        .all()
+    ) if classe_ids else []
+    etudiants_par_classe = {}
+    noms = {}
+    for classe_id, etu_id, nom, prenom in inscrits:
+        etudiants_par_classe.setdefault(classe_id, set()).add(etu_id)
+        noms[etu_id] = f"{prenom or ''} {nom or ''}".strip()
+
+    # Moyennes par étudiant (matières du prof uniquement)
+    rows = (
+        db.query(CoursEtudiant)
+        .filter(
+            CoursEtudiant.classe.in_(classe_ids),
+            CoursEtudiant.annee_academique == annee_active.annee_academique
+        )
+        .all()
+    ) if classe_ids else []
+
+    moyennes = {}  # (classe_id, etudiant_id) -> moyenne /10
+    toutes_notes = []  # chaque note ramenée sur 10, pour la distribution
+    for row in rows:
+        data = _parse_data_etudiant(row.data_etudiant)
+        matieres_classe = matieres_par_classe.get(row.classe, set())
+        total_notes = total_coef = 0.0
+        for par_type in data.values():
+            if not isinstance(par_type, dict):
+                continue
+            for matieres in par_type.values():
+                if not isinstance(matieres, dict):
+                    continue
+                for nom_matiere, info in matieres.items():
+                    if not isinstance(info, dict):
+                        continue
+                    pid = info.get("professeur_id")
+                    if pid != prof_id and not (pid is None and nom_matiere in matieres_classe):
+                        continue
+                    coef = _to_float(info.get("coefficients")) or 0.0
+                    for valeur in (info.get("notes") or {}).values():
+                        n = _to_float(valeur)
+                        if n is None or coef <= 0:
+                            continue
+                        total_notes += n
+                        total_coef += coef
+                        toutes_notes.append(n / coef * 10)
+        if total_coef > 0:
+            moyennes[(row.classe, row.etudiant_id)] = total_notes / total_coef * 10
+
+    # Présences (par classe + 8 dernières semaines)
+    presences = (
+        db.query(Presence.classes_id, Presence.date_daujourdhui, Presence.valeur)
+        .filter(
+            Presence.classes_id.in_(classe_ids),
+            Presence.annee_academique_id == annee_active.id
+        )
+        .all()
+    ) if classe_ids else []
+    pres_classe = {}
+    debut_semaine = datetime.now().date() - timedelta(days=datetime.now().weekday())
+    semaines = [{"debut": (debut_semaine - timedelta(weeks=i)), "total": 0, "presents": 0} for i in range(7, -1, -1)]
+    for classe_id, date_jour, valeur in presences:
+        stats = pres_classe.setdefault(classe_id, [0, 0])
+        stats[0] += 1
+        stats[1] += 1 if valeur else 0
+        if date_jour:
+            d = date_jour.date() if hasattr(date_jour, "date") else date_jour
+            for s in semaines:
+                if s["debut"] <= d < s["debut"] + timedelta(weeks=1):
+                    s["total"] += 1
+                    s["presents"] += 1 if valeur else 0
+                    break
+
+    def pct(a, b):
+        return round(a / b * 100) if b else None
+
+    SEUIL = 5.0  # moyenne de passage sur 10
+    classes = []
+    for classe_id in classe_ids:
+        classe = classes_db.get(classe_id)
+        moy_classe = [m for (c, _), m in moyennes.items() if c == classe_id]
+        p_stats = pres_classe.get(classe_id, [0, 0])
+        classes.append({
+            "classe_id": classe_id,
+            "nom": classe.nom_classe if classe else classe_id,
+            "niveau": niveaux.get(classe.niveau_id) if classe else None,
+            "matieres": sorted(matieres_par_classe[classe_id]),
+            "studentCount": len(etudiants_par_classe.get(classe_id, ())),
+            "moyenne": round(sum(moy_classe) / len(moy_classe), 2) if moy_classe else None,
+            "reussite": pct(sum(1 for m in moy_classe if m >= SEUIL), len(moy_classe)),
+            "presence": pct(p_stats[1], p_stats[0]),
+            "notesCount": len(moy_classe),
+        })
+    classes.sort(key=lambda c: c["nom"])
+
+    toutes_moy = list(moyennes.values())
+    total_pres = sum(s[0] for s in pres_classe.values())
+    total_presents = sum(s[1] for s in pres_classe.values())
+
+    tranches = [("<3", 0, 3), ("3-5", 3, 5), ("5-6", 5, 6), ("6-7", 6, 7), ("7-8", 7, 8), (">8", 8, 10.01)]
+    distribution = [
+        {"tranche": label, "pct": pct(sum(1 for n in toutes_notes if lo <= n < hi), len(toutes_notes)) or 0}
+        for label, lo, hi in tranches
+    ]
+
+    top = sorted(moyennes.items(), key=lambda kv: kv[1], reverse=True)[:5]
+    top_etudiants = [{
+        "etudiant_id": etu_id,
+        "nom": noms.get(etu_id, ""),
+        "classe": classes_db[c].nom_classe if c in classes_db else "",
+        "moyenne": round(m, 2),
+    } for (c, etu_id), m in top]
+
+    return {
+        "annee": {"id": annee_active.id, "nom": annee_active.annee_academique},
+        "kpis": {
+            "etudiants": len({e for s in etudiants_par_classe.values() for e in s}),
+            "moyenne": round(sum(toutes_moy) / len(toutes_moy), 2) if toutes_moy else None,
+            "reussite": pct(sum(1 for m in toutes_moy if m >= SEUIL), len(toutes_moy)),
+            "presence": pct(total_presents, total_pres),
+            "en_difficulte": sum(1 for m in toutes_moy if m < SEUIL),
+        },
+        "classes": classes,
+        "distribution": distribution,
+        "presence_semaines": [
+            {"debut": s["debut"].isoformat(), "pct": pct(s["presents"], s["total"])} for s in semaines
+        ],
+        "top_etudiants": top_etudiants,
+    }
