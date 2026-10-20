@@ -1228,14 +1228,32 @@ class Main_run:
 
         # activation_key = ask_for_activation_key
         license = LicenseManager()
-        val_bool, message, date = license.check_license() 
-        if not date or date == None:
+        val_bool, message, date = license.check_license()
+        # check_license() lit HKCU\Software\ecole-server\Licenses, rempli
+        # uniquement quand une clé est tapée dans la console — jamais sous le
+        # service Windows. La licence elle-même (essai ou renouvellement) est
+        # dans QSettings MonAppServer/Licence. Sans ce test, chaque démarrage
+        # régénérait un essai de 30 jours qui écrasait la licence existante.
+        from PySide6.QtCore import QSettings
+        licence_enregistree = bool(QSettings("MonAppServer", "Licence").value("activation_key"))
+        if (not date or date == None) and not licence_enregistree:
             show_activation_key()
-        
-        
+
+
         services_a_verifier = ["MySQLEcole", "NginxAplekol"]
         self.ensure_services_running(services_a_verifier)
         self.launch_and_wait_for_api()
+
+        if licence_enregistree and not date and self.licence_enregistree_non_expiree():
+            # Installation existante (redémarrage du service) avec une licence
+            # encore valide : la vraie vérification se fait côté API (table
+            # log_actives). Pas de saisie clavier — elle bloquait le processus
+            # à chaque démarrage. Licence expirée : on retombe plus bas sur
+            # ask_for_activation_key(), gardée comme roue de secours. On garde
+            # le processus en vie tant que l'API tourne (thread daemon).
+            print("\n [ok]  Licence enregistrée valide — vérification assurée par l'API (log_actives).")
+            self.api_thread.join()
+            return
 
         if val_bool== False and message == "Licence expirée":
             QMessageBox.critical(None, "Licence expirée", "Votre licence a expiré ou est invalide.\nOk pour continuer.")            
@@ -1253,9 +1271,26 @@ class Main_run:
             # self.ajouter_au_demarrage("école-server")
 
  
-    def launch_and_wait_for_api(self):  
+    def licence_enregistree_non_expiree(self):
+        """True si la licence de QSettings MonAppServer/Licence (essai ou
+        renouvellement, voir server_key_generate.py) n'est pas encore expirée.
+        Date illisible (déchiffrement impossible, valeur absente) : False,
+        pour que la saisie de clé de secours s'affiche."""
+        from PySide6.QtCore import QSettings
+        try:
+            encrypted_date = QSettings("MonAppServer", "Licence").value("expiration_date", "")
+            expiration = decrypt_value(encrypted_date, generate_fernet_key(get_mac_address()))
+            return datetime.strptime(expiration, "%Y-%m-%d").date() >= datetime.utcnow().date()
+        except Exception as e:
+            print(f" [x]   Lecture de la date d'expiration impossible : {e}")
+            return False
+
+    def launch_and_wait_for_api(self):
         api_thread = threading.Thread(target=self.start_api, daemon=True)
         api_thread.start()
+        # Gardé pour install_and_config() : join() maintient le processus en
+        # vie quand rien d'autre ne bloque le thread principal.
+        self.api_thread = api_thread
         print("⏳ Démarrage de l'API en cours...")
 
         # 2. Boucle d'attente intelligente
