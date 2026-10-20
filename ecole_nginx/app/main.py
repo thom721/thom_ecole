@@ -169,9 +169,13 @@ def format_validation_error(exc: RequestValidationError) -> dict:
         field_name = error['loc'][-1] if error['loc'] else 'unknown'
         error_type = error['type']
         error_msg = error.get('msg', '')
-        
+
         # Create user-friendly messages
-        if error_type == 'missing':
+        if error_type in ('float_parsing', 'float_type', 'decimal_parsing'):
+            message = f"Le champ '{field_name}' doit être un nombre"
+        elif error_type in ('int_parsing', 'int_type', 'int_from_float'):
+            message = f"Le champ '{field_name}' doit être un nombre entier"
+        elif error_type == 'missing':
             message = f"Le champ '{field_name}' est requis"
         elif error_type == 'value_error.email' or 'email' in error_msg.lower():
             message = f"L'adresse email n'est pas valide"
@@ -205,6 +209,17 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     """Gestionnaire personnalisé pour les erreurs de validation"""
     errors = format_validation_error(exc)
     print(errors)
+    # `details` : messages indexés par chemin complet du champ
+    # ("programmeCoursObject.0.note_de_passage") et en liste — le format
+    # qu'attendent les formulaires Vue (errors[`x.${i}.champ`][0]). `errors`
+    # (clé = nom du champ seul) est conservé tel quel pour les autres clients.
+    details = {}
+    for error in exc.errors():
+        loc = [str(p) for p in error.get('loc', ())]
+        if loc and loc[0] in ('body', 'query', 'path'):
+            loc = loc[1:]
+        message = format_validation_error(RequestValidationError([error])).popitem()[1]
+        details.setdefault('.'.join(loc) or 'unknown', []).append(message)
     # Create a simple, clean error response
     return JSONResponse(
         status_code=422,
@@ -212,7 +227,8 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "success": False,
             "errors": errors,#"Erreur de validation www",
             "message": "Veuillez vérifier les champs suivants",
-            "fields": errors
+            "fields": errors,
+            "details": details,
         }
     )
     # errors = exc.errors()

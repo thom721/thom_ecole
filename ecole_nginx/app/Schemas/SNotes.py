@@ -53,7 +53,15 @@ class StoreNoteRequest(BaseModel):
     note_de_passage: Optional[float] = None
     professeur_id: str = Field(..., description="ID du professeur")
     notes: List[NoteItemStore] = Field(..., min_items=1, description="Liste des notes")
-    
+
+    # NoteForm.vue envoie "" quand le cours n'a pas de note de passage /
+    # coefficient (cas du secondaire) : traiter comme absent plutôt que de
+    # rejeter la requête (« unable to parse string as a number »).
+    @field_validator('coefficients', 'note_de_passage', mode='before')
+    @classmethod
+    def vide_en_none(cls, v):
+        return None if isinstance(v, str) and not v.strip() else v
+
     @field_validator('cours', 'annee_academique', 'professeur_id', 'type_matiere')
     @classmethod
     def validate_not_empty(cls, v: str) -> str:

@@ -4,6 +4,7 @@ import axios from "axios";
 import Swal from "sweetalert2";
 import InsertNotesComponents from "@/components/InsertNotesComponents.vue";
 import InputError from "@/components/InputError.vue";
+import { showApiError } from '@/composables/useApiErrors.js';
 
 const url = import.meta.env.VITE_APP_BASE_URL;
 
@@ -184,8 +185,7 @@ const submitNotes = async () => {
       students.value.forEach(s => s.note = '');
     }
   } catch (err) {
-    errors.value = err.response?.data?.errors || {};
-    showSwal('Veuillez vérifier les notes saisies', 'error');
+    errors.value = showApiError(err, "Impossible d'enregistrer les notes");
   } finally {
     isSubmitting.value = false;
   }

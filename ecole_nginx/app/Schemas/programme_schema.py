@@ -1,6 +1,14 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
+
+
+def _vide_en_none(v):
+    """Un champ numérique laissé vide arrive en "" depuis les formulaires :
+    le traiter comme absent plutôt que de le rejeter (« unable to parse
+    string as a number »). La note de passage n'est obligatoire que pour
+    Universitaire / Technique — vérifié dans RProgramme.py."""
+    return None if isinstance(v, str) and not v.strip() else v
 
 # Schema pour la création
 class ProgrammeCreate(BaseModel):
@@ -16,6 +24,8 @@ class ProgrammeCreate(BaseModel):
     coefficients: Optional[float] = Field(None, max_length=255)
     note_de_passage: Optional[float] = None
 
+    _vides = field_validator('coefficients', 'note_de_passage', 'Faculte_id', mode='before')(_vide_en_none)
+
 # Schema pour la mise à jour
 class ProgrammeUpdate(BaseModel):
     professeur_id: Optional[str] = None
@@ -29,6 +39,8 @@ class ProgrammeUpdate(BaseModel):
     jours: Optional[str] = Field(None, max_length=255)
     coefficients: Optional[float] = Field(None, max_length=255)
     note_de_passage: Optional[float] = Field(None, max_length=255)
+
+    _vides = field_validator('coefficients', 'note_de_passage', 'Faculte_id', mode='before')(_vide_en_none)
 
 
 class ProgrammeResponse(BaseModel):
@@ -97,6 +109,10 @@ class ProgrammeCoursItem(BaseModel):
     # Obligatoire vs optionnel, décidé par offre (voir
     # app/Models/MRelations.py::Programme.obligatoire) — défaut True.
     obligatoire: Optional[bool] = True
+
+    # faculte_id : "" (niveaux sans faculté, ex. Secondaire) violerait la clé
+    # étrangère programmes_faculte_id_foreign — il faut NULL.
+    _vides = field_validator('coefficients', 'note_de_passage', 'credits', 'faculte_id', mode='before')(_vide_en_none)
 
 class ProgrammeCoursRequest(BaseModel):
     programmeCoursObject: list[ProgrammeCoursItem]

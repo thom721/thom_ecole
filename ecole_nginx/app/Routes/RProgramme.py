@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request,status, Ba
 from app.Helper.elearning_webhook import notify_programme_changed, notify_programme_deleted
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy import desc, asc, or_, and_,distinct,select
+from sqlalchemy.exc import IntegrityError
+import logging
 import math
 from app.Models.MModels import AnneeAcademique,Professeur,Niveau,Classe,Cours,Faculte,User,Etudiant
 from app.Models.MRelations import Programme,ClasseEtudiant #,Classes
@@ -19,6 +21,7 @@ from app.Schemas.programme_schema import (
 from pydantic import BaseModel
 from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role,first_or_update_safe,resolve_professeur_id
 router = APIRouter(prefix="/api/v1", tags=["Programmes"])
+logger = logging.getLogger(__name__)
 
 # GET avec pagination, recherche et filtres
 @router.get("/programme", response_model=PaginatedProgrammeResponse)
@@ -420,9 +423,28 @@ def store_programme(
             background_tasks.add_task(notify_programme_changed, db, annee_id, programme_ids)
         return {"success": "Opération réussie"}
 
-    except Exception as e:
+    # Ne jamais renvoyer str(e) au client : pour une erreur SQL, il contient la
+    # requête complète, les noms de tables et les identifiants. Le détail
+    # technique part dans les logs serveur (journalctl -u lemignon-api).
+    except HTTPException:
         db.rollback()
-        raise HTTPException(status_code=422, detail=str(e))
+        raise
+    except IntegrityError:
+        db.rollback()
+        logger.exception("Enregistrement du programme refusé par la base (contrainte d'intégrité)")
+        raise HTTPException(
+            status_code=422,
+            detail="Enregistrement impossible : une donnée sélectionnée (cours, classe, professeur, "
+                   "faculté ou année académique) est invalide ou n'existe plus. Rechargez la page et réessayez.",
+        )
+    except Exception:
+        db.rollback()
+        logger.exception("Erreur inattendue lors de l'enregistrement du programme")
+        raise HTTPException(
+            status_code=500,
+            detail="Une erreur inattendue est survenue lors de l'enregistrement du programme. "
+                   "Réessayez ou contactez l'administrateur.",
+        )
 
 # DELETE
 @router.get("/delete-programme/{programme_id}", status_code=200)

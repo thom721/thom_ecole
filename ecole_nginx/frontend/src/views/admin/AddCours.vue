@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import axios from "axios";
 import AdminLayout from '@/layouts/AdminLayout.vue';
 import Swal from "sweetalert2";
+import { showApiError } from '@/composables/useApiErrors.js';
 import { useSchoolStore } from '@/stores/schoolStore';
 import { storeToRefs } from 'pinia';
 
@@ -95,8 +96,7 @@ const submitCours = async () => {
       if (!isEditing.value) courses.value = [emptyCours()];
     }
   } catch (error) {
-    if (error.response?.status === 422) errors.value = error.response.data.errors;
-    else Swal.fire("Erreur", "Un problème est survenu lors de l'enregistrement", "error");
+    errors.value = showApiError(error, "Impossible d'enregistrer le cours");
   } finally {
     isSubmitting.value = false;
   }

@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import axios from "axios";
 import AdminLayout from '@/layouts/AdminLayout.vue';
 import Swal from "sweetalert2";
+import { showApiError } from '@/composables/useApiErrors.js';
 
 defineOptions({ layout: AdminLayout });
 
@@ -81,8 +82,7 @@ const submitProgramme = async () => {
       if (!programmeCours.value[0].id) { programmeCours.value = []; addEmptyRow(); }
     }
   } catch (error) {
-    if (error.response?.status === 422) errors.value = error.response.data.errors;
-    else Swal.fire("Erreur", "Impossible de sauvegarder le programme.", "error");
+    errors.value = showApiError(error, "Impossible de sauvegarder le programme");
   } finally {
     isSubmitting.value = false;
   }
