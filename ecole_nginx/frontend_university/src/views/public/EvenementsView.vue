@@ -22,8 +22,12 @@
     <GenericSection v-for="gs in genericSectionsInZone(5)" :key="gs.id" :section="gs" :is-admin="authStore.isAdmin" page="evenements"
       @toggle="toggleGenericSection" @delete="deleteGenericSection" @changed="fetchGenericSections" />
 
+    <!-- Filtre + grille + galerie regroupés : la barre de filtre (sticky)
+         reste collée le long du contenu qu'elle filtre, pas au-delà. -->
+    <div>
     <!-- ══ FILTRE ═════════════════════════════════════════ -->
-    <div class="sticky top-16 z-40 bg-white/95 backdrop-blur-md" style="box-shadow:0 2px 12px rgba(11,31,58,.07)">
+    <!-- top-[88px] = hauteur de la barre de navigation fixe (PublicLayout). -->
+    <div class="sticky top-[88px] z-40 bg-white/95 backdrop-blur-md" style="box-shadow:0 2px 12px rgba(11,31,58,.07)">
       <div class="flex gap-2.5 overflow-x-auto px-6 py-3.5">
         <button
           v-for="cat in CATS"
@@ -42,11 +46,12 @@
          d'un doublon statique et daté au-dessus. -->
 
     <!-- ══ GRILLE ÉVÉNEMENTS ══════════════════════════════ -->
-    <section class="pb-20">
+    <section :class="filtered.length || !showGalerie ? 'pb-20' : 'pb-2'">
       <div class="max-w-6xl mx-auto px-6">
-        <h2 class="font-serif text-3xl mb-8 reveal">Tous les Événements</h2>
+        <h2 class="font-serif text-2xl md:text-3xl mt-6 reveal" :class="filtered.length ? 'mb-8' : 'mb-2'">{{ TITRES[current] }}</h2>
 
-        <p v-if="filtered.length === 0" class="text-gray-500 text-center py-12">
+        <!-- Pas de message "vide" quand la galerie photo occupe la catégorie. -->
+        <p v-if="filtered.length === 0 && !showGalerie" class="text-gray-500 text-center py-12">
           Aucun événement dans cette catégorie pour le moment.
         </p>
 
@@ -71,6 +76,24 @@
         </div>
       </div>
     </section>
+
+    <!-- ══ GALERIE PHOTO (carrousel en cascade) ══════════════
+         Photos de cérémonie : affichées sous "Tous" et "Cérémonie".
+         scroll-margin-top : lu par le scrollBehavior (main.js) pour que le
+         titre ne passe pas sous la barre de navigation + le filtre sticky. -->
+    <section v-if="showGalerie" id="galerie" class="pt-2 pb-16 md:pb-20" style="scroll-margin-top:150px">
+      <div class="max-w-6xl mx-auto px-6">
+        <div class="text-center mb-4 md:mb-6 reveal">
+          <p class="text-xs font-bold mb-2" style="color:#D4A853;letter-spacing:.3em;text-transform:uppercase">Galerie photo</p>
+          <h2 class="font-serif text-2xl md:text-3xl mb-2">Nos moments forts en images</h2>
+          <p class="text-sm md:text-base text-gray-500 max-w-xl mx-auto">
+            Cérémonies, étudiants et temps forts de la vie à l'{{ useSchoolInfo.school_info?.nom || 'IUSTH' }}. Cliquez sur la photo centrale pour l'agrandir.
+          </p>
+        </div>
+      </div>
+      <GalerieCarousel :photos="GALERIE" />
+    </section>
+    </div>
 
     <!-- ══ CTA NEWSLETTER ════════════════════════════════ -->
     <div style="background:linear-gradient(135deg,#0B1F3A,#1A7A6E);padding:64px 0">
@@ -144,6 +167,9 @@ import { initReveal } from '@/composables/useReveal.js'
 import { useSchoolStore, useSchoolStoreInfo } from '@/stores/schoolStore';
 import { useAuthStore } from '@/stores/auth'
 import GenericSection from '@/components/GenericSection.vue'
+import GalerieCarousel from '@/components/GalerieCarousel.vue'
+import { GALERIE } from '@/data/galerie.js'
+import { useRoute } from 'vue-router'
 import { usePageSections, LAYOUT_TEMPLATES } from '@/composables/usePageSections.js'
 const useSchoolInfo = useSchoolStoreInfo();
 const authStore = useAuthStore()
@@ -164,6 +190,17 @@ const pickBlockTemplate = async (tpl) => {
 const CATS = ['Tous', 'Sportif', 'Culturel', 'Académique', 'Cérémonie']
 const current = ref('Tous')
 
+const TITRES = {
+  'Tous': 'Tous les Événements',
+  'Sportif': 'Événements sportifs',
+  'Culturel': 'Événements culturels',
+  'Académique': 'Événements académiques',
+  'Cérémonie': 'Cérémonies',
+}
+
+// La galerie photo regroupe des photos de cérémonie.
+const showGalerie = computed(() => current.value === 'Tous' || current.value === 'Cérémonie')
+
 const filtered = computed(() =>
   current.value === 'Tous' ? EVENTS : EVENTS.filter(e => e.cat === current.value)
 )
@@ -177,6 +214,9 @@ function subscribeNewsletter() {
   setTimeout(() => { subscribed.value = false; newsletterEmail.value = '' }, 3000)
 }
 
-onMounted(() => { window.scrollTo(0, 0); initReveal(); fetchGenericSections() })
+// Lien "/evenements#galerie" (aperçu galerie de l'accueil) : le scrollBehavior
+// du routeur (main.js) défile jusqu'à l'ancre — ne pas remonter en haut.
+const route = useRoute()
+onMounted(() => { if (!route.hash) window.scrollTo(0, 0); initReveal(); fetchGenericSections() })
 watch(current, () => initReveal())
 </script>

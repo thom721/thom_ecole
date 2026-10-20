@@ -40,3 +40,6 @@ __screenshots__/
 
 test-results/
 playwright-report/
+
+# Originaux de la galerie (74 Mo) — versions WebP générées dans public/images/galerie/ par scripts/build-galerie.py
+c-photo-download-1of1/

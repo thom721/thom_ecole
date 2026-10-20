@@ -28,8 +28,9 @@
         </span>
       </router-link>
 
-      <!-- Liens desktop -->
-      <div class="hidden md:flex items-center gap-7">
+      <!-- Liens desktop — à partir de lg : en dessous (tablette), les 6 liens
+           + logo + boutons débordent ; le menu burger prend le relais. -->
+      <div class="hidden lg:flex items-center gap-7">
         <template v-for="p in navPages" :key="p.path || p.label">
           <!-- Entrée avec sous-menu (ex: Accueil, Formation) — cliquable si p.path
                existe (Accueil mène quand même à /), sinon juste un déclencheur -->
@@ -54,10 +55,14 @@
               </div>
             </div>
           </div>
-          <!-- Entrée simple -->
+          <!-- Entrée simple — surlignage exact : "/" (Accueil) partage son
+               chemin avec le layout parent, donc le .router-link-active par
+               défaut le surlignait sur toutes les pages publiques. -->
           <router-link
             v-else
             :to="p.path"
+            active-class=""
+            exact-active-class="router-link-active"
             class="nav-link relative text-sm font-medium tracking-wide no-underline transition-colors duration-300"
             :class="scrolled ? 'text-gray-500' : 'text-white/90'"
           >
@@ -89,7 +94,7 @@
 
         <!-- Burger mobile -->
         <button
-          class="md:hidden bg-transparent border-none cursor-pointer p-1"
+          class="lg:hidden bg-transparent border-none cursor-pointer p-1"
           @click="mobileOpen = !mobileOpen"
         >
           <span
@@ -106,7 +111,7 @@
   <transition name="fade">
     <div
       v-if="mobileOpen && !hideShell"
-      class="fixed top-[60px] left-0 right-0 z-40 bg-white shadow-xl py-4 px-6"
+      class="fixed top-[88px] left-0 right-0 z-[45] bg-white shadow-xl py-4 px-6 max-h-[calc(100vh-88px)] overflow-y-auto"
     >
       <template v-for="p in navPages" :key="p.path || p.label">
         <template v-if="p.children">

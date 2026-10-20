@@ -66,7 +66,22 @@ export const createApp = ViteSSG(
     routes,
     scrollBehavior(to, _from, savedPosition) {
       if (savedPosition) return savedPosition
-      if (to.hash) return { el: to.hash, behavior: 'smooth' }
+      // Ancre : les vues publiques sont chargées en différé, l'élément peut
+      // ne pas exister encore — on l'attend (1,5 s max). Décalage : le
+      // scroll-margin-top de l'élément s'il en a un, sinon 40px, pour garder
+      // le haut de la section sous la barre de navigation fixe.
+      if (to.hash) {
+        return new Promise((resolve) => {
+          const start = Date.now()
+          const tick = () => {
+            const el = document.querySelector(to.hash)
+            if (el) resolve({ el, top: parseInt(getComputedStyle(el).scrollMarginTop) || 40, behavior: 'smooth' })
+            else if (Date.now() - start > 1500) resolve({ top: 0 })
+            else setTimeout(tick, 50)
+          }
+          tick()
+        })
+      }
       return { top: 0, behavior: 'smooth' }
     },
   },

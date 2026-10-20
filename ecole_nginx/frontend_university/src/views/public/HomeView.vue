@@ -220,6 +220,29 @@
       </div>
     </section>
 
+    <!-- ══ APERÇU GALERIE ═════════════════════════════════ -->
+    <section class="py-16 bg-white">
+      <div class="max-w-6xl mx-auto px-6">
+        <div class="flex items-center justify-between mb-8 reveal">
+          <div>
+            <p class="text-xs font-extrabold tracking-widest uppercase mb-1" style="color:#E8A020">Galerie</p>
+            <h2 class="font-serif text-2xl" style="color:#0B2545">En images</h2>
+          </div>
+          <router-link to="/evenements#galerie" class="text-sm font-semibold no-underline" style="color:#1A7A4A">Voir la galerie →</router-link>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 reveal">
+          <router-link
+            v-for="(p, i) in GALERIE_APERCU"
+            :key="p.src"
+            to="/evenements#galerie"
+            class="block rounded-xl overflow-hidden aspect-square group"
+          >
+            <img :src="p.thumb" :alt="`Photo ${i + 1} — vie universitaire à l'IUSTH`" class="w-full h-full object-cover block transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async" />
+          </router-link>
+        </div>
+      </div>
+    </section>
+
     <GenericSection v-for="gs in genericSectionsInZone(75)" :key="gs.id" :section="gs" :is-admin="authStore.isAdmin" page="home"
       @toggle="toggleGenericSection" @delete="deleteGenericSection" @changed="fetchGenericSections" />
 
@@ -492,6 +515,10 @@ import axios from 'axios'
 import Swal from 'sweetalert2'
 import GenericSection from '@/components/GenericSection.vue'
 import { usePageSections, LAYOUT_TEMPLATES } from '@/composables/usePageSections.js'
+import { GALERIE } from '@/data/galerie.js'
+
+// Aperçu galerie : 8 photos réparties sur l'ensemble de l'album.
+const GALERIE_APERCU = Array.from({ length: 8 }, (_, i) => GALERIE[Math.floor(i * GALERIE.length / 8)])
 
 const url          = import.meta.env.VITE_APP_BASE_URL
 // image_url renvoyé par l'API est un chemin relatif ("/static/uploads/...")
