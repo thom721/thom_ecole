@@ -437,6 +437,25 @@ def impression_bulletin(
                 status_code=404,
                 detail="Bulletin non trouvé"
             )
+
+        # Bulletin sans aucune note (data_etudiant vide, ex. "[]") :
+        # one_bulletin.html indexe dataEtudiant[identifiant] sans garde
+        # (ligne ~600) et plantait en 500 « 'list object' has no attribute
+        # '1-13999' ». Message clair à la place. Hors niveau bloc/session,
+        # qui calcule ses notes ailleurs (calculer_moyenne_session).
+        if not session:
+            notes_etudiant = data_bulletin[9]
+            if isinstance(notes_etudiant, str):
+                try:
+                    notes_etudiant = json.loads(notes_etudiant)
+                except ValueError:
+                    notes_etudiant = None
+            if not isinstance(notes_etudiant, dict) or data_bulletin[8] not in notes_etudiant:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Aucune note enregistrée pour {data_bulletin[2]} {data_bulletin[3]} "
+                           f"({data_bulletin[8]}) en {data_bulletin[6]} : impossible d'imprimer ce bulletin.",
+                )
         # .join(  
         #         AnneeAcademique,
         #         AnneeAcademique.id == ClasseEtudiant.annee_academique_id

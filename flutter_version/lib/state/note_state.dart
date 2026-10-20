@@ -233,17 +233,31 @@ class NoteState extends ChangeNotifier {
   /// Équivalent de print_bulletin() → POST v1/imprime-bulletin (PDF), ouvert
   /// avec le lecteur par défaut du système (motif de
   /// PaiementState.printRecu()).
+  ///
+  /// La période part dans le champ qui correspond au mode d'évaluation de la
+  /// classe (BulletinPrint.py) : `Controle` ("Contr. I"), `Trimestre`
+  /// ("Trimestre I") ou `mois` — un contrôle envoyé dans `mois` était refusé
+  /// (« Données manquantes. … 33Contr. I »). Universitaire : `session`
+  /// ("1ère"/"2ème") + `mois` = phase ('intra'/'finale'/'all').
   Future<String?> printBulletin(
     String coursEtudiantId, {
     String? mois,
     String? session,
+    String? controle,
+    String? trimestre,
   }) async {
     printingId = coursEtudiantId;
     notifyListeners();
     try {
       final response = await _apiClient.dio.post(
         'imprime-bulletin',
-        data: {'bulletin': coursEtudiantId, 'mois': mois, 'session': session},
+        data: {
+          'bulletin': coursEtudiantId,
+          'mois': ?mois,
+          'session': ?session,
+          'Controle': ?controle,
+          'Trimestre': ?trimestre,
+        },
         options: Options(responseType: ResponseType.bytes),
       );
       final file = File(

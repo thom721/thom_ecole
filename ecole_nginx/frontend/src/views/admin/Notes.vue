@@ -118,12 +118,19 @@ const EVAL_OPTIONS = {
 // pas par mois : /imprime-bulletin exige alors `session` + `mois` parmi
 // 'intra'/'finale'/'all' (voir BulletinPrint.py::impression_bulletin), jamais un mois classique.
 const isSessionValue = (val) => EVAL_OPTIONS.sessions.some(s => s.value === val)
-const buildBulletinPayload = (rowId, selection) => {
+// La période choisie doit partir dans le champ qui correspond au mode
+// d'évaluation de la classe (BulletinPrint.py) : `Controle` ou `Trimestre`,
+// pas `mois` — sinon "Contr. I" était refusé comme mois inconnu
+// (« Données manquantes. … 33Contr. I »).
+const buildBulletinPayload = (row, selection) => {
   if (isSessionValue(selection)) {
     const [session, phase] = selection.split('::')
-    return { bulletin: rowId, session, mois: phase }
+    return { bulletin: row.id, session, mois: phase }
   }
-  return { bulletin: rowId, mois: selection }
+  const ep = row.evaluation_par?.toLowerCase()
+  if (ep === 'controle') return { bulletin: row.id, Controle: selection }
+  if (ep === 'trimestre') return { bulletin: row.id, Trimestre: selection }
+  return { bulletin: row.id, mois: selection }
 }
 
 const searchCoursEtudiant = async (page=1) => {
@@ -287,10 +294,10 @@ const actions = [
       const ep = row.evaluation_par?.toLowerCase()
       if (ep === 'mois')
         return [{ value: 'all', label: 'Annuel' }, ...month.map(m => ({ value: m, label: m }))]
-      if (row.evaluation_par === 'Trimestre')
-        return EVAL_OPTIONS.trimestres.map(t => ({ value: t.value, label: t.title }))
-      if (row.evaluation_par === 'Controle')
-        return EVAL_OPTIONS.controles.map(c => ({ value: c.value, label: c.title }))
+      if (ep === 'trimestre')
+        return [{ value: 'all', label: 'Annuel' }, ...EVAL_OPTIONS.trimestres.map(t => ({ value: t.value, label: t.title }))]
+      if (ep === 'controle')
+        return [{ value: 'all', label: 'Annuel' }, ...EVAL_OPTIONS.controles.map(c => ({ value: c.value, label: c.title }))]
       return EVAL_OPTIONS.sessions.map(s => ({ value: s.value, label: s.title }))
     },
     placeholder: 'Période',
@@ -306,7 +313,7 @@ const actions = [
     onClick: async (row, selection, index) => {
       console.log(row.id);
       
-      await submitPdf('/imprime-bulletin', buildBulletinPayload(row.id, selection), index)
+      await submitPdf('/imprime-bulletin', buildBulletinPayload(row, selection), index)
     },
   },
 ]
@@ -397,7 +404,7 @@ const actions = [
         <template #action-pdf="{row, value,selection }">      
           <button
           
-          @click="submitPdf('/imprime-bulletin', buildBulletinPayload(row.id, selection), row.id)"
+          @click="submitPdf('/imprime-bulletin', buildBulletinPayload(row, selection), row.id)"
           :disabled="loadingMap[row.id] == true"
           class="font-mono hover:underline cursor-pointer text-sm">
           

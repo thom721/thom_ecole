@@ -37,7 +37,8 @@ def get_cours_etudiants(
     EtudiantAlias = aliased(Etudiant)
     ClasseAlias = aliased(Classe)
     NiveauAlias = aliased(Niveau)
-    ParamExamAlias = aliased(ParamExam)   
+    ParamExamAlias = aliased(ParamExam)
+    AnneeAlias = aliased(AnneeAcademique)
     query = (
         db.query(
             CoursEtudiant.id,
@@ -59,11 +60,19 @@ def get_cours_etudiants(
         .outerjoin(FaculteAlias, CoursEtudiant.faculte == FaculteAlias.id)
         .outerjoin(ClasseAlias, CoursEtudiant.classe == ClasseAlias.id)
         .outerjoin(NiveauAlias, CoursEtudiant.niveau == NiveauAlias.id)
+        # ParamExam = une ligne par niveau ET par année : joindre sur le seul
+        # niveau dupliquait chaque bulletin dans la liste dès que le niveau
+        # avait un paramétrage pour plusieurs années (même bulletin affiché
+        # deux fois, avec parfois le mode d'évaluation d'une autre année).
+        # CoursEtudiant.annee_academique est le libellé ("2026/2027"), d'où
+        # le passage par AnneeAcademique pour retrouver l'id.
+        .outerjoin(AnneeAlias, AnneeAlias.annee_academique == CoursEtudiant.annee_academique)
         .outerjoin(
             ParamExamAlias,
-            CoursEtudiant.niveau == ParamExamAlias.niveau_id
-            # Note: La condition sur annee_academique est commentée dans ton Laravel
-            # and_(CoursEtudiant.annee_academique == ParamExamAlias.anneeAcademique)
+            and_(
+                CoursEtudiant.niveau == ParamExamAlias.niveau_id,
+                ParamExamAlias.annee_academique_id == AnneeAlias.id,
+            )
         )
         .distinct()  # Comme ton Laravel
         .order_by(desc(CoursEtudiant.updated_at))

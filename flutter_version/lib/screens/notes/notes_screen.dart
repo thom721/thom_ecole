@@ -65,12 +65,25 @@ class _NotesScreenState extends State<NotesScreen> {
     if (!canPrintPermission(context, 'Imprimer bulletin')) return;
     final selection = _periodeSelection[row.id];
     if (selection == null) return;
-    final isUniversitaire = row.niveauName == 'Universitaire';
-    final error = await context.read<NoteState>().printBulletin(
-      row.id,
-      mois: isUniversitaire ? null : selection,
-      session: isUniversitaire ? selection : null,
-    );
+    final noteState = context.read<NoteState>();
+    final String? error;
+    if (row.niveauName == 'Universitaire') {
+      // Valeur "<session>::<phase>" (voir _periodeOptions).
+      final parts = selection.split('::');
+      error = await noteState.printBulletin(
+        row.id,
+        session: parts.first,
+        mois: parts.length > 1 ? parts[1] : 'all',
+      );
+    } else {
+      final ep = row.evaluationPar?.toLowerCase();
+      error = await noteState.printBulletin(
+        row.id,
+        controle: ep == 'controle' ? selection : null,
+        trimestre: ep == 'trimestre' ? selection : null,
+        mois: ep == 'controle' || ep == 'trimestre' ? null : selection,
+      );
+    }
     if (!mounted) return;
     if (error != null) {
       ScaffoldMessenger.of(
@@ -80,16 +93,55 @@ class _NotesScreenState extends State<NotesScreen> {
   }
 
   List<DropdownMenuItem<String>> _periodeOptions(CoursEtudiantRecord row) {
+    // Mêmes valeurs que le web (frontend/src/views/admin/Notes.vue,
+    // EVAL_OPTIONS) et que celles attendues par BulletinPrint.py.
     if (row.niveauName == 'Universitaire') {
       return const [
-        DropdownMenuItem(value: '1ère session', child: Text('1ère session')),
-        DropdownMenuItem(value: '2ème session', child: Text('2ème session')),
+        DropdownMenuItem(
+          value: '1ère::all',
+          child: Text('1ère session — Intra + Finale'),
+        ),
+        DropdownMenuItem(
+          value: '1ère::intra',
+          child: Text('1ère session — Intra'),
+        ),
+        DropdownMenuItem(
+          value: '1ère::finale',
+          child: Text('1ère session — Finale'),
+        ),
+        DropdownMenuItem(
+          value: '2ème::all',
+          child: Text('2ème session — Intra + Finale'),
+        ),
+        DropdownMenuItem(
+          value: '2ème::intra',
+          child: Text('2ème session — Intra'),
+        ),
+        DropdownMenuItem(
+          value: '2ème::finale',
+          child: Text('2ème session — Finale'),
+        ),
       ];
     }
+    final ep = row.evaluationPar?.toLowerCase();
+    final periodes = ep == 'controle'
+        ? const {
+            'Contr. I': 'Contrôle I',
+            'Contr. II': 'Contrôle II',
+            'Contr. III': 'Contrôle III',
+            'Contr. IV': 'Contrôle IV',
+          }
+        : ep == 'trimestre'
+        ? const {
+            'Trimestre I': 'Trimestre I',
+            'Trimestre II': 'Trimestre II',
+            'Trimestre III': 'Trimestre III',
+          }
+        : {for (final m in NoteState.moisAnneeScolaire) m: m};
     return [
       const DropdownMenuItem(value: 'all', child: Text('Annuel')),
-      ...NoteState.moisAnneeScolaire.map(
-        (m) => DropdownMenuItem(value: m, child: Text(m)),
+      ...periodes.entries.map(
+        (e) => DropdownMenuItem(value: e.key, child: Text(e.value)),
       ),
     ];
   }
