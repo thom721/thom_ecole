@@ -141,3 +141,50 @@ class DeleteNotesResponse(BaseModel):
     success: str
     etudiants_affectes: int
     notes_supprimees: int
+
+
+# Matières présentes dans le bulletin d'un élève mais absentes du programme
+# actuel de sa classe — typiquement après un changement de classe en cours
+# d'année (le bulletin, unique par élève et par année, garde les notes de
+# l'ancienne classe). Voir RNotes.py::delete_matieres_hors_programme.
+class MatiereHorsProgramme(BaseModel):
+    cours: str
+    etudiants: int
+    notes: int
+
+class EtudiantMatieresHorsProgramme(BaseModel):
+    identifiant: str
+    matieres: List[str]
+
+class MatieresHorsProgrammePreviewResponse(BaseModel):
+    programme: List[str]
+    matieres: List[MatiereHorsProgramme]
+    etudiants: List[EtudiantMatieresHorsProgramme]
+
+class DeleteMatieresHorsProgrammeRequest(BaseModel):
+    niveau_id: str = Field(..., description="ID du niveau")
+    classe_id: str = Field(..., description="ID de la classe")
+    annee_academique: str = Field(..., description="Année académique (libellé, ex. 2026/2027)")
+    matieres: List[str] = Field(..., min_length=1, description="Noms des matières à retirer (hors programme uniquement)")
+    identifiant: Optional[str] = Field(None, description="Restreint à un seul élève de la classe")
+    raison: Optional[str] = Field(None, description="Raison du retrait")
+
+    @field_validator('niveau_id', 'classe_id', 'annee_academique')
+    @classmethod
+    def validate_not_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("Ce champ ne peut pas être vide")
+        return v.strip()
+
+    @field_validator('identifiant')
+    @classmethod
+    def validate_identifiant(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        v = v.strip()
+        return v or None
+
+class DeleteMatieresHorsProgrammeResponse(BaseModel):
+    success: str
+    etudiants_affectes: int
+    matieres_retirees: int

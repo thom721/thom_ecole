@@ -6,8 +6,8 @@ import json
 import logging
 from app.Schemas.SNotes import *
 from app.database import get_db
-from app.Models.MRelations import CoursEtudiant
-from app.Models.MModels import Professeur,User,Niveau,Classe
+from app.Models.MRelations import CoursEtudiant,Programme
+from app.Models.MModels import Professeur,User,Niveau,Classe,Cours,AnneeAcademique
 from app.Models.MCredits import CoursInscription
 from app.Models.MSystems import Log
 from app.dependencies.Dependencie import get_current_user,user_has_permission,validate_exists,check_permission,first_or_create,user_has_role,first_or_update_safe,require_role
@@ -666,4 +666,163 @@ def delete_notes(
         success=f"{notes_supprimees} note(s) supprimée(s) pour {etudiants_affectes} étudiant(s).",
         etudiants_affectes=etudiants_affectes,
         notes_supprimees=notes_supprimees,
+    )
+
+
+# ============================================================================
+# MATIÈRES HORS PROGRAMME (même principe que la suppression groupée ci-dessus)
+# ============================================================================
+# Le bulletin (CoursEtudiant.data_etudiant) est unique par élève et par année
+# et range les notes sous le NOM du cours. Un élève changé de classe en cours
+# d'année garde donc les matières de son ancienne classe, qui s'affichent sur
+# son nouveau bulletin (ex. Sciences / Art Dramatique de CE2 B sur un bulletin
+# de CE2 A). Ces routes repèrent et retirent les matières absentes du
+# programme actuel de la classe.
+
+def _noms_matieres_programme(db: Session, niveau_id: str, classe_id: str, annee_academique: str) -> set:
+    annee = db.query(AnneeAcademique).filter(AnneeAcademique.annee_academique == annee_academique).first()
+    if not annee:
+        raise HTTPException(status_code=422, detail={"errors": "Année académique introuvable"})
+    rows = (
+        db.query(Cours.cours_nom)
+        .join(Programme, Programme.Cours_id == Cours.id)
+        .filter(
+            Programme.class_ == classe_id,
+            Programme.niveau_id == niveau_id,
+            Programme.annee_academique == annee.id,
+        )
+        .all()
+    )
+    return {r.cours_nom for r in rows}
+
+
+def _scan_matieres_hors_programme(data: Any, programme: set, a_retirer: Optional[set] = None) -> Dict[str, int]:
+    """Parcourt récursivement le bulletin et renvoie {matière: nb de notes}
+    pour chaque matière (entrée contenant `notes`) absente du programme,
+    quelle que soit la profondeur (mois, contrôle/trimestre, session
+    universitaire). Si `a_retirer` est fourni, retire en plus celles de ces
+    matières qui sont hors programme — jamais une matière du programme."""
+    trouvees: Dict[str, int] = {}
+    if not isinstance(data, dict):
+        return trouvees
+    for key in list(data.keys()):
+        value = data[key]
+        if not isinstance(value, dict):
+            continue
+        if isinstance(value.get("notes"), dict):
+            if key not in programme:
+                trouvees[key] = trouvees.get(key, 0) + len(value["notes"])
+                if a_retirer is not None and key in a_retirer:
+                    del data[key]
+        else:
+            for nom, nb in _scan_matieres_hors_programme(value, programme, a_retirer).items():
+                trouvees[nom] = trouvees.get(nom, 0) + nb
+    return trouvees
+
+
+@router_note.get("/coursEtudiant/matieres-hors-programme/apercu", response_model=MatieresHorsProgrammePreviewResponse)
+def preview_matieres_hors_programme(
+    niveau_id: str,
+    classe_id: str,
+    annee_academique: str,
+    identifiant: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(check_permission("Supprimer note")),
+):
+    """Aperçu (lecture seule) des matières hors programme trouvées dans les
+    bulletins de la classe, pour choisir lesquelles retirer."""
+    programme = _noms_matieres_programme(db, niveau_id, classe_id, annee_academique)
+    rows = _query_cours_etudiants_for_suppression(db, niveau_id, classe_id, annee_academique, identifiant)
+
+    par_matiere: Dict[str, Dict[str, int]] = {}
+    etudiants = []
+    for row in rows:
+        trouvees = _scan_matieres_hors_programme(parse_etudiant_data(row.data_etudiant), programme)
+        if not trouvees:
+            continue
+        etudiants.append(EtudiantMatieresHorsProgramme(identifiant=row.identifiant or "", matieres=sorted(trouvees)))
+        for nom, nb in trouvees.items():
+            stats = par_matiere.setdefault(nom, {"etudiants": 0, "notes": 0})
+            stats["etudiants"] += 1
+            stats["notes"] += nb
+
+    return MatieresHorsProgrammePreviewResponse(
+        programme=sorted(programme),
+        matieres=[MatiereHorsProgramme(cours=nom, **stats) for nom, stats in sorted(par_matiere.items())],
+        etudiants=sorted(etudiants, key=lambda e: e.identifiant),
+    )
+
+
+# Trois segments, pas "/coursEtudiant/matieres-hors-programme" : la route
+# DELETE /coursEtudiant/{cours_etudiant_id} (RCoursEtudiant.py, enregistrée
+# avant) l'intercepterait en traitant le nom comme un id de bulletin — même
+# raison que /coursEtudiant/notes/suppression ci-dessus.
+@router_note.delete("/coursEtudiant/matieres-hors-programme/retrait", response_model=DeleteMatieresHorsProgrammeResponse)
+def delete_matieres_hors_programme(
+    request: DeleteMatieresHorsProgrammeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(check_permission("Supprimer note")),
+):
+    """Retire les matières choisies des bulletins de la classe (ou d'un seul
+    élève). Une matière encore au programme n'est jamais retirée, même si
+    elle est demandée. Tout ou rien, une entrée `logs` par élève affecté."""
+    niveau = db.query(Niveau).filter(Niveau.id == request.niveau_id).first()
+    if not niveau:
+        raise HTTPException(status_code=422, detail={"errors": "Niveau introuvable"})
+    classe = db.query(Classe).filter(Classe.id == request.classe_id).first()
+    if not classe:
+        raise HTTPException(status_code=422, detail={"errors": "Classe introuvable"})
+
+    programme = _noms_matieres_programme(db, request.niveau_id, request.classe_id, request.annee_academique)
+    a_retirer = set(request.matieres) - programme
+    if not a_retirer:
+        raise HTTPException(status_code=422, detail={"errors": "Les matières choisies font partie du programme de la classe : rien à retirer."})
+
+    rows = _query_cours_etudiants_for_suppression(
+        db, request.niveau_id, request.classe_id, request.annee_academique, request.identifiant
+    )
+
+    etudiants_affectes = 0
+    matieres_retirees = 0
+    try:
+        for row in rows:
+            data = parse_etudiant_data(row.data_etudiant)
+            trouvees = _scan_matieres_hors_programme(data, programme, a_retirer)
+            retirees = sorted(set(trouvees) & a_retirer)
+            if not retirees:
+                continue
+
+            row.data_etudiant = json.dumps(data)
+            db.add(row)
+            db.add(Log(
+                action="Retrait de matières hors programme",
+                user_id=current_user.id,
+                model_type="CoursEtudiant",
+                model_id=row.id,
+                new_values={"matieres_retirees": retirees},
+                reason=(
+                    f"{niveau.name} / {classe.nom_classe} / {request.annee_academique} / "
+                    f"étudiant {row.identifiant} : {', '.join(retirees)}"
+                    + (f" — {request.raison}" if request.raison else "")
+                )[:255],
+            ))
+            etudiants_affectes += 1
+            matieres_retirees += len(retirees)
+
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Erreur retrait matières hors programme: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail={"errors": f"Erreur interne : {str(e)}"})
+
+    if matieres_retirees == 0:
+        return DeleteMatieresHorsProgrammeResponse(
+            success="Aucune de ces matières n'a été trouvée dans les bulletins.",
+            etudiants_affectes=0,
+            matieres_retirees=0,
+        )
+    return DeleteMatieresHorsProgrammeResponse(
+        success=f"{matieres_retirees} matière(s) retirée(s) pour {etudiants_affectes} élève(s).",
+        etudiants_affectes=etudiants_affectes,
+        matieres_retirees=matieres_retirees,
     )

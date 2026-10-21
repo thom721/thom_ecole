@@ -275,6 +275,108 @@ const confirmDeleteNotes = async () => {
   }
 };
 
+// --- MATIÈRES HORS PROGRAMME ---------------------------------------------
+// Même principe que la suppression groupée ci-dessus. Le bulletin (unique
+// par élève et par année) garde les matières d'une ancienne classe après un
+// changement de classe en cours d'année : on liste les matières absentes du
+// programme actuel de la classe, puis on retire celles qui sont cochées.
+const modalHorsProgramme = ref(false);
+const horsProgrammeFilters = reactive({ niveau_id: "", classe_id: "", annee_academique: "", identifiant: "" });
+const horsProgrammePreview = ref(null); // { programme, matieres: [{cours, etudiants, notes}], etudiants: [{identifiant, matieres}] } | null
+const horsProgrammeSelection = ref([]); // noms des matières cochées
+const horsProgrammeLoading = ref(false);
+const horsProgrammeInFlight = ref(false);
+
+const classesForHorsProgrammeNiveau = computed(() =>
+  (classes_global ?? []).filter((c) => c.niveau_id === horsProgrammeFilters.niveau_id)
+);
+const horsProgrammeFiltersComplete = computed(() =>
+  !!(horsProgrammeFilters.niveau_id && horsProgrammeFilters.classe_id && horsProgrammeFilters.annee_academique)
+);
+const horsProgrammeIdentifiant = computed(() => horsProgrammeFilters.identifiant.trim() || undefined);
+
+watch(
+  () => [horsProgrammeFilters.niveau_id, horsProgrammeFilters.classe_id, horsProgrammeFilters.annee_academique, horsProgrammeFilters.identifiant],
+  () => { horsProgrammePreview.value = null; horsProgrammeSelection.value = []; }
+);
+watch(
+  () => horsProgrammeFilters.niveau_id,
+  () => { horsProgrammeFilters.classe_id = ""; }
+);
+
+const openHorsProgrammeModal = () => {
+  Object.assign(horsProgrammeFilters, { niveau_id: "", classe_id: "", annee_academique: "", identifiant: "" });
+  horsProgrammePreview.value = null;
+  horsProgrammeSelection.value = [];
+  modalHorsProgramme.value = true;
+};
+const closeHorsProgrammeModal = () => { modalHorsProgramme.value = false; };
+
+const previewHorsProgramme = async () => {
+  if (!horsProgrammeFiltersComplete.value) return;
+  horsProgrammeLoading.value = true;
+  horsProgrammePreview.value = null;
+  try {
+    const { data } = await axios.get(`${url}/coursEtudiant/matieres-hors-programme/apercu`, {
+      params: {
+        niveau_id: horsProgrammeFilters.niveau_id,
+        classe_id: horsProgrammeFilters.classe_id,
+        annee_academique: horsProgrammeFilters.annee_academique,
+        identifiant: horsProgrammeIdentifiant.value,
+      },
+    });
+    horsProgrammePreview.value = data;
+    horsProgrammeSelection.value = data.matieres.map((m) => m.cours);
+  } catch (e) {
+    console.error("Erreur aperçu matières hors programme:", e);
+    Swal.fire({ icon: "error", text: e.response?.data?.detail?.errors || "Erreur lors de la vérification." });
+  } finally {
+    horsProgrammeLoading.value = false;
+  }
+};
+
+const confirmHorsProgramme = async () => {
+  if (!horsProgrammePreview.value || horsProgrammeSelection.value.length === 0) return;
+  const choisies = horsProgrammePreview.value.matieres.filter((m) => horsProgrammeSelection.value.includes(m.cours));
+  const nbEtudiants = horsProgrammePreview.value.etudiants
+    .filter((e) => e.matieres.some((m) => horsProgrammeSelection.value.includes(m))).length;
+
+  const { value: typed } = await Swal.fire({
+    icon: "warning",
+    title: "Retrait définitif",
+    html: `Vous allez retirer <b>${choisies.map((m) => m.cours).join(", ")}</b> `
+        + `du bulletin de <b>${nbEtudiants}</b> élève(s) (${horsProgrammeFilters.annee_academique}), `
+        + `avec toutes leurs notes. Cette action est irréversible.<br><br>Tapez <b>RETIRER</b> pour confirmer.`,
+    input: "text",
+    inputPlaceholder: "RETIRER",
+    showCancelButton: true,
+    confirmButtonText: "Retirer définitivement",
+    confirmButtonColor: "#dc2626",
+    cancelButtonText: "Annuler",
+    inputValidator: (value) => (value !== "RETIRER" ? 'Veuillez taper exactement "RETIRER".' : undefined),
+  });
+  if (typed !== "RETIRER") return;
+
+  horsProgrammeInFlight.value = true;
+  try {
+    const { data } = await axios.delete(`${url}/coursEtudiant/matieres-hors-programme/retrait`, {
+      data: {
+        niveau_id: horsProgrammeFilters.niveau_id,
+        classe_id: horsProgrammeFilters.classe_id,
+        annee_academique: horsProgrammeFilters.annee_academique,
+        identifiant: horsProgrammeIdentifiant.value,
+        matieres: horsProgrammeSelection.value,
+      },
+    });
+    Swal.fire({ icon: "success", text: data.success, timer: 2500, showConfirmButton: false });
+    closeHorsProgrammeModal();
+  } catch (e) {
+    console.error("Erreur retrait matières hors programme:", e);
+    Swal.fire({ icon: "error", text: e.response?.data?.detail?.errors || "Erreur lors du retrait." });
+  } finally {
+    horsProgrammeInFlight.value = false;
+  }
+};
 
  const columns = [
   { key: 'identifiant', label: 'Identifiant' },
@@ -361,6 +463,14 @@ const actions = [
       <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
     </svg>
     Supprimer notes
+  </button>
+
+  <button v-if="authStore.hasPermission('Supprimer note')" type="button" @click="openHorsProgrammeModal"
+    class="btn-red">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" class="w-3.5 h-3.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
+    </svg>
+    Matières hors programme
   </button>
 
   </div>
@@ -557,6 +667,87 @@ const actions = [
                 @click="confirmDeleteNotes">
                 <span v-if="!deleteInFlight">Supprimer définitivement</span>
                 <span v-else>Suppression…</span>
+              </button>
+            </div>
+        </template>
+    </StyleModal>
+
+    <StyleModal :show="modalHorsProgramme" max-width="2xl" @close="closeHorsProgrammeModal">
+        <template #title>
+            <div class="flex justify-between items-center py-2">
+                <p class="text-lg text-gray-800">Matières hors programme</p>
+                <p class="far fa-circle-xmark text-xl text-red-500 cursor-pointer hover:scale-110 transition flex justify-end" @click="closeHorsProgrammeModal"></p>
+            </div>
+        </template>
+        <template #content>
+            <p class="text-sm text-slate-500 mb-3">
+              Repère dans les bulletins les matières qui ne font pas partie du programme actuel de la classe (par exemple après un changement de classe en cours d'année), puis retire celles que vous cochez, avec leurs notes. Cette action est irréversible.
+            </p>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="text-sm">Niveau</label>
+                <select v-model="horsProgrammeFilters.niveau_id" class="input-select">
+                  <option value="" disabled>Choisir un niveau</option>
+                  <option v-for="n in niveau_global" :key="n.id" :value="n.id">{{ n.name }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-sm">Classe</label>
+                <select v-model="horsProgrammeFilters.classe_id" class="input-select" :disabled="!horsProgrammeFilters.niveau_id">
+                  <option value="" disabled>Choisir une classe</option>
+                  <option v-for="c in classesForHorsProgrammeNiveau" :key="c.id" :value="c.id">{{ c.nom_classe }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-sm">Année académique</label>
+                <select v-model="horsProgrammeFilters.annee_academique" class="input-select">
+                  <option value="" disabled>Choisir une année</option>
+                  <option v-for="a in annee_global" :key="a.id" :value="a.annee_academique">{{ a.annee_academique }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-sm">Étudiant (optionnel)</label>
+                <input type="text" v-model="horsProgrammeFilters.identifiant" class="input-select"
+                  placeholder="Identifiant — vide pour toute la classe" />
+              </div>
+            </div>
+
+            <div class="pt-4">
+              <button type="button" class="btn-outline-sky disabled:opacity-40 disabled:cursor-not-allowed"
+                :disabled="!horsProgrammeFiltersComplete || horsProgrammeLoading" @click="previewHorsProgramme">
+                <span v-if="!horsProgrammeLoading">Vérifier</span>
+                <span v-else>Vérification…</span>
+              </button>
+            </div>
+
+            <div v-if="horsProgrammePreview" class="pt-4 text-sm">
+              <p v-if="horsProgrammePreview.matieres.length === 0" class="text-slate-400">
+                Aucune matière hors programme dans les bulletins de cette classe.
+              </p>
+              <template v-else>
+                <p class="text-amber-500 font-semibold mb-2">Matières trouvées hors programme — cochez celles à retirer :</p>
+                <label v-for="m in horsProgrammePreview.matieres" :key="m.cours"
+                  class="flex items-center gap-2 py-1 cursor-pointer">
+                  <input type="checkbox" :value="m.cours" v-model="horsProgrammeSelection" />
+                  <span class="font-semibold">{{ m.cours }}</span>
+                  <span class="text-slate-400">— {{ m.etudiants }} élève(s), {{ m.notes }} note(s)</span>
+                </label>
+                <details class="mt-2 text-slate-500">
+                  <summary class="cursor-pointer">Élèves concernés ({{ horsProgrammePreview.etudiants.length }})</summary>
+                  <p v-for="e in horsProgrammePreview.etudiants" :key="e.identifiant" class="pl-4">
+                    {{ e.identifiant }} : {{ e.matieres.join(', ') }}
+                  </p>
+                </details>
+              </template>
+            </div>
+
+            <div class="pt-4 flex justify-end">
+              <button type="button" class="btn-red disabled:opacity-40 disabled:cursor-not-allowed"
+                :disabled="!horsProgrammePreview || horsProgrammeSelection.length === 0 || horsProgrammeInFlight"
+                @click="confirmHorsProgramme">
+                <span v-if="!horsProgrammeInFlight">Retirer définitivement</span>
+                <span v-else>Retrait…</span>
               </button>
             </div>
         </template>

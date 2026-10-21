@@ -196,6 +196,16 @@ class _NotesScreenState extends State<NotesScreen> {
                     builder: (_) => const _DeleteNotesDialog(),
                   ),
                 ),
+                const SizedBox(width: 8),
+                PillButton(
+                  label: 'Matières hors programme',
+                  colorKey: 'rose',
+                  icon: Icons.playlist_remove,
+                  onPressed: () => showDialog(
+                    context: context,
+                    builder: (_) => const _HorsProgrammeDialog(),
+                  ),
+                ),
               ],
               const Spacer(),
               SizedBox(
@@ -674,6 +684,288 @@ class _DeleteNotesDialogState extends State<_DeleteNotesDialog> {
                         ),
                       )
                     : const Text('Supprimer définitivement'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Matières présentes dans les bulletins mais absentes du programme actuel de
+/// la classe (ex. après un changement de classe en cours d'année : le
+/// bulletin, unique par élève et par année, garde les matières de l'ancienne
+/// classe). Même principe que [_DeleteNotesDialog] : vérification obligatoire,
+/// puis retrait des matières cochées avec raison (NoteState.deleteMatieresHorsProgramme).
+class _HorsProgrammeDialog extends StatefulWidget {
+  const _HorsProgrammeDialog();
+
+  @override
+  State<_HorsProgrammeDialog> createState() => _HorsProgrammeDialogState();
+}
+
+class _HorsProgrammeDialogState extends State<_HorsProgrammeDialog> {
+  String? _niveauId;
+  String? _classeId;
+  String? _anneeAcademique;
+  String? _error;
+  final _identifiantController = TextEditingController();
+
+  bool _isPreviewing = false;
+  List<Map<String, dynamic>>? _matieres; // null tant que non vérifié
+  List<Map<String, dynamic>> _etudiants = const [];
+  final Set<String> _selection = {};
+  bool _isDeleting = false;
+
+  bool get _filtersComplete =>
+      _niveauId != null && _classeId != null && _anneeAcademique != null;
+
+  String? get _identifiant {
+    final v = _identifiantController.text.trim();
+    return v.isEmpty ? null : v;
+  }
+
+  @override
+  void dispose() {
+    _identifiantController.dispose();
+    super.dispose();
+  }
+
+  void _resetPreview() {
+    _matieres = null;
+    _etudiants = const [];
+    _selection.clear();
+  }
+
+  Future<void> _preview() async {
+    if (!_filtersComplete) return;
+    setState(() {
+      _isPreviewing = true;
+      _error = null;
+      _resetPreview();
+    });
+    final result = await context.read<NoteState>().previewMatieresHorsProgramme(
+      niveauId: _niveauId!,
+      classeId: _classeId!,
+      anneeAcademique: _anneeAcademique!,
+      identifiant: _identifiant,
+    );
+    if (!mounted) return;
+    setState(() {
+      _isPreviewing = false;
+      if (result.error != null) {
+        _error = result.error;
+      } else {
+        _matieres = result.matieres;
+        _etudiants = result.etudiants;
+        _selection.addAll(result.matieres.map((m) => m['cours'].toString()));
+      }
+    });
+  }
+
+  Future<void> _confirm() async {
+    if (_selection.isEmpty) return;
+    final nbEtudiants = _etudiants
+        .where(
+          (e) => ((e['matieres'] as List?) ?? const []).any(
+            (m) => _selection.contains(m.toString()),
+          ),
+        )
+        .length;
+    final raison = await showReasonDialog(
+      context: context,
+      title: 'Retrait définitif',
+      message:
+          'Vous allez retirer ${_selection.join(', ')} du bulletin de '
+          '$nbEtudiants élève(s) ($_anneeAcademique), avec toutes leurs '
+          'notes. Cette action est irréversible. Indiquez la raison de ce '
+          'retrait.',
+      confirmLabel: 'Retirer définitivement',
+    );
+    if (raison == null || !mounted) return;
+
+    setState(() => _isDeleting = true);
+    final error = await context.read<NoteState>().deleteMatieresHorsProgramme(
+      niveauId: _niveauId!,
+      classeId: _classeId!,
+      anneeAcademique: _anneeAcademique!,
+      matieres: _selection.toList(),
+      raison: raison,
+      identifiant: _identifiant,
+    );
+    if (!mounted) return;
+    setState(() => _isDeleting = false);
+    if (error != null) {
+      setState(() => _error = error);
+      return;
+    }
+    Navigator.of(context).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Matières retirées avec succès.')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final refData = context.watch<ReferenceDataState>();
+    final classesForNiveau = refData.classesForNiveau(_niveauId);
+    final matieres = _matieres;
+
+    return ParamDialogShell(
+      title: 'Matières hors programme',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            "Repère dans les bulletins les matières qui ne font pas partie du "
+            "programme actuel de la classe (par exemple après un changement "
+            "de classe en cours d'année), puis retire celles que vous cochez, "
+            "avec leurs notes. Cette action est irréversible.",
+            style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
+          ),
+          const SizedBox(height: 16),
+          SearchableDropdownFormField<String>(
+            initialValue: _niveauId,
+            decoration: const InputDecoration(labelText: 'Niveau'),
+            items: refData.niveaux
+                .map((n) => DropdownMenuItem(value: n.id, child: Text(n.name)))
+                .toList(),
+            onChanged: (v) => setState(() {
+              _niveauId = v;
+              _classeId = null;
+              _resetPreview();
+            }),
+          ),
+          const SizedBox(height: 12),
+          SearchableDropdownFormField<String>(
+            key: ValueKey('classe-hp-$_niveauId'),
+            initialValue: _classeId,
+            decoration: const InputDecoration(labelText: 'Classe'),
+            items: classesForNiveau
+                .map(
+                  (c) =>
+                      DropdownMenuItem(value: c.id, child: Text(c.nomClasse)),
+                )
+                .toList(),
+            onChanged: _niveauId == null
+                ? null
+                : (v) => setState(() {
+                    _classeId = v;
+                    _resetPreview();
+                  }),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _identifiantController,
+            decoration: const InputDecoration(
+              labelText: 'Étudiant (optionnel)',
+              hintText: "Identifiant — laissez vide pour toute la classe",
+              isDense: true,
+            ),
+            onChanged: (_) => setState(_resetPreview),
+          ),
+          const SizedBox(height: 12),
+          SearchableDropdownFormField<String>(
+            initialValue: _anneeAcademique,
+            decoration: const InputDecoration(labelText: 'Année académique'),
+            items: refData.annees
+                .map((a) => DropdownMenuItem(value: a.nom, child: Text(a.nom)))
+                .toList(),
+            onChanged: (v) => setState(() {
+              _anneeAcademique = v;
+              _resetPreview();
+            }),
+          ),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton(
+              onPressed: (!_filtersComplete || _isPreviewing) ? null : _preview,
+              child: _isPreviewing
+                  ? const SizedBox(
+                      height: 14,
+                      width: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Vérifier'),
+            ),
+          ),
+          if (matieres != null) ...[
+            const SizedBox(height: 12),
+            if (matieres.isEmpty)
+              Text(
+                'Aucune matière hors programme dans les bulletins de cette classe.',
+                style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
+              )
+            else ...[
+              Text(
+                'Matières trouvées hors programme — cochez celles à retirer :',
+                style: TextStyle(
+                  color: AppColors.cardPalette['amber']!.text,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              ...matieres.map((m) {
+                final cours = m['cours'].toString();
+                return CheckboxListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: _selection.contains(cours),
+                  title: Text(cours),
+                  subtitle: Text(
+                    '${m['etudiants']} élève(s), ${m['notes']} note(s)',
+                  ),
+                  onChanged: (v) => setState(() {
+                    v == true
+                        ? _selection.add(cours)
+                        : _selection.remove(cours);
+                  }),
+                );
+              }),
+              const SizedBox(height: 4),
+              Text(
+                'Élèves concernés : '
+                '${_etudiants.map((e) => '${e['identifiant']} (${((e['matieres'] as List?) ?? const []).join(', ')})').join(' · ')}',
+                style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+              ),
+            ],
+          ],
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _error!,
+              style: const TextStyle(color: AppColors.danger, fontSize: 12),
+            ),
+          ],
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Annuler'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.danger,
+                ),
+                onPressed: (_selection.isEmpty || _isDeleting)
+                    ? null
+                    : _confirm,
+                child: _isDeleting
+                    ? const SizedBox(
+                        height: 16,
+                        width: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Retirer définitivement'),
               ),
             ],
           ),

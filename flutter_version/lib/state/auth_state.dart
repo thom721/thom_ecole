@@ -188,19 +188,29 @@ class AuthState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _apiClient.post(
-        'auth/login',
-        data: {
-          'email': email,
-          'password': password,
-          'device_name': 'flutter-desktop-app',
-          // Même valeur spéciale que school_client (Models/AsyncDataHandler.py
-          // login()) : côté serveur, ServiceAuth.find_user_by_credentials()
-          // accepte n'importe quel userable_type quand login_as=="as_desktop"
-          // (au lieu de devoir correspondre exactement).
-          'login_as': 'as_desktop',
-        },
-      );
+      // Délais courts propres à la connexion (les 60 s de BaseOptions
+      // servent aux PDF/rapports) + garde globale : sans elle, un serveur
+      // qui accepte la connexion sans jamais répondre laissait le bouton
+      // tourner plusieurs minutes, sans aucun message.
+      final response = await _apiClient.dio
+          .post(
+            'auth/login',
+            data: {
+              'email': email,
+              'password': password,
+              'device_name': 'flutter-desktop-app',
+              // Même valeur spéciale que school_client (Models/AsyncDataHandler.py
+              // login()) : côté serveur, ServiceAuth.find_user_by_credentials()
+              // accepte n'importe quel userable_type quand login_as=="as_desktop"
+              // (au lieu de devoir correspondre exactement).
+              'login_as': 'as_desktop',
+            },
+            options: Options(
+              sendTimeout: const Duration(seconds: 20),
+              receiveTimeout: const Duration(seconds: 20),
+            ),
+          )
+          .timeout(const Duration(seconds: 30));
 
       final data = response.data as Map<String, dynamic>;
       final userJson = data['user'] as Map<String, dynamic>?;
@@ -259,11 +269,58 @@ class AuthState extends ChangeNotifier {
       final detail = e.response?.data is Map
           ? (e.response?.data as Map)['detail']?.toString()
           : null;
-      errorMessage = detail ?? 'Impossible de contacter le serveur.';
+      errorMessage = detail ?? _describeConnectionError(e);
+      return false;
+    } on TimeoutException {
+      errorMessage =
+          'Le serveur ${_serverLabel()} ne répond pas (délai de 30 s dépassé). '
+          "Vérifiez que l'API est démarrée sur le serveur.";
+      return false;
+    } catch (e) {
+      // Réponse inattendue (format JSON, champ manquant…) : auparavant non
+      // interceptée, l'erreur ne s'affichait jamais à l'écran.
+      errorMessage = 'Réponse inattendue du serveur : $e';
       return false;
     } finally {
       isLoading = false;
       notifyListeners();
+    }
+  }
+
+  String _serverLabel() => _apiClient.dio.options.baseUrl;
+
+  /// Message précis par type d'échec réseau — "Impossible de contacter le
+  /// serveur" seul ne permettait pas de distinguer DNS, pare-feu, certificat
+  /// ou serveur arrêté sur un poste client.
+  String _describeConnectionError(DioException e) {
+    final server = _serverLabel();
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+        return 'Connexion à $server impossible (délai dépassé). '
+            'Vérifiez le réseau, le pare-feu du serveur (port 443) et l\'IP enregistrée.';
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return 'Le serveur $server ne répond pas à temps. '
+            "Vérifiez que l'API est démarrée et que sa base de données est accessible.";
+      case DioExceptionType.badCertificate:
+        return 'Certificat du serveur refusé. Un antivirus filtre peut-être le HTTPS '
+            '(analyse HTTPS / Web Shield) sur ce poste.';
+      case DioExceptionType.badResponse:
+        return 'Erreur du serveur (code ${e.response?.statusCode}).';
+      case DioExceptionType.connectionError:
+      case DioExceptionType.unknown:
+        final cause = e.error?.toString() ?? e.message ?? '';
+        if (cause.contains('Failed host lookup') || cause.contains('No such host')) {
+          return 'Adresse $server introuvable : enregistrez l\'IP du serveur '
+              '(fichier hosts non mis à jour).';
+        }
+        if (cause.contains('HandshakeException') || cause.contains('CERTIFICATE')) {
+          return 'Échec de la connexion sécurisée (certificat). Un antivirus filtre '
+              'peut-être le HTTPS sur ce poste.';
+        }
+        return 'Impossible de contacter le serveur $server. $cause'.trim();
+      case DioExceptionType.cancel:
+        return 'Connexion annulée.';
     }
   }
 

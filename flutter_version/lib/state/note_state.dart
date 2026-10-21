@@ -386,6 +386,87 @@ class NoteState extends ChangeNotifier {
     }
   }
 
+  /// Équivalent de GET v1/coursEtudiant/matieres-hors-programme/apercu —
+  /// matières présentes dans les bulletins de la classe mais absentes de son
+  /// programme actuel (typiquement après un changement de classe en cours
+  /// d'année : le bulletin, unique par élève et par année, garde les notes
+  /// de l'ancienne classe). Même filtres que [previewDeleteNotes], sans mois.
+  /// `matieres` : [{cours, etudiants, notes}] ; `etudiants` : [{identifiant, matieres}].
+  Future<
+    ({
+      List<Map<String, dynamic>> matieres,
+      List<Map<String, dynamic>> etudiants,
+      String? error,
+    })
+  >
+  previewMatieresHorsProgramme({
+    required String niveauId,
+    required String classeId,
+    required String anneeAcademique,
+    String? identifiant,
+  }) async {
+    final trimmedIdentifiant = identifiant?.trim();
+    try {
+      final response = await _apiClient.get(
+        'coursEtudiant/matieres-hors-programme/apercu',
+        query: {
+          'niveau_id': niveauId,
+          'classe_id': classeId,
+          'annee_academique': anneeAcademique,
+          if (trimmedIdentifiant != null && trimmedIdentifiant.isNotEmpty)
+            'identifiant': trimmedIdentifiant,
+        },
+      );
+      final data = response.data as Map<String, dynamic>;
+      List<Map<String, dynamic>> list(String key) =>
+          ((data[key] as List?) ?? const []).cast<Map<String, dynamic>>();
+      return (
+        matieres: list('matieres'),
+        etudiants: list('etudiants'),
+        error: null,
+      );
+    } catch (e) {
+      return (
+        matieres: const <Map<String, dynamic>>[],
+        etudiants: const <Map<String, dynamic>>[],
+        error: _extractError(e),
+      );
+    }
+  }
+
+  /// Équivalent de DELETE v1/coursEtudiant/matieres-hors-programme/retrait —
+  /// retire [matieres] des bulletins de la classe (ou du seul [identifiant]).
+  /// Le serveur ignore toute matière encore au programme. Trois segments,
+  /// même raison que deleteNotes : DELETE /coursEtudiant/{id} interceptait
+  /// un chemin à deux segments.
+  Future<String?> deleteMatieresHorsProgramme({
+    required String niveauId,
+    required String classeId,
+    required String anneeAcademique,
+    required List<String> matieres,
+    String? raison,
+    String? identifiant,
+  }) async {
+    final trimmedIdentifiant = identifiant?.trim();
+    try {
+      await _apiClient.dio.delete(
+        'coursEtudiant/matieres-hors-programme/retrait',
+        data: {
+          'niveau_id': niveauId,
+          'classe_id': classeId,
+          'annee_academique': anneeAcademique,
+          'matieres': matieres,
+          'raison': ?raison,
+          if (trimmedIdentifiant != null && trimmedIdentifiant.isNotEmpty)
+            'identifiant': trimmedIdentifiant,
+        },
+      );
+      return null;
+    } catch (e) {
+      return _extractError(e);
+    }
+  }
+
   Future<void> _openFile(String path) async {
     if (Platform.isMacOS) {
       await Process.run('open', [path]);

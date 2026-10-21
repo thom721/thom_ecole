@@ -187,6 +187,7 @@ class SimpleSettings:
     # déjà bloqué la prod). Désactivé par défaut (false) pour ne rien changer
     # au comportement de docker-compose.yml (auto-hébergement local).
     DISABLE_LICENSE_CHECK: bool = os.getenv("DISABLE_LICENSE_CHECK", "False").lower() == "true"
+    #DISABLE_LICENSE_CHECK=true
 
 
 settings = SimpleSettings()
