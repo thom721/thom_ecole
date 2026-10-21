@@ -5,7 +5,9 @@ import '../../models/student.dart' as student_models;
 import '../../state/dashboard_state.dart';
 import '../../state/reference_data_state.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/scrollable_table.dart';
 import '../etudiant/etudiant_detail_screen.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 /// Équivalent du dialogue "Liste des élèves de la classe" ouvert par
 /// on_row_clicked_class_show() (Controllers/Main.py:7346) après réception
@@ -201,7 +203,7 @@ class _ClasseStudentsDialogState extends State<_ClasseStudentsDialog> {
                   ),
                   SizedBox(
                     width: 150,
-                    child: DropdownButtonFormField<String>(
+                    child: SearchableDropdownFormField<String>(
                       initialValue: _selectedNiveauId,
                       isDense: true,
                       decoration: const InputDecoration(labelText: 'Niveau/Cycle', isDense: true),
@@ -216,7 +218,7 @@ class _ClasseStudentsDialogState extends State<_ClasseStudentsDialog> {
                   ),
                   SizedBox(
                     width: 150,
-                    child: DropdownButtonFormField<String>(
+                    child: SearchableDropdownFormField<String>(
                       initialValue: _selectedClasseId,
                       isDense: true,
                       decoration: const InputDecoration(labelText: 'Classe', isDense: true),
@@ -228,7 +230,7 @@ class _ClasseStudentsDialogState extends State<_ClasseStudentsDialog> {
                   ),
                   SizedBox(
                     width: 150,
-                    child: DropdownButtonFormField<String>(
+                    child: SearchableDropdownFormField<String>(
                       initialValue: _selectedAnneeId,
                       isDense: true,
                       decoration: const InputDecoration(labelText: 'Année académique', isDense: true),
@@ -252,10 +254,8 @@ class _ClasseStudentsDialogState extends State<_ClasseStudentsDialog> {
                       : dashboard.classeStudents.isEmpty
                           ? Center(
                               child: Text('Aucun élève trouvé.', style: TextStyle(color: AppColors.textMuted)))
-                          : SingleChildScrollView(
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: DataTable(
+                          : ScrollableTable.both(
+                              child: DataTable(
                                   columns: const [
                                     DataColumn(label: Text('ID')),
                                     DataColumn(label: Text('IDENTIFIANT')),
@@ -292,7 +292,6 @@ class _ClasseStudentsDialogState extends State<_ClasseStudentsDialog> {
                                     );
                                   }).toList(),
                                 ),
-                              ),
                             ),
             ),
           ],

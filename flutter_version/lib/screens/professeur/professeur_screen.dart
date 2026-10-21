@@ -6,6 +6,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/data_table_card.dart';
 import '../../widgets/pill_button.dart';
 import '../../widgets/section_header.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 /// Équivalent de professeur_page()/set_table_refresh_data_teacher()/
 /// add_professeur()/active_teacher() (school_client, Controllers/Main.py:
@@ -398,7 +399,7 @@ class _ProfesseurFormDialogState extends State<_ProfesseurFormDialog> {
                 const SizedBox(height: 12),
                 Row(children: [
                   Expanded(
-                    child: DropdownButtonFormField<String>(
+                    child: SearchableDropdownFormField<String>(
                       initialValue: _sexe,
                       decoration: const InputDecoration(labelText: 'Sexe'),
                       items: _sexeOptions.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
@@ -417,7 +418,7 @@ class _ProfesseurFormDialogState extends State<_ProfesseurFormDialog> {
                 const SizedBox(height: 12),
                 Row(children: [
                   Expanded(
-                    child: DropdownButtonFormField<String>(
+                    child: SearchableDropdownFormField<String>(
                       initialValue: _typePaiement,
                       decoration: const InputDecoration(labelText: 'Type de paiement'),
                       items: const [

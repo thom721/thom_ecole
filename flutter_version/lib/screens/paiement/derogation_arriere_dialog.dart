@@ -8,6 +8,7 @@ import '../../state/auth_state.dart';
 import '../../state/role_permission_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/param_dialog.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 /// Dérogation manuelle et réversible au blocage d'arriéré d'une année
 /// précédente (voir RSavePaiement.py:_check_arrears_previous_year côté
@@ -387,7 +388,7 @@ class _DerogationArriereDialogState extends State<_DerogationArriereDialog> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: DropdownButtonFormField<String>(
+                      child: SearchableDropdownFormField<String>(
                         initialValue: _ordonneParFonction,
                         // Sans isExpanded, le nom du rôle sélectionné garde sa
                         // largeur intrinsèque (ex. "Responsable des ressources

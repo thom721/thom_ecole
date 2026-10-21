@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import '../../../widgets/searchable_dropdown_form_field.dart';
 
 /// Capture une photo TEST (jamais enregistrée sur un étudiant, jamais
 /// persistée dans le gabarit) qui sert uniquement à calibrer visuellement
@@ -170,7 +171,7 @@ class _TestPhotoCaptureDialogState extends State<_TestPhotoCaptureDialog> {
             if (_cameras.length > 1)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: DropdownButtonFormField<CameraDescription>(
+                child: SearchableDropdownFormField<CameraDescription>(
                   initialValue: _selectedCamera,
                   isExpanded: true,
                   decoration: const InputDecoration(

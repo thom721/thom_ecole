@@ -6,6 +6,7 @@ import '../../state/auth_state.dart';
 import '../../state/produit_state.dart';
 import '../../state/vente_state.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 /// Équivalent de add_vente()/add_commande()/commander() (school_client,
 /// Controllers/Main.py:5299-5491), explicitement remanié sur demande :
@@ -150,7 +151,7 @@ class _VenteComposerScreenState extends State<VenteComposerScreen> {
                             const SizedBox(width: 12),
                             SizedBox(
                               width: 200,
-                              child: DropdownButtonFormField<String>(
+                              child: SearchableDropdownFormField<String>(
                                 initialValue: _categoryFilter,
                                 decoration: const InputDecoration(
                                   labelText: 'Catégorie',

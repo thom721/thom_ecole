@@ -5,6 +5,7 @@ import '../../../state/role_permission_state.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/badge_pill.dart';
 import '../../../widgets/section_header.dart';
+import '../../../widgets/searchable_dropdown_form_field.dart';
 
 /// Les permissions n'ont pas de champ "module" en base (SPermission) mais
 /// suivent toutes la convention "Verbe Ressource" (cf. seed
@@ -218,7 +219,7 @@ class _PermissionAssignmentTabState extends State<PermissionAssignmentTab> {
               ),
               const SizedBox(height: 14),
               if (_target == _Target.role)
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   initialValue: _selectedRoleId,
                   decoration: const InputDecoration(labelText: 'Rôle'),
                   items: state.roles

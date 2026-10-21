@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/dashboard_charts.dart';
 import '../../state/dashboard_state.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 /// Équivalent de PaiementsStats.vue (ecole_nginx/frontend) : suivi des
 /// encaissements par année académique → mois → jour, avec drill-down
@@ -123,7 +124,7 @@ class _PaiementStatsPanelState extends State<PaiementStatsPanel> {
             children: [
               SizedBox(
                 width: 160,
-                child: DropdownButtonFormField<String>(
+                child: SearchableDropdownFormField<String>(
                   initialValue: _selectedAnnee,
                   isDense: true,
                   isExpanded: true,
@@ -142,7 +143,7 @@ class _PaiementStatsPanelState extends State<PaiementStatsPanel> {
               if (annuel != null && annuel.mois.isNotEmpty)
                 SizedBox(
                   width: 170,
-                  child: DropdownButtonFormField<String>(
+                  child: SearchableDropdownFormField<String>(
                     initialValue:
                         annuel.mois.any((m) => m.moisKey == _selectedMois)
                         ? _selectedMois

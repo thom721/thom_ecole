@@ -6,6 +6,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/data_table_card.dart';
 import '../../widgets/param_dialog.dart';
 import '../../widgets/pill_button.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 /// Équivalent de tab_loans()/loans_form()/sauvegarder_loans()/
 /// to_loans_repayments() (school_client, Controllers/Main.py:4871-4972).
@@ -303,7 +304,7 @@ class _LoanFormDialogState extends State<_LoanFormDialog> {
                   padding: EdgeInsets.symmetric(vertical: 14),
                   child: LinearProgressIndicator(minHeight: 2),
                 )
-              : DropdownButtonFormField<String>(
+              : SearchableDropdownFormField<String>(
                   initialValue: _userId,
                   decoration: const InputDecoration(
                     labelText: 'Identifiant utilisateur / nom',
@@ -366,7 +367,7 @@ class _LoanFormDialogState extends State<_LoanFormDialog> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: DropdownButtonFormField<String>(
+                child: SearchableDropdownFormField<String>(
                   initialValue: _status,
                   decoration: const InputDecoration(labelText: 'Statut'),
                   items: LoanState.statusOptions

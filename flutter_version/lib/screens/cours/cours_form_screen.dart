@@ -4,6 +4,7 @@ import '../../models/cours.dart';
 import '../../state/cours_state.dart';
 import '../../state/reference_data_state.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 const _typeMatiereOptions = ['Base', 'Orale'];
 
@@ -238,7 +239,7 @@ class _CoursFormScreenState extends State<CoursFormScreen> {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: DropdownButtonFormField<String>(
+          child: SearchableDropdownFormField<String>(
             initialValue: row.typeMatiere,
             decoration: const InputDecoration(labelText: 'Type de matière'),
             items: _typeMatiereOptions.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),

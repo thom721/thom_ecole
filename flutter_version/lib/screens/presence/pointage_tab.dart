@@ -5,6 +5,7 @@ import '../../state/pointage_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/data_table_card.dart';
 import '../../widgets/param_dialog.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 /// Pointage (arrivée/départ) du personnel (Professeur/Personnel) — nouvel
 /// onglet ajouté sur demande explicite, sert de source d'heures fiable
@@ -160,7 +161,7 @@ class _HistoriqueDialogState extends State<_HistoriqueDialog> {
           Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<int>(
+                child: SearchableDropdownFormField<int>(
                   initialValue: _mois,
                   decoration: const InputDecoration(labelText: 'Mois'),
                   items: List.generate(
@@ -175,7 +176,7 @@ class _HistoriqueDialogState extends State<_HistoriqueDialog> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: DropdownButtonFormField<int>(
+                child: SearchableDropdownFormField<int>(
                   initialValue: _annee,
                   decoration: const InputDecoration(labelText: 'Année'),
                   items: List.generate(

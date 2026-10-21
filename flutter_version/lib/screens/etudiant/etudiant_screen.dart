@@ -7,6 +7,7 @@ import '../../state/reference_data_state.dart';
 import '../../state/students_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/data_table_card.dart';
+import '../../widgets/scrollable_table.dart';
 import '../../widgets/pill_button.dart';
 import '../../widgets/section_header.dart';
 import 'badge_builder/badge_builder_screen.dart';
@@ -504,7 +505,7 @@ class _DeadSearchTablePageState extends State<_DeadSearchTablePage> {
           Expanded(
             child: state.isSearchingLive
                 ? const Center(child: CircularProgressIndicator())
-                : SingleChildScrollView(
+                : ScrollableTable.both(
                     child: DataTable(
                       columns: const [
                         DataColumn(label: Text('IDENTIFIANT')),

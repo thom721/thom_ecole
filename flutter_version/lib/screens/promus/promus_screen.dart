@@ -5,6 +5,7 @@ import '../../state/reference_data_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/data_table_card.dart';
 import '../../widgets/section_header.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 /// Équivalent de promus_page() (school_client, Controllers/Main.py:11644+) :
 /// recherche les élèves d'une classe pour une année donnée (avec moyenne
@@ -157,7 +158,7 @@ class _PromusScreenState extends State<PromusScreen> {
                         children: [
                           SizedBox(
                             width: 170,
-                            child: DropdownButtonFormField<String>(
+                            child: SearchableDropdownFormField<String>(
                               initialValue: _anneeActuelle,
                               isDense: true,
                               decoration: const InputDecoration(
@@ -177,7 +178,7 @@ class _PromusScreenState extends State<PromusScreen> {
                           ),
                           SizedBox(
                             width: 170,
-                            child: DropdownButtonFormField<String>(
+                            child: SearchableDropdownFormField<String>(
                               initialValue: _niveauActuel,
                               isDense: true,
                               decoration: const InputDecoration(
@@ -199,7 +200,7 @@ class _PromusScreenState extends State<PromusScreen> {
                           ),
                           SizedBox(
                             width: 170,
-                            child: DropdownButtonFormField<String>(
+                            child: SearchableDropdownFormField<String>(
                               initialValue: _classeActuelle,
                               isDense: true,
                               decoration: const InputDecoration(
@@ -409,7 +410,7 @@ class _PromusScreenState extends State<PromusScreen> {
                                       DataCell(
                                         SizedBox(
                                           width: 150,
-                                          child: DropdownButtonFormField<String>(
+                                          child: SearchableDropdownFormField<String>(
                                             initialValue: aideValue,
                                             isDense: true,
                                             decoration: InputDecoration(
@@ -484,7 +485,7 @@ class _PromusScreenState extends State<PromusScreen> {
                         children: [
                           SizedBox(
                             width: 170,
-                            child: DropdownButtonFormField<String>(
+                            child: SearchableDropdownFormField<String>(
                               initialValue: _anneeFuture,
                               isDense: true,
                               decoration: const InputDecoration(
@@ -504,7 +505,7 @@ class _PromusScreenState extends State<PromusScreen> {
                           ),
                           SizedBox(
                             width: 170,
-                            child: DropdownButtonFormField<String>(
+                            child: SearchableDropdownFormField<String>(
                               initialValue: _niveauFuture,
                               isDense: true,
                               decoration: const InputDecoration(
@@ -526,7 +527,7 @@ class _PromusScreenState extends State<PromusScreen> {
                           ),
                           SizedBox(
                             width: 170,
-                            child: DropdownButtonFormField<String>(
+                            child: SearchableDropdownFormField<String>(
                               initialValue: _classeFuture,
                               isDense: true,
                               decoration: const InputDecoration(

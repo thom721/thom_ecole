@@ -21,6 +21,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/badge_layout_renderer.dart';
 import '../../widgets/badge_renderer.dart';
 import '../../widgets/section_header.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 const _salles = {
   'A': 'Salle A',
@@ -771,7 +772,7 @@ class _BadgeScreenState extends State<BadgeScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
-                child: DropdownButtonFormField<String>(
+                child: SearchableDropdownFormField<String>(
                   initialValue: _template,
                   decoration: const InputDecoration(
                     labelText: 'Template',
@@ -805,7 +806,7 @@ class _BadgeScreenState extends State<BadgeScreen> {
                     ),
               const SizedBox(width: 2),
               Expanded(
-                child: DropdownButtonFormField<String>(
+                child: SearchableDropdownFormField<String>(
                   initialValue: _salle,
                   decoration: const InputDecoration(
                     labelText: 'Salle',
@@ -825,7 +826,7 @@ class _BadgeScreenState extends State<BadgeScreen> {
             ],
           ),
           const SizedBox(height: 14),
-          DropdownButtonFormField<String?>(
+          SearchableDropdownFormField<String?>(
             initialValue: _customLayoutId,
             decoration: const InputDecoration(
               labelText:
@@ -846,7 +847,7 @@ class _BadgeScreenState extends State<BadgeScreen> {
           Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<int>(
+                child: SearchableDropdownFormField<int>(
                   initialValue: _expMonth,
                   decoration: const InputDecoration(
                     labelText: 'Mois d’expiration',
@@ -861,7 +862,7 @@ class _BadgeScreenState extends State<BadgeScreen> {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: DropdownButtonFormField<int>(
+                child: SearchableDropdownFormField<int>(
                   initialValue: _expYear,
                   decoration: const InputDecoration(
                     labelText: 'Année d’expiration',
@@ -884,7 +885,7 @@ class _BadgeScreenState extends State<BadgeScreen> {
           Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<String>(
+                child: SearchableDropdownFormField<String>(
                   initialValue: _isIpCamera ? 'ip' : _selectedCamera?.name,
                   decoration: const InputDecoration(
                     labelText: 'Choisir La camera',

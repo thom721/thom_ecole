@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../models/badge_layout.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/searchable_dropdown_form_field.dart';
 
 /// Liste fermée/curatée, cohérente avec le style déjà établi dans ce code
 /// (`_moisNoms`/`_salles` dans badge_screen.dart) — pas de sélecteur
@@ -272,7 +273,7 @@ class BadgeBuilderPropertyPanel extends StatelessWidget {
               .toList(),
         ),
         const SizedBox(height: 14),
-        DropdownButtonFormField<String>(
+        SearchableDropdownFormField<String>(
           key: ValueKey('font-${el.id}'),
           initialValue: el.fontFamily ?? _fontFamilies.first,
           isExpanded: true,
@@ -356,7 +357,7 @@ class BadgeBuilderPropertyPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        DropdownButtonFormField<BadgeShapeKind>(
+        SearchableDropdownFormField<BadgeShapeKind>(
           key: ValueKey('shape-${el.id}'),
           initialValue: el.shapeKind ?? BadgeShapeKind.rectangle,
           isExpanded: true,
@@ -483,7 +484,7 @@ class BadgeBuilderPropertyPanel extends StatelessWidget {
           _emit(el);
         }),
         const SizedBox(height: 10),
-        DropdownButtonFormField<BadgeStrokeStyle>(
+        SearchableDropdownFormField<BadgeStrokeStyle>(
           key: ValueKey('stroke-style-${el.id}'),
           initialValue: el.strokeStyle,
           isExpanded: true,
@@ -598,7 +599,7 @@ class BadgeBuilderPropertyPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        DropdownButtonFormField<BadgeGradientType>(
+        SearchableDropdownFormField<BadgeGradientType>(
           key: ValueKey('gradient-type-${el.id}'),
           initialValue: gradient.type,
           isExpanded: true,
@@ -700,7 +701,7 @@ class BadgeBuilderPropertyPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        DropdownButtonFormField<BadgePhotoFit>(
+        SearchableDropdownFormField<BadgePhotoFit>(
           key: ValueKey('fit-${el.id}'),
           initialValue: el.fit,
           isExpanded: true,
@@ -725,7 +726,7 @@ class BadgeBuilderPropertyPanel extends StatelessWidget {
           },
         ),
         const SizedBox(height: 14),
-        DropdownButtonFormField<BadgeShapeKind>(
+        SearchableDropdownFormField<BadgeShapeKind>(
           key: ValueKey('photo-shape-${el.id}'),
           initialValue: el.shapeKind ?? BadgeShapeKind.rectangle,
           isExpanded: true,
@@ -955,7 +956,7 @@ class BadgeBuilderPropertyPanel extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
-        DropdownButtonFormField<BadgePhotoFit>(
+        SearchableDropdownFormField<BadgePhotoFit>(
           key: ValueKey('image-fit-${el.id}'),
           initialValue: el.fit,
           isExpanded: true,

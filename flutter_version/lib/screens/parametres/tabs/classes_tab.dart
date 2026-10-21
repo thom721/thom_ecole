@@ -8,6 +8,7 @@ import '../../../theme/app_theme.dart';
 import '../../../widgets/badge_pill.dart';
 import '../../../widgets/param_dialog.dart';
 import '../../../widgets/param_tab_card.dart';
+import '../../../widgets/searchable_dropdown_form_field.dart';
 
 /// Onglet "Classes" — équivalent du tab `classes` de Parametres.vue : liste
 /// paginée v1/classes + modale Cycle/Classe (school_client: Helper/
@@ -172,7 +173,7 @@ class _ClasseFormDialogState extends State<_ClasseFormDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             initialValue: _niveauId,
             decoration: const InputDecoration(labelText: 'Cycle'),
             items: niveaux.map((n) => DropdownMenuItem(value: n.id, child: Text(n.name))).toList(),

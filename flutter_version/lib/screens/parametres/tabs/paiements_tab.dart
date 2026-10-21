@@ -8,6 +8,7 @@ import '../../../theme/app_theme.dart';
 import '../../../widgets/badge_pill.dart';
 import '../../../widgets/param_dialog.dart';
 import '../../../widgets/param_tab_card.dart';
+import '../../../widgets/searchable_dropdown_form_field.dart';
 
 // Échéances réellement proposées par le bureau (Helper/Components/
 // Payment_params.py:187 : `self.echeance.addItems(["mois", "Trimestre",
@@ -431,7 +432,7 @@ class _PaiementParamFormDialogState extends State<_PaiementParamFormDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             initialValue: _niveauId,
             decoration: const InputDecoration(labelText: 'Cycle / niveau / Section'),
             items: ref.niveaux.map((n) => DropdownMenuItem(value: n.id, child: Text(n.name))).toList(),
@@ -447,7 +448,7 @@ class _PaiementParamFormDialogState extends State<_PaiementParamFormDialog> {
           ),
           if (showFaculte) ...[
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
+            SearchableDropdownFormField<String>(
               initialValue: _faculteId,
               decoration: const InputDecoration(labelText: "Faculté / Domaine d'étude"),
               items: ref.facultes.map((f) => DropdownMenuItem(value: f.id, child: Text(f.nom))).toList(),
@@ -455,7 +456,7 @@ class _PaiementParamFormDialogState extends State<_PaiementParamFormDialog> {
             ),
           ],
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             initialValue: _classeId,
             decoration: const InputDecoration(labelText: 'Classe'),
             items: ref
@@ -465,7 +466,7 @@ class _PaiementParamFormDialogState extends State<_PaiementParamFormDialog> {
             onChanged: (v) => setState(() => _classeId = v),
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             initialValue: _anneeAcademiqueId,
             decoration: const InputDecoration(labelText: 'Année Académique'),
             items:
@@ -477,7 +478,7 @@ class _PaiementParamFormDialogState extends State<_PaiementParamFormDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: DropdownButtonFormField<String>(
+                child: SearchableDropdownFormField<String>(
                   initialValue: _echeance,
                   decoration: const InputDecoration(labelText: 'Payer par'),
                   items: _echeanceOptions
@@ -488,7 +489,7 @@ class _PaiementParamFormDialogState extends State<_PaiementParamFormDialog> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: DropdownButtonFormField<int>(
+                child: SearchableDropdownFormField<int>(
                   initialValue: _nbEcheance,
                   decoration: InputDecoration(labelText: "Nbres de ${_echeance ?? 'Payer par'}"),
                   items: [1, 2, 3, 4, 5].map((n) => DropdownMenuItem(value: n, child: Text('$n'))).toList(),
@@ -536,7 +537,7 @@ class _PaiementParamFormDialogState extends State<_PaiementParamFormDialog> {
               child: Row(
                 children: [
                   Expanded(
-                    child: DropdownButtonFormField<String>(
+                    child: SearchableDropdownFormField<String>(
                       initialValue: row.type,
                       decoration: const InputDecoration(labelText: 'Type'),
                       items:
@@ -586,7 +587,7 @@ class _PaiementParamFormDialogState extends State<_PaiementParamFormDialog> {
                 const SizedBox(width: 12),
               ],
               Expanded(
-                child: DropdownButtonFormField<String>(
+                child: SearchableDropdownFormField<String>(
                   initialValue: _devise,
                   decoration: const InputDecoration(labelText: 'Devise'),
                   items: _deviseOptions.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),

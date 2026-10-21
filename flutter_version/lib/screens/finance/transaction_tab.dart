@@ -8,6 +8,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/data_table_card.dart';
 import '../../widgets/param_dialog.dart';
 import '../../widgets/pill_button.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 /// Équivalent de autre_transaction()/set_table_refresh_data_other_transac()
 /// (school_client, Controllers/Main.py:5013-5119) — transactions diverses
@@ -335,7 +336,7 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
               ),
             ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             initialValue: _description,
             decoration: const InputDecoration(labelText: 'Description'),
             items: TransactionState.descriptionOptions

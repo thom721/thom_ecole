@@ -11,6 +11,7 @@ import '../../state/reference_data_state.dart';
 import '../../state/students_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/section_header.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 enum _Tab { inscription, responsable, documents, details }
 
@@ -474,7 +475,7 @@ class _EtudiantDetailScreenState extends State<EtudiantDetailScreen> {
           'Parcours scolaire',
           Icons.menu_book_outlined,
           _grid([
-            DropdownButtonFormField<String>(
+            SearchableDropdownFormField<String>(
               initialValue: _niveauId,
               decoration: const InputDecoration(labelText: 'Niveau / Section'),
               items: ref.niveaux.map((n) => DropdownMenuItem(value: n.id, child: Text(n.name))).toList(),
@@ -497,7 +498,7 @@ class _EtudiantDetailScreenState extends State<EtudiantDetailScreen> {
           _grid([
             TextFormField(controller: _nom, decoration: const InputDecoration(labelText: 'Nom')),
             TextFormField(controller: _prenom, decoration: const InputDecoration(labelText: 'Prénom')),
-            DropdownButtonFormField<String>(
+            SearchableDropdownFormField<String>(
               initialValue: _sexe,
               decoration: const InputDecoration(labelText: 'Sexe'),
               items: const [
@@ -530,26 +531,26 @@ class _EtudiantDetailScreenState extends State<EtudiantDetailScreen> {
           'Inscription académique',
           Icons.assignment_outlined,
           _grid([
-            DropdownButtonFormField<String>(
+            SearchableDropdownFormField<String>(
               initialValue: _anneeId,
               decoration: const InputDecoration(labelText: 'Année académique'),
               items: ref.annees.map((a) => DropdownMenuItem(value: a.id, child: Text(a.nom))).toList(),
               onChanged: (v) => setState(() => _anneeId = v),
             ),
             if (showFaculte)
-              DropdownButtonFormField<String>(
+              SearchableDropdownFormField<String>(
                 initialValue: _faculteId,
                 decoration: const InputDecoration(labelText: 'Faculté / Domaine'),
                 items: ref.facultes.map((f) => DropdownMenuItem(value: f.id, child: Text(f.nom))).toList(),
                 onChanged: (v) => setState(() => _faculteId = v),
               ),
-            DropdownButtonFormField<String>(
+            SearchableDropdownFormField<String>(
               initialValue: _classeId,
               decoration: const InputDecoration(labelText: 'Classe'),
               items: ref.classesForNiveau(_niveauId).map((c) => DropdownMenuItem(value: c.id, child: Text(c.nomClasse))).toList(),
               onChanged: (v) => setState(() => _classeId = v),
             ),
-            DropdownButtonFormField<String>(
+            SearchableDropdownFormField<String>(
               initialValue: _aideFinanciere,
               decoration: const InputDecoration(labelText: 'Aide financière'),
               items: const [
@@ -573,7 +574,7 @@ class _EtudiantDetailScreenState extends State<EtudiantDetailScreen> {
       _grid([
         TextFormField(controller: _nomResponsable, decoration: const InputDecoration(labelText: 'Nom')),
         TextFormField(controller: _prenomResponsable, decoration: const InputDecoration(labelText: 'Prénom')),
-        DropdownButtonFormField<String>(
+        SearchableDropdownFormField<String>(
           initialValue: _sexeResponsable,
           decoration: const InputDecoration(labelText: 'Sexe'),
           items: const [
@@ -625,7 +626,7 @@ class _EtudiantDetailScreenState extends State<EtudiantDetailScreen> {
                     ],
                   ),
                   _grid([
-                    DropdownButtonFormField<String>(
+                    SearchableDropdownFormField<String>(
                       initialValue: _documents[i].type.isEmpty ? null : _documents[i].type,
                       decoration: const InputDecoration(labelText: 'Type'),
                       items: _documentTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),

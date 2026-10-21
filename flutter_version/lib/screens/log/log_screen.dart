@@ -5,6 +5,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/badge_pill.dart';
 import '../../widgets/data_table_card.dart';
 import '../../widgets/section_header.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 /// Équivalent de logs() (school_client, Controllers/Main.py:4738-4863), onglet
 /// "grafic_log" → GET v1/logs-graphic (ecole_nginx/app/Routes/RLog.py).
@@ -89,7 +90,7 @@ class _LogScreenState extends State<LogScreen> {
               ),
               SizedBox(
                 width: 180,
-                child: DropdownButtonFormField<String>(
+                child: SearchableDropdownFormField<String>(
                   initialValue: state.action,
                   isDense: true,
                   isExpanded: true,
@@ -114,7 +115,7 @@ class _LogScreenState extends State<LogScreen> {
               ),
               SizedBox(
                 width: 220,
-                child: DropdownButtonFormField<String>(
+                child: SearchableDropdownFormField<String>(
                   initialValue: state.model,
                   isDense: true,
                   isExpanded: true,

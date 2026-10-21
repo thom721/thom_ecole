@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'numbered_pager.dart';
+import 'scrollable_table.dart';
 
 /// Carte d'un onglet de la page Paramètres — reprend exactement la structure
 /// de chaque section de Parametres.vue (ecole_nginx/frontend) : carte
@@ -106,16 +107,8 @@ class ParamTabCard extends StatelessWidget {
               ),
             )
           else
-            LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                    child: DataTable(showCheckboxColumn: false, columns: columns, rows: rows),
-                  ),
-                );
-              },
+            ScrollableTable(
+              child: DataTable(showCheckboxColumn: false, columns: columns, rows: rows),
             ),
           if (currentPage != null && lastPage != null && onPageChange != null && rows.isNotEmpty)
             Padding(

@@ -6,7 +6,9 @@ import '../../models/student.dart' show Niveau;
 import '../../state/note_state.dart';
 import '../../state/reference_data_state.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/scrollable_table.dart';
 import '../../widgets/searchable_dropdown_field.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 const _sessionOptions = ['1ère', '2ème'];
 
@@ -332,7 +334,7 @@ class _NoteEntryScreenState extends State<NoteEntryScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: DropdownButtonFormField<String>(
+                      child: SearchableDropdownFormField<String>(
                         initialValue: _niveauId,
                         decoration: const InputDecoration(
                           labelText: 'Niveau / Section',
@@ -378,7 +380,7 @@ class _NoteEntryScreenState extends State<NoteEntryScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: DropdownButtonFormField<String>(
+                      child: SearchableDropdownFormField<String>(
                         initialValue: _classeId,
                         decoration: const InputDecoration(labelText: 'Classe'),
                         items: refData
@@ -395,7 +397,7 @@ class _NoteEntryScreenState extends State<NoteEntryScreen> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: DropdownButtonFormField<String>(
+                      child: SearchableDropdownFormField<String>(
                         initialValue: _anneeId,
                         decoration: const InputDecoration(
                           labelText: 'Année académique',
@@ -418,7 +420,7 @@ class _NoteEntryScreenState extends State<NoteEntryScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: DropdownButtonFormField<String>(
+                        child: SearchableDropdownFormField<String>(
                           initialValue: _faculteId,
                           decoration: const InputDecoration(
                             labelText: 'Faculté / Option',
@@ -437,7 +439,7 @@ class _NoteEntryScreenState extends State<NoteEntryScreen> {
                       if (isUniversitaire) ...[
                         const SizedBox(width: 12),
                         Expanded(
-                          child: DropdownButtonFormField<String>(
+                          child: SearchableDropdownFormField<String>(
                             initialValue: _session,
                             decoration: const InputDecoration(
                               labelText: 'Session',
@@ -536,7 +538,7 @@ class _NoteEntryScreenState extends State<NoteEntryScreen> {
           .map((m) => DropdownMenuItem(value: m, child: Text(m)))
           .toList();
     }
-    return DropdownButtonFormField<String>(
+    return SearchableDropdownFormField<String>(
       // DropdownButtonFormField ne relit initialValue qu'à sa création : sans
       // cette Key liée à _currentCoursId/normalized, la remise à null de
       // _evaluationValue dans _onCoursChange ne se reflète pas visuellement,
@@ -692,7 +694,7 @@ class _NoteEntryScreenState extends State<NoteEntryScreen> {
               border: Border.all(color: AppColors.borderSubtle),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: SingleChildScrollView(
+            child: ScrollableTable.both(
               padding: const EdgeInsets.all(8),
               child: DataTable(
                 columns: const [

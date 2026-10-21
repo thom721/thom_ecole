@@ -4,6 +4,7 @@ import '../../state/presence_state.dart';
 import '../../state/reference_data_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/data_table_card.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 String _currentMonthIso() {
   final now = DateTime.now();
@@ -80,7 +81,7 @@ class _HistoriqueTabState extends State<HistoriqueTab> {
         Row(
           children: [
             Expanded(
-              child: DropdownButtonFormField<String>(
+              child: SearchableDropdownFormField<String>(
                 initialValue: _niveauId,
                 decoration: const InputDecoration(labelText: 'Niveau'),
                 items: refData.niveaux
@@ -96,7 +97,7 @@ class _HistoriqueTabState extends State<HistoriqueTab> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: DropdownButtonFormField<String>(
+              child: SearchableDropdownFormField<String>(
                 initialValue: _classeId,
                 decoration: const InputDecoration(labelText: 'Classe'),
                 items: classesForNiveau
@@ -117,7 +118,7 @@ class _HistoriqueTabState extends State<HistoriqueTab> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: DropdownButtonFormField<String>(
+              child: SearchableDropdownFormField<String>(
                 initialValue: _anneeId,
                 decoration: const InputDecoration(
                   labelText: 'Année académique',

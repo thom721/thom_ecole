@@ -8,6 +8,7 @@ import '../../../theme/app_theme.dart';
 import '../../../widgets/badge_pill.dart';
 import '../../../widgets/param_dialog.dart';
 import '../../../widgets/param_tab_card.dart';
+import '../../../widgets/searchable_dropdown_form_field.dart';
 
 const _evaluationOptions = ['mois', 'session', 'semestre', 'Trimestre', 'Controle'];
 const _evaluationLabels = {
@@ -182,7 +183,7 @@ class _ExamenFormDialogState extends State<_ExamenFormDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             initialValue: _evaluationPar,
             decoration: const InputDecoration(labelText: 'Évaluation / Examen par'),
             items: _evaluationOptions
@@ -191,14 +192,14 @@ class _ExamenFormDialogState extends State<_ExamenFormDialog> {
             onChanged: (v) => setState(() => _evaluationPar = v),
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             initialValue: _anneeAcademiqueId,
             decoration: const InputDecoration(labelText: 'Année Académique'),
             items: ref.annees.map((a) => DropdownMenuItem(value: a.id, child: Text(a.nom))).toList(),
             onChanged: (v) => setState(() => _anneeAcademiqueId = v),
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             initialValue: _niveauId,
             decoration: const InputDecoration(labelText: 'Cycle'),
             items: ref.niveaux.map((n) => DropdownMenuItem(value: n.id, child: Text(n.name))).toList(),

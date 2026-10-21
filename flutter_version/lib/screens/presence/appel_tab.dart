@@ -5,6 +5,7 @@ import '../../state/presence_state.dart';
 import '../../state/reference_data_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/pill_button.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 const _moisFr = [
   'janvier',
@@ -103,7 +104,7 @@ class _AppelTabState extends State<AppelTab> {
         Row(
           children: [
             Expanded(
-              child: DropdownButtonFormField<String>(
+              child: SearchableDropdownFormField<String>(
                 initialValue: _niveauId,
                 decoration: const InputDecoration(labelText: 'Niveau'),
                 items: refData.niveaux
@@ -119,7 +120,7 @@ class _AppelTabState extends State<AppelTab> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: DropdownButtonFormField<String>(
+              child: SearchableDropdownFormField<String>(
                 initialValue: _classeId,
                 decoration: const InputDecoration(labelText: 'Classe'),
                 items: classesForNiveau
@@ -140,7 +141,7 @@ class _AppelTabState extends State<AppelTab> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: DropdownButtonFormField<String>(
+              child: SearchableDropdownFormField<String>(
                 initialValue: _anneeId,
                 decoration: const InputDecoration(
                   labelText: 'Année académique',

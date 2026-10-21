@@ -8,6 +8,7 @@ import '../../../theme/app_theme.dart';
 import '../../../widgets/badge_pill.dart';
 import '../../../widgets/param_dialog.dart';
 import '../../../widgets/param_tab_card.dart';
+import '../../../widgets/searchable_dropdown_form_field.dart';
 
 /// Onglet "Frais Divers" — feature 100% bureau (school_client:
 /// Helper/Components/Frais_divers.py), absente du frontend web.
@@ -188,14 +189,14 @@ class _FraisDiversFormDialogState extends State<_FraisDiversFormDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             initialValue: _niveauId,
             decoration: const InputDecoration(labelText: 'Cycle / Section / Niveau'),
             items: ref.niveaux.map((n) => DropdownMenuItem(value: n.id, child: Text(n.name))).toList(),
             onChanged: (v) => setState(() => _niveauId = v),
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             initialValue: _anneeAcId,
             decoration: const InputDecoration(labelText: 'Année Académique'),
             items: ref.annees.map((a) => DropdownMenuItem(value: a.id, child: Text(a.nom))).toList(),

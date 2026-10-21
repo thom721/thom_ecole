@@ -11,6 +11,7 @@ import '../../widgets/data_table_card.dart';
 import '../../widgets/param_dialog.dart';
 import '../../widgets/pill_button.dart';
 import '../../widgets/searchable_dropdown_field.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 /// Versements de salaire aux Professeurs/Personnel — fonctionnalité ajoutée
 /// sur demande explicite, sans référence bureau/web (voir
@@ -370,7 +371,7 @@ class _ParametrePayrollDialogState extends State<_ParametrePayrollDialog> {
           Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<String>(
+                child: SearchableDropdownFormField<String>(
                   initialValue: _anneeId,
                   isExpanded: true,
                   decoration: const InputDecoration(labelText: 'Année académique'),
@@ -458,7 +459,7 @@ class _BilanMensuelDialogState extends State<_BilanMensuelDialog> {
           Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<String>(
+                child: SearchableDropdownFormField<String>(
                   initialValue: _mois,
                   isExpanded: true,
                   decoration: const InputDecoration(labelText: 'Mois'),
@@ -726,7 +727,7 @@ class _PayrollFormDialogState extends State<_PayrollFormDialog> {
           Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<String>(
+                child: SearchableDropdownFormField<String>(
                   initialValue: _mois,
                   decoration: const InputDecoration(labelText: 'Mois'),
                   items: PayrollState.moisOptions
@@ -746,7 +747,7 @@ class _PayrollFormDialogState extends State<_PayrollFormDialog> {
             ],
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             initialValue: _methodePaiement,
             decoration: const InputDecoration(labelText: 'Méthode de paiement'),
             items: PayrollState.methodeOptions
@@ -783,7 +784,7 @@ class _PayrollFormDialogState extends State<_PayrollFormDialog> {
           ],
           if (isHoraire) ...[
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
+            SearchableDropdownFormField<String>(
               // DropdownButtonFormField ne relit initialValue qu'à sa
               // création — sans cette Key liée à _userId, changer
               // d'employé (qui remet _anneeAcademiqueId à null) laissait
@@ -1013,7 +1014,7 @@ class _VerserFormDialogState extends State<_VerserFormDialog> {
                   child: Text(solde.toStringAsFixed(2), style: TextStyle(color: AppColors.textMuted)),
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   initialValue: _methodePaiement,
                   decoration: const InputDecoration(labelText: 'Méthode de paiement'),
                   items: PayrollState.methodeOptions

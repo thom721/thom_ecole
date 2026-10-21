@@ -25,6 +25,7 @@ import 'badge_builder_layers_panel.dart';
 import 'badge_builder_property_panel.dart';
 import 'badge_builder_toolbar.dart';
 import 'badge_test_photo_capture_dialog.dart';
+import '../../../widgets/searchable_dropdown_form_field.dart';
 
 // Mêmes listes que badge_screen.dart (`_salles`/`_moisNoms`) — `{{salle}}`/
 // `{{expiration}}` sont des réglages globaux au moment de générer un badge
@@ -1643,7 +1644,7 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
         // affichés littéralement dans l'aperçu ET l'export).
         SizedBox(
           width: 160,
-          child: DropdownButtonFormField<int>(
+          child: SearchableDropdownFormField<int>(
             initialValue: _expMonth,
             isExpanded: true,
             decoration: const InputDecoration(
@@ -1659,7 +1660,7 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
         ),
         SizedBox(
           width: 130,
-          child: DropdownButtonFormField<int>(
+          child: SearchableDropdownFormField<int>(
             initialValue: _expYear,
             isExpanded: true,
             decoration: const InputDecoration(
@@ -1679,7 +1680,7 @@ class _BadgeBuilderScreenState extends State<BadgeBuilderScreen> {
         ),
         SizedBox(
           width: 130,
-          child: DropdownButtonFormField<String>(
+          child: SearchableDropdownFormField<String>(
             initialValue: _salle,
             isExpanded: true,
             decoration: const InputDecoration(

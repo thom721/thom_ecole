@@ -7,6 +7,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/data_table_card.dart';
 import '../../widgets/pill_button.dart';
 import '../../widgets/section_header.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 /// Équivalent de admin_page()/set_table_refresh_data_admin()/
 /// add_personnel()/active_personnel() (school_client, Controllers/Main.py:
@@ -400,7 +401,7 @@ class _PersonnelFormDialogState extends State<_PersonnelFormDialog> {
                 const SizedBox(height: 12),
                 Row(children: [
                   Expanded(
-                    child: DropdownButtonFormField<String>(
+                    child: SearchableDropdownFormField<String>(
                       initialValue: _sexe,
                       decoration: const InputDecoration(labelText: 'Sexe'),
                       items: _sexeOptions.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
@@ -413,7 +414,7 @@ class _PersonnelFormDialogState extends State<_PersonnelFormDialog> {
                 const SizedBox(height: 12),
                 TextField(controller: _email, decoration: const InputDecoration(labelText: 'Email'), keyboardType: TextInputType.emailAddress),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   initialValue: _roleId,
                   decoration: const InputDecoration(labelText: 'Rôle'),
                   items: roles.map((r) => DropdownMenuItem(value: r.id, child: Text(r.name))).toList(),

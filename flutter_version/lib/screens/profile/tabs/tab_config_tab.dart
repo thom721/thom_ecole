@@ -4,6 +4,7 @@ import '../../../screens/shell/app_shell.dart';
 import '../../../state/role_permission_state.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/section_header.dart';
+import '../../../widgets/searchable_dropdown_form_field.dart';
 
 /// Configure quels onglets (et sous-onglets) sont visibles pour chaque rôle.
 /// Les IDs de sous-onglets utilisent le format "parentId.sousId"
@@ -282,7 +283,7 @@ class _TabConfigTabState extends State<TabConfigTab> {
               if (state.isLoadingLists)
                 const Center(child: CircularProgressIndicator())
               else
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   initialValue: _selectedRoleId,
                   decoration: const InputDecoration(labelText: 'Rôle'),
                   items: state.roles

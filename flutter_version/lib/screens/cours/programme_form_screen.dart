@@ -6,6 +6,7 @@ import '../../state/programme_state.dart';
 import '../../state/reference_data_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/searchable_dropdown_field.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 const _joursOptions = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 const _sessionOptions = ['1ère', '2ème'];
@@ -300,7 +301,7 @@ class _ProgrammeFormScreenState extends State<ProgrammeFormScreen> {
           ]),
         ),
         _FieldGrid(fields: [
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             // Même précaution que Cours/Professeur plus bas : sans cette Key,
             // si ce champ se construit avant que ReferenceDataState.niveaux
             // ait fini de charger, initialValue reste figé sur le mauvais
@@ -316,7 +317,7 @@ class _ProgrammeFormScreenState extends State<ProgrammeFormScreen> {
           ),
           progState.isLoadingCombos
               ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-              : DropdownButtonFormField<String>(
+              : SearchableDropdownFormField<String>(
                   // DropdownButtonFormField ne relit initialValue qu'à sa
                   // création — sans cette Key qui change une fois la combo
                   // chargée (longueur de la liste), un rebuild ultérieur
@@ -342,7 +343,7 @@ class _ProgrammeFormScreenState extends State<ProgrammeFormScreen> {
                 ),
           TextField(controller: row.coefficients, decoration: const InputDecoration(labelText: 'Coefficients')),
           if (isUniOuTech)
-            DropdownButtonFormField<String>(
+            SearchableDropdownFormField<String>(
               key: ValueKey('faculte-${row.faculteId}-${refData.facultes.length}'),
               initialValue: refData.facultes.any((f) => f.id == row.faculteId) ? row.faculteId : null,
               decoration: const InputDecoration(labelText: 'Faculté / Option'),
@@ -350,7 +351,7 @@ class _ProgrammeFormScreenState extends State<ProgrammeFormScreen> {
               onChanged: (v) => setState(() => row.faculteId = v),
             ),
           if (isUniversitaire)
-            DropdownButtonFormField<String>(
+            SearchableDropdownFormField<String>(
               initialValue: _sessionOptions.contains(row.session) ? row.session : null,
               decoration: const InputDecoration(labelText: 'Session'),
               items: _sessionOptions.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
@@ -358,21 +359,21 @@ class _ProgrammeFormScreenState extends State<ProgrammeFormScreen> {
             ),
           if (isUniversitaire)
             TextField(controller: row.noteDePassage, decoration: const InputDecoration(labelText: 'Note de passage')),
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             key: ValueKey('classe-${row.classeId}-${classes.length}'),
             initialValue: classes.any((c) => c.id == row.classeId) ? row.classeId : null,
             decoration: const InputDecoration(labelText: 'Classe'),
             items: classes.map((c) => DropdownMenuItem(value: c.id, child: Text(c.nomClasse))).toList(),
             onChanged: (v) => setState(() => row.classeId = v),
           ),
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             key: ValueKey('annee-${row.anneeId}-${refData.annees.length}'),
             initialValue: refData.annees.any((a) => a.id == row.anneeId) ? row.anneeId : null,
             decoration: const InputDecoration(labelText: 'Année académique'),
             items: refData.annees.map((a) => DropdownMenuItem(value: a.id, child: Text(a.nom))).toList(),
             onChanged: (v) => setState(() => row.anneeId = v),
           ),
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             initialValue: row.jours,
             decoration: const InputDecoration(labelText: 'Jours'),
             items: _joursOptions.map((j) => DropdownMenuItem(value: j, child: Text(j))).toList(),

@@ -13,6 +13,7 @@ import '../../widgets/param_dialog.dart';
 import '../../widgets/pill_button.dart';
 import '../../widgets/section_header.dart';
 import 'note_entry_screen.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 /// Équivalent de notes_page() (school_client, Controllers/Main.py:10296+) —
 /// liste paginée des coursEtudiant + entrée "Ajouter / Modifier notes"
@@ -256,7 +257,7 @@ class _NotesScreenState extends State<NotesScreen> {
                           DataCell(
                             SizedBox(
                               width: 150,
-                              child: DropdownButtonFormField<String>(
+                              child: SearchableDropdownFormField<String>(
                                 initialValue: _periodeSelection[r.id],
                                 decoration: const InputDecoration(
                                   isDense: true,
@@ -345,7 +346,7 @@ class _MassBulletinDialogState extends State<_MassBulletinDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             initialValue: _anneeNom,
             decoration: const InputDecoration(labelText: 'Année académique'),
             items: refData.annees
@@ -354,7 +355,7 @@ class _MassBulletinDialogState extends State<_MassBulletinDialog> {
             onChanged: (v) => setState(() => _anneeNom = v),
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             initialValue: _mois,
             decoration: const InputDecoration(labelText: 'Mois'),
             items: [
@@ -366,7 +367,7 @@ class _MassBulletinDialogState extends State<_MassBulletinDialog> {
             onChanged: (v) => setState(() => _mois = v),
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             initialValue: _classeId,
             decoration: const InputDecoration(labelText: 'Classe'),
             items: refData.classes
@@ -541,7 +542,7 @@ class _DeleteNotesDialogState extends State<_DeleteNotesDialog> {
             style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
           ),
           const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             initialValue: _niveauId,
             decoration: const InputDecoration(labelText: 'Niveau'),
             items: refData.niveaux
@@ -554,7 +555,7 @@ class _DeleteNotesDialogState extends State<_DeleteNotesDialog> {
             }),
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             key: ValueKey('classe-$_niveauId'),
             initialValue: _classeId,
             decoration: const InputDecoration(labelText: 'Classe'),
@@ -582,7 +583,7 @@ class _DeleteNotesDialogState extends State<_DeleteNotesDialog> {
             onChanged: (_) => setState(_resetPreview),
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             initialValue: _anneeAcademique,
             decoration: const InputDecoration(labelText: 'Année académique'),
             items: refData.annees
@@ -594,7 +595,7 @@ class _DeleteNotesDialogState extends State<_DeleteNotesDialog> {
             }),
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             initialValue: _mois,
             decoration: const InputDecoration(labelText: 'Mois'),
             items: NoteState.moisAnneeScolaire

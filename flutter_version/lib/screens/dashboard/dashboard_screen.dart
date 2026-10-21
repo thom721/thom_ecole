@@ -5,9 +5,11 @@ import '../../state/auth_state.dart';
 import '../../state/dashboard_state.dart';
 import '../../state/reference_data_state.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/scrollable_table.dart';
 import 'classe_students_dialog.dart';
 import 'etudiant_stats_panel.dart';
 import 'paiement_stats_panel.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 enum _ActiveSection { etudiant, paiement, classe }
 
@@ -198,7 +200,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 if (annees.isNotEmpty)
                   SizedBox(
                     width: 170,
-                    child: DropdownButtonFormField<String>(
+                    child: SearchableDropdownFormField<String>(
                       initialValue: _selectedAnneeId,
                       isDense: true,
                       decoration: const InputDecoration(
@@ -525,8 +527,7 @@ class _ClasseDetailsTable extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
+          ScrollableTable(
             child: DataTable(
               columns: const [
                 DataColumn(label: Text('NIVEAU / CYCLE')),

@@ -14,6 +14,7 @@ import '../../widgets/pill_button.dart';
 import '../../widgets/section_header.dart';
 import 'cours_form_screen.dart';
 import 'programme_form_screen.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 /// Équivalent de cours_page()/go_to_cours_page() ET programme_index()
 /// (school_client, Controllers/Main.py: 9625-10227 pour Cours,
@@ -393,7 +394,7 @@ class _ProgrammeTabViewState extends State<_ProgrammeTabView> {
         Row(
           children: [
             Expanded(
-              child: DropdownButtonFormField<String>(
+              child: SearchableDropdownFormField<String>(
                 initialValue: _niveauFilter,
                 decoration: const InputDecoration(labelText: 'Niveau', isDense: true),
                 items: [
@@ -411,7 +412,7 @@ class _ProgrammeTabViewState extends State<_ProgrammeTabView> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: DropdownButtonFormField<String>(
+              child: SearchableDropdownFormField<String>(
                 initialValue: _classeFilter,
                 decoration: const InputDecoration(labelText: 'Classe', isDense: true),
                 items: [
@@ -426,7 +427,7 @@ class _ProgrammeTabViewState extends State<_ProgrammeTabView> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: DropdownButtonFormField<String>(
+              child: SearchableDropdownFormField<String>(
                 initialValue: _anneeFilter,
                 decoration: const InputDecoration(labelText: 'Année académique', isDense: true),
                 items: [
@@ -552,7 +553,7 @@ class _ImprimerHoraireDialogState extends State<_ImprimerHoraireDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             initialValue: _niveauId,
             isExpanded: true,
             decoration: const InputDecoration(labelText: "Niveau d'étude"),
@@ -567,7 +568,7 @@ class _ImprimerHoraireDialogState extends State<_ImprimerHoraireDialog> {
           ),
           if (isUniversitaire) ...[
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
+            SearchableDropdownFormField<String>(
               initialValue: _faculteId,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'Faculté / Option'),
@@ -581,7 +582,7 @@ class _ImprimerHoraireDialogState extends State<_ImprimerHoraireDialog> {
           Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<String>(
+                child: SearchableDropdownFormField<String>(
                   initialValue: _classeId,
                   isExpanded: true,
                   decoration: const InputDecoration(labelText: 'Classe'),
@@ -593,7 +594,7 @@ class _ImprimerHoraireDialogState extends State<_ImprimerHoraireDialog> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: DropdownButtonFormField<String>(
+                child: SearchableDropdownFormField<String>(
                   initialValue: _anneeId,
                   isExpanded: true,
                   decoration: const InputDecoration(labelText: 'Année académique'),
@@ -680,7 +681,7 @@ class _ChargeEnseignementDialogState extends State<_ChargeEnseignementDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             initialValue: _professeurId,
             isExpanded: true,
             decoration: const InputDecoration(labelText: 'Professeur'),
@@ -690,7 +691,7 @@ class _ChargeEnseignementDialogState extends State<_ChargeEnseignementDialog> {
             onChanged: (v) => setState(() => _professeurId = v),
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             initialValue: _anneeId,
             isExpanded: true,
             decoration: const InputDecoration(labelText: 'Année académique'),

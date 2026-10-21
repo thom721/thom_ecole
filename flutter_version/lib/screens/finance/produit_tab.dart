@@ -6,6 +6,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/data_table_card.dart';
 import '../../widgets/param_dialog.dart';
 import '../../widgets/pill_button.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 /// Catalogue de produits — nouveauté demandée explicitement (voir
 /// lib/models/produit.dart) : nom, catégorie, prix unitaire, quantité en
@@ -350,7 +351,7 @@ class _ProduitFormDialogState extends State<_ProduitFormDialog> {
                         padding: EdgeInsets.symmetric(vertical: 14),
                         child: LinearProgressIndicator(minHeight: 2),
                       )
-                    : DropdownButtonFormField<String>(
+                    : SearchableDropdownFormField<String>(
                         initialValue: categoryNames.contains(_category)
                             ? _category
                             : null,

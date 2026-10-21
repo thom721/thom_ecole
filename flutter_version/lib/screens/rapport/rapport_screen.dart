@@ -8,6 +8,7 @@ import '../../state/rapport_state.dart';
 import '../../state/reference_data_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/section_header.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 const _moisOptions = [
   'Septembre', 'Octobre', 'Novembre', 'Décembre', 'Janvier', 'Février',
@@ -330,7 +331,7 @@ class _RapportScreenState extends State<RapportScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _label('Type de rapport'),
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   initialValue: _globalType,
                   items: const ['Global', 'Livres', 'Tissus', 'Fournitures', 'Arriéré']
                       .map((t) => DropdownMenuItem(value: t, child: Text(t)))
@@ -399,7 +400,7 @@ class _RapportScreenState extends State<RapportScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _label('Type'),
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   initialValue: _payrollType,
                   items: const ['Global', 'Professeur', 'Personnel']
                       .map((t) => DropdownMenuItem(value: t, child: Text(t)))
@@ -526,7 +527,7 @@ class _RapportScreenState extends State<RapportScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _label('Classe'),
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   initialValue: _financierClasse,
                   items: [
                     const DropdownMenuItem(value: _sentinelClasseAll, child: Text('Toutes les classes')),
@@ -536,7 +537,7 @@ class _RapportScreenState extends State<RapportScreen> {
                 ),
                 const SizedBox(height: 14),
                 _label('Année académique'),
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   initialValue: _financierAnneeId,
                   items: params.annees
                       .map((a) => DropdownMenuItem(value: a.id, child: Text(a.anneeAcademique)))
@@ -545,7 +546,7 @@ class _RapportScreenState extends State<RapportScreen> {
                 ),
                 const SizedBox(height: 14),
                 _label('Versement'),
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   initialValue: _financierVersement,
                   items: [
                     const DropdownMenuItem(
@@ -708,7 +709,7 @@ class _RapportScreenState extends State<RapportScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _label('Cycle'),
-        DropdownButtonFormField<String>(
+        SearchableDropdownFormField<String>(
           initialValue: _pedagoCycle,
           items: ref.niveaux.map((n) => DropdownMenuItem(value: n.id, child: Text(n.name))).toList(),
           onChanged: (v) => setState(() {
@@ -725,7 +726,7 @@ class _RapportScreenState extends State<RapportScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _label('Classe'),
-        DropdownButtonFormField<String>(
+        SearchableDropdownFormField<String>(
           initialValue: _pedagoClasse,
           items: [
             const DropdownMenuItem(value: _sentinelToutesLesClasses, child: Text('Toutes les classes')),
@@ -742,7 +743,7 @@ class _RapportScreenState extends State<RapportScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _label('Année académique'),
-        DropdownButtonFormField<String>(
+        SearchableDropdownFormField<String>(
           initialValue: _pedagoAnneeId,
           items:
               params.annees.map((a) => DropdownMenuItem(value: a.id, child: Text(a.anneeAcademique))).toList(),
@@ -757,7 +758,7 @@ class _RapportScreenState extends State<RapportScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _label('Mois'),
-        DropdownButtonFormField<String>(
+        SearchableDropdownFormField<String>(
           initialValue: _pedagoMois,
           items: [
             const DropdownMenuItem(value: _sentinelTousLesMois, child: Text('Tous les mois')),
@@ -788,7 +789,7 @@ class _RapportScreenState extends State<RapportScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _label('Cycle'),
-                      DropdownButtonFormField<String>(
+                      SearchableDropdownFormField<String>(
                         initialValue: _adminCycle,
                         items: ref.niveaux.map((n) => DropdownMenuItem(value: n.id, child: Text(n.name))).toList(),
                         onChanged: (v) => setState(() {
@@ -802,7 +803,7 @@ class _RapportScreenState extends State<RapportScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _label('Classe'),
-                      DropdownButtonFormField<String>(
+                      SearchableDropdownFormField<String>(
                         initialValue: _adminClasse,
                         items: [
                           const DropdownMenuItem(
@@ -827,7 +828,7 @@ class _RapportScreenState extends State<RapportScreen> {
                 }),
                 const SizedBox(height: 12),
                 _label('Année académique'),
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   initialValue: _adminAnneeId,
                   items:
                       params.annees.map((a) => DropdownMenuItem(value: a.id, child: Text(a.anneeAcademique))).toList(),
@@ -888,7 +889,7 @@ class _RapportScreenState extends State<RapportScreen> {
                 ),
                 const SizedBox(height: 12),
                 _label('Classe'),
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   initialValue: _presenceClasse,
                   items: [
                     const DropdownMenuItem(value: _sentinelClasseAll, child: Text('Toutes les classes')),

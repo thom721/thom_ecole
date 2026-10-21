@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'numbered_pager.dart';
+import 'scrollable_table.dart';
 
 /// Conteneur de tableau — reprend DataTable.vue (ecole_nginx/frontend) :
 /// fond cardBg (blanc en thème clair, #161b26 en sombre), bordure borderSubtle,
@@ -31,22 +32,8 @@ class DataTableCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ConstrainedBox(minWidth: ...) force le DataTable (qui se
-          // dimensionne sinon sur le contenu intrinsèque de ses colonnes,
-          // contrairement à <table class="w-full"> côté web) à occuper toute
-          // la largeur disponible, tout en gardant le défilement horizontal
-          // pour les cas où les colonnes dépassent malgré tout.
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                  child: child,
-                ),
-              );
-            },
-          ),
+          // Pleine largeur + ascenseur horizontal visible (voir ScrollableTable).
+          ScrollableTable(child: child),
           if (currentPage != null && lastPage != null && onPageChange != null) ...[
             const SizedBox(height: 12),
             Align(

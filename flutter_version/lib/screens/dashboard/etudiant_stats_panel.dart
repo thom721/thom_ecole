@@ -5,6 +5,7 @@ import '../../models/dashboard_charts.dart';
 import '../../state/dashboard_state.dart';
 import '../../state/reference_data_state.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/searchable_dropdown_form_field.dart';
 
 const _garcons = Color(0xFF4F8EF7);
 const _filles = Color(0xFFEC4899);
@@ -112,7 +113,7 @@ class _EtudiantStatsPanelState extends State<EtudiantStatsPanel> {
               ),
               SizedBox(
                 width: 200,
-                child: DropdownButtonFormField<String?>(
+                child: SearchableDropdownFormField<String?>(
                   initialValue: _selectedAnneeId,
                   isDense: true,
                   decoration: const InputDecoration(labelText: 'Année'),

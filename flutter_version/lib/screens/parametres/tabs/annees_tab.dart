@@ -7,6 +7,7 @@ import '../../../theme/app_theme.dart';
 import '../../../widgets/badge_pill.dart';
 import '../../../widgets/param_dialog.dart';
 import '../../../widgets/param_tab_card.dart';
+import '../../../widgets/searchable_dropdown_form_field.dart';
 
 String _fmt(DateTime d) =>
     '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
@@ -199,7 +200,7 @@ class _AnneeFormDialogState extends State<_AnneeFormDialog> {
           const SizedBox(height: 12),
           _DatePickerField(label: 'Fin', value: _dateFin, onTap: () => _pickDate(isDebut: false)),
           const SizedBox(height: 12),
-          DropdownButtonFormField<bool>(
+          SearchableDropdownFormField<bool>(
             initialValue: _status,
             decoration: const InputDecoration(labelText: 'Statut'),
             items: const [
