@@ -55,7 +55,7 @@
               <div class="w-9 h-9 rounded-lg bg-[#06b6d4]/10 border border-[#06b6d4]/20 flex items-center justify-center flex-shrink-0">{{ info.icon }}</div>
               <div>
                 <div class="text-xs font-bold uppercase tracking-wider text-[#64748b] mb-1">{{ info.label }}</div>
-                <div class="text-sm font-medium">{{ info.value }}</div>
+                <div class="text-sm font-medium whitespace-pre-line">{{ info.value }}</div>
               </div>
             </div>
           </div>
@@ -98,7 +98,7 @@ function submit() {
 
 const infos = [
   { icon:'📧', label:'Email',    value:'contact@infini-software.com' },
-  { icon:'📞', label:'Téléphone', value:'+509 00 00 0000' },
+  { icon:'📞', label:'Téléphone', value:'+509 37 83 3690\n+509 43 54 2632' },
   { icon:'📍', label:'Adresse',  value:'Port-au-Prince, Haïti' },
 ]
 const socials = [
