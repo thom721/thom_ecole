@@ -12,9 +12,100 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Ajoute aussi le dossier app
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app"))
 
-from app.database import get_engine_dynamically,Base 
+from app.database import get_engine_dynamically,Base
 from app.Models.MFinancials import PaiementStatut
 # from database import  get_engine_dynamically,Base
+
+from alembic.operations import Operations
+from sqlalchemy.exc import DBAPIError
+
+
+# --- Migrations tolérantes au schéma déjà présent ------------------------
+# Une base locale peut recevoir des tables/colonnes AVANT ses migrations :
+# synchronisation depuis le serveur distant lors d'une installation, ou
+# exécution précédente interrompue. Sans tolérance, la première « colonne
+# déjà existante » arrête Alembic et TOUTES les migrations suivantes restent
+# non appliquées (vu en pratique : cours_inscriptions.note_globale manquante
+# → fiche étudiant en erreur 500 "Unknown column").
+#
+# Ici, une opération de schéma dont l'objet existe déjà (ou, pour un drop,
+# n'existe plus) est ignorée avec un message, et la migration continue.
+# Codes d'erreur MySQL — la base est toujours MySQL (local et web).
+_DEJA_PRESENT = {
+    1050: "table déjà existante",
+    1060: "colonne déjà existante",
+    1061: "index déjà existant",
+    1022: "clé déjà existante",
+    1826: "clé étrangère déjà existante",
+}
+_DEJA_ABSENT = {
+    1051: "table déjà absente",
+    1091: "colonne ou clé déjà absente",
+}
+_OPS_SCHEMA = (
+    "add_column", "create_table", "create_index", "create_foreign_key",
+    "create_unique_constraint", "drop_column", "drop_table", "drop_index",
+    "drop_constraint",
+)
+# Opérations de données (backfills). Si la migration en cours a trouvé son
+# schéma déjà en place, ses données ont été synchronisées avec : les
+# rejouer écraserait des valeurs réelles (ex. 7e23faa1c08d remet
+# payrolls.montant_du = montant sur toutes les lignes). On les saute alors.
+_OPS_DONNEES = ("execute", "bulk_insert")
+
+# Réinitialisé après chaque migration (voir _apres_migration).
+_migration_en_cours = {"schema_deja_present": False}
+
+
+def _code_mysql(exc):
+    args = getattr(getattr(exc, "orig", None), "args", ())
+    return args[0] if args and isinstance(args[0], int) else None
+
+
+def _rendre_tolerante(nom):
+    originale = getattr(Operations, nom)
+
+    def tolerante(self, *args, **kwargs):
+        try:
+            return originale(self, *args, **kwargs)
+        except DBAPIError as exc:
+            code = _code_mysql(exc)
+            raison = _DEJA_PRESENT.get(code) or _DEJA_ABSENT.get(code)
+            if raison is None:
+                raise
+            _migration_en_cours["schema_deja_present"] = True
+            cible = ", ".join(str(a) for a in args[:2] if isinstance(a, str))
+            print(f"   ↷ Migration : {nom}({cible}) ignoré — {raison}.")
+            return None
+
+    setattr(Operations, nom, tolerante)
+
+
+def _sauter_si_schema_present(nom):
+    originale = getattr(Operations, nom)
+
+    def gardee(self, *args, **kwargs):
+        if _migration_en_cours["schema_deja_present"]:
+            print(f"   ↷ Migration : {nom} de données ignoré — schéma déjà présent, "
+                  "données supposées déjà synchronisées.")
+            return None
+        return originale(self, *args, **kwargs)
+
+    setattr(Operations, nom, gardee)
+
+
+def _apres_migration(**_kwargs):
+    _migration_en_cours["schema_deja_present"] = False
+
+
+# Garde : env.py peut être rechargé dans le même processus (stamp puis
+# upgrade…) — ne pas envelopper deux fois.
+if not getattr(Operations, "_lekol360_tolerant", False):
+    for _nom in _OPS_SCHEMA:
+        _rendre_tolerante(_nom)
+    for _nom in _OPS_DONNEES:
+        _sauter_si_schema_present(_nom)
+    Operations._lekol360_tolerant = True
 
 def include_object(object, name, type_, reflected, compare_to): 
     if type_ == "table" and reflected and compare_to is None:
@@ -93,7 +184,8 @@ def run_migrations_online() -> None:
     with connectable.connect() as connection:
         context.configure(
             include_object=include_object,
-            connection=connection, target_metadata=target_metadata
+            connection=connection, target_metadata=target_metadata,
+            on_version_apply=_apres_migration,
         )
 
         with context.begin_transaction():
