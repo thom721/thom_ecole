@@ -43,6 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   final _ipController = TextEditingController();
   final _cloudController = TextEditingController();
+  final _cloudFocus = FocusNode();
   final _ipStorage = IpStorage();
   bool _obscurePassword = true;
   bool _showIpPanel = false;
@@ -79,6 +80,7 @@ class _LoginScreenState extends State<LoginScreen> {
     _passwordController.dispose();
     _ipController.dispose();
     _cloudController.dispose();
+    _cloudFocus.dispose();
     super.dispose();
   }
 
@@ -87,13 +89,22 @@ class _LoginScreenState extends State<LoginScreen> {
     if (mode == _ConnMode.cloud) {
       final url = _cloudController.text.trim();
       if (url.isEmpty || !RegExp(r'^https?://').hasMatch(url)) {
-        setState(
-          () => _cloudMessage =
-              "Renseignez d'abord un lien valide (http:// ou https://).",
-        );
+        // Le bouton se coche quand même (sinon le clic semble sans effet) ;
+        // ApiClient ne bascule qu'une fois un lien valide enregistré, et
+        // _submit() bloque la connexion d'ici là.
+        setState(() {
+          _connMode = _ConnMode.cloud;
+          _cloudMessage =
+              'Collez le lien complet du serveur cloud, puis cliquez sur « Modifier ».';
+        });
+        _cloudFocus.requestFocus();
         return;
       }
+      // Enregistre aussi le lien : sans ça, le mode "cloud" était mémorisé
+      // sans son URL et l'appli repassait en local au lancement suivant.
+      await _ipStorage.saveCloudUrl(url);
       apiClient.useCloudServer(url);
+      _cloudMessage = null;
     } else {
       apiClient.useLocalServer();
     }
@@ -157,6 +168,12 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {});
       return;
     }
+    if (_connMode == _ConnMode.cloud && !context.read<ApiClient>().isCloudMode) {
+      auth.errorMessage =
+          'Mode Cloud : enregistrez d\'abord le lien du serveur (bouton « Modifier » sous le champ).';
+      setState(() {});
+      return;
+    }
 
     final success = await auth.login(email, password);
     if (!mounted) return;
@@ -174,6 +191,21 @@ class _LoginScreenState extends State<LoginScreen> {
     } else {
       setState(() {});
     }
+  }
+
+  /// Libellé d'un bouton radio, cliquable comme le rond lui-même (avant,
+  /// seul le petit rond réagissait : un clic sur le texte ne faisait rien).
+  Widget _radioLabel(String text, _ConnMode mode) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => _selectMode(mode),
+        child: Text(
+          text,
+          style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+        ),
+      ),
+    );
   }
 
   InputDecoration _darkField({required String hint, Widget? suffixIcon}) {
@@ -390,12 +422,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 groupValue: _connMode,
                                 onChanged: (v) => _selectMode(v!),
                               ),
-                              Text(
+                              _radioLabel(
                                 "Modifier l'ip (réseau local)",
-                                style: TextStyle(
-                                  color: AppColors.textMuted,
-                                  fontSize: 12,
-                                ),
+                                _ConnMode.local,
                               ),
                             ],
                           ),
@@ -474,12 +503,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 groupValue: _connMode,
                                 onChanged: (v) => _selectMode(v!),
                               ),
-                              Text(
+                              _radioLabel(
                                 'Cloud (serveur distant)',
-                                style: TextStyle(
-                                  color: AppColors.textMuted,
-                                  fontSize: 12,
-                                ),
+                                _ConnMode.cloud,
                               ),
                             ],
                           ),
@@ -499,6 +525,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           TextField(
                             controller: _cloudController,
+                            focusNode: _cloudFocus,
                             style: TextStyle(
                               color: AppColors.textPrimary,
                               fontSize: 13,

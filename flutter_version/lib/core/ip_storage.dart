@@ -79,14 +79,46 @@ class IpStorage {
 
     final newContent = '${newLines.join('\n')}\n';
 
-    // 3. Essai d'écriture directe
+    // 3. Essai d'écriture directe, sinon avec élévation de privilèges
+    String? error;
     try {
       await hostsFile.writeAsString(newContent);
-      return null;
-    } on PathAccessException {
-      return _writeWithElevation(hostsPath, newContent);
+    } on FileSystemException {
+      // PathAccessException (droits) en général ; sous Windows un hosts en
+      // lecture seule ou verrouillé par l'antivirus lève une autre
+      // FileSystemException — l'élévation est tentée dans tous les cas.
+      error = await _writeWithElevation(hostsPath, newContent);
     } catch (e) {
       return "Erreur d'écriture dans $hostsPath : $e";
+    }
+    if (error != null) return error;
+
+    // 4. Relecture : ne jamais annoncer « mis à jour » sans l'avoir constaté
+    // (avant, un échec silencieux de la copie laissait l'ancienne IP en
+    // place et la connexion partait vers une machine qui ne répond pas).
+    return await hostsPointsTo(ip)
+        ? null
+        : "le fichier $hostsPath n'a pas été modifié (aplekol360.local ne "
+            "pointe pas vers $ip). Modifiez-le à la main en administrateur ou "
+            "vérifiez que l'antivirus ne le bloque pas.";
+  }
+
+  /// Vrai si le fichier hosts associe aplekol360.local à [ip] — et à rien
+  /// d'autre (une seconde ligne active avec une autre IP rendrait la
+  /// résolution imprévisible).
+  Future<bool> hostsPointsTo(String ip) async {
+    final hostsPath = Platform.isWindows
+        ? r'C:\Windows\System32\drivers\etc\hosts'
+        : '/etc/hosts';
+    try {
+      final entries = (await File(hostsPath).readAsLines())
+          .map((l) => l.split('#').first.trim())
+          .where((l) => l.split(RegExp(r'\s+')).skip(1).contains(_domain))
+          .map((l) => l.split(RegExp(r'\s+')).first)
+          .toSet();
+      return entries.length == 1 && entries.first == ip;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -120,12 +152,20 @@ class IpStorage {
       // Équivalent de ShellExecuteW("runas") : PowerShell avec élévation
       final tmp = File('${Directory.systemTemp.path}\\hosts_lekol360');
       await tmp.writeAsString(content);
+      // Arguments entre apostrophes PowerShell (dans lesquelles \" n'est PAS
+      // un échappement — l'ancienne version produisait une commande copy
+      // déformée) et -Wait, sans quoi le code de retour ne reflétait que
+      // l'ouverture de la fenêtre UAC, pas le succès de la copie.
       final result = await Process.run('powershell', [
+        '-NoProfile',
         '-Command',
-        'Start-Process -Verb RunAs -FilePath cmd.exe -ArgumentList "/c copy /Y \\"${tmp.path}\\" \\"$hostsPath\\""',
+        "Start-Process -Verb RunAs -Wait -WindowStyle Hidden -FilePath cmd.exe "
+            "-ArgumentList '/c','copy','/Y','\"${tmp.path}\"','\"$hostsPath\"'",
       ]);
+      await tmp.delete().catchError((_) => tmp);
       if (result.exitCode != 0) {
-        return "Relancez l'application en tant qu'administrateur pour mettre à jour le fichier hosts.";
+        return "Mise à jour du fichier hosts annulée ou refusée. "
+            "Relancez l'application en tant qu'administrateur.";
       }
       return null;
     }
