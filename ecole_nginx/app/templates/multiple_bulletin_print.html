@@ -125,7 +125,7 @@
 
 
 
-     {% if data_student.niveau_name in ['Cycle 3', 'Primaire', 'Technique'] %}
+     {% if data_student.niveau_name in ['Cycle 3', 'Secondaire', 'Primaire', 'Technique'] %}
      <hr style="margin:10px" />
      {% else %}
      <hr style="margin:3px" />
@@ -218,7 +218,7 @@
 
      {% if mois != 'Annuel' %}
      {# CYCLE 3 - Tableau simple #}
-     {% if data_student.niveau_name == 'Cycle 3' %}
+     {% if data_student.niveau_name in ['Cycle 3', 'Secondaire'] %}
      {% if mois in allNotesKeys %}
      <div style="margin-top:0px;padding:0px">
           <div style="width:100%;margin-top:20px;padding:0px">
@@ -303,7 +303,7 @@
 
      {# PRIMAIRE - Matières base et orales séparées #}
      {% else %}
-     {% if data_student.niveau_name != 'Cycle 3' %}
+     {% if data_student.niveau_name not in ['Cycle 3', 'Secondaire'] %}
 
      {% if mois in allNotesKeys %}
      <div style="display: flex;margin-top:65px;margin-bottom:0px;">
@@ -554,7 +554,7 @@
      {% endif %}
 
      {# CONDUITE / APPLICATION #}
-     {% if data_student.niveau_name not in ['Cycle 3'] and mois != 'Annuel' %}
+     {% if data_student.niveau_name not in ['Cycle 3', 'Secondaire'] and mois != 'Annuel' %}
      <p style="text-align:center; font-size:17px; padding:5px; margin-top:15px">CONDUITE / APPLICATION</p>
      <div class="display:flex;">
           <div style="display:inline-flex;width:47%;">
@@ -643,7 +643,7 @@
           <p style="text-align:center; margin:0px">La direction</p>
      </div>
 
-     {% if data_student.niveau_name != 'Cycle 3' %}
+     {% if data_student.niveau_name not in ['Cycle 3', 'Secondaire'] %}
      <div style="position:absolute; bottom:5%; left:36%">
           <p style="margin:0px">_______________________</p>
           <p style="text-align:center; margin:0px">Professeur</p>
