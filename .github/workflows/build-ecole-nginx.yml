@@ -32,11 +32,16 @@ jobs:
       - name: Compiler les migrations Alembic en .pyc (ne pas exposer le code source)
         run: python scripts/compile_alembic_versions.py
 
+      # Dossier de décompression propre à CHAQUE build (run_number) : avec un
+      # chemin fixe ("…/Esystem/cache", mode "cached" de Nuitka), une version
+      # mise à jour réutilisait les fichiers déjà extraits par l'ancienne —
+      # vu en pratique : l'ancien env.py d'Alembic continuait de tourner après
+      # installation de la nouvelle version.
       - name: Build Nuitka
         run: >
           python -m nuitka app.py
           --standalone --onefile
-          --onefile-tempdir-spec="{CACHE_DIR}/Esystem/cache"
+          --onefile-tempdir-spec="{CACHE_DIR}/Esystem/cache-${{ github.run_number }}"
           --enable-plugin=pyside6
           --nofollow-import-to=PyQt5 --nofollow-import-to=PyQt6 --nofollow-import-to=PySide2
           --include-package=jinja2 --include-package=uvicorn --include-package=websockets
